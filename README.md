@@ -111,53 +111,15 @@ https://<your-domain>/api/github/webhooks
 Once the GitHub App is deployed:
 
 1. Install the GitHub App on the repository.
-2. Add `.github/slopblock.yml` to the target repository if you want per-repo tuning.
-3. Open a draft PR, then mark it ready for review.
-4. Watch for the `slopblock` status and the bot comment.
-5. Open the answer link from the bot comment and sign in with GitHub.
-6. Answer one question at a time in the linked UI until the status passes.
-7. Add `slopblock` as a required branch protection status once satisfied.
+2. Open a draft PR, then mark it ready for review.
+3. Watch for the `slopblock` status and the bot comment.
+4. Open the answer link from the bot comment and sign in with GitHub.
+5. Answer one question at a time in the linked UI until the status passes.
+6. Add `slopblock` as a required branch protection status once satisfied.
 
-## Config
+## Configuration
 
-Create `.github/slopblock.yml`:
-
-```yaml
-checkName: slopblock
-retryMode: new_quiz
-
-questionCount:
-  min: 2
-  max: 5
-
-passRule:
-  requireAllCorrect: true
-
-contextBudget:
-  maxRepoFiles: 250
-  maxRepoMapEntries: 120
-  maxSnippetFiles: 12
-  maxSnippetChars: 12000
-
-heuristics:
-  tinyChangeMaxLines: 4
-  skipForkPullRequests: true
-  skipBots: true
-  docsGlobs:
-    - docs/
-    - '**/*.md'
-  testGlobs:
-    - tests/
-    - '**/*.test.'
-  riskyGlobs:
-    - auth/
-    - api/
-
-llm:
-  generationModel: anthropic/claude-sonnet-4.5
-  validationModel: anthropic/claude-opus-4.1
-  skipModel: anthropic/claude-sonnet-4.5
-```
+All configuration is managed through the [slopblock app](https://github.com/apps/slop-block). After installing the app on a repository, use the app's settings UI to configure quiz behavior, heuristics, context budgets, and model preferences per repository.
 
 ## Local Prompt Harness
 
@@ -222,27 +184,7 @@ AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context
 7. Point the GitHub App webhook URL to:
    - `https://<your-domain>/api/github/webhooks`
 8. Install the app on a repository.
-9. Add a repo config file if you want tuning:
-
-```yaml
-checkName: slopblock
-retryMode: new_quiz
-
-questionCount:
-  min: 2
-  max: 5
-
-heuristics:
-  tinyChangeMaxLines: 4
-  skipForkPullRequests: true
-  skipBots: true
-
-llm:
-  generationModel: anthropic/claude-sonnet-4.5
-  validationModel: anthropic/claude-opus-4.1
-  skipModel: anthropic/claude-sonnet-4.5
-```
-
+9. Configure the app's settings for the repository through the app UI.
 10. Open a draft PR, then mark it ready for review.
 11. Wait for the `slopblock` status and bot comment.
 12. Answer the one-question-at-a-time quiz using the linked web UI.
