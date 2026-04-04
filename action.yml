@@ -27,4 +27,4 @@ outputs:
     description: Final outcome of the action run.
 runs:
   using: node20
-  main: dist/main.js
+  main: dist/main.cjs

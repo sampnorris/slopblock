@@ -148,7 +148,7 @@ Build the project and run:
 
 ```bash
 npm run build
-SLOPBLOCK_API_KEY=... node dist/cli.js quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
+SLOPBLOCK_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
 ```
 
 Run the local validation suite with:
@@ -160,8 +160,8 @@ npm run check
 Use the included fixtures to smoke-test the prompts locally:
 
 ```bash
-SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.js skip --diff fixtures/diff.txt --files fixtures/files.txt
-SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.js quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
+SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs skip --diff fixtures/diff.txt --files fixtures/files.txt
+SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
 ```
 
 ## Known limits in v1

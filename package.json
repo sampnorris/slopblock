@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "GitHub Action that gates PR merges behind a diff-grounded quiz",
   "type": "module",
-  "main": "dist/main.js",
+  "main": "dist/main.cjs",
   "bin": {
-    "slopblock": "dist/cli.js"
+    "slopblock": "dist/cli.cjs"
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
