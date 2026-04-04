@@ -3,7 +3,8 @@ import type { RequestHandler } from "./$types";
 import { getInstallationOctokit, verifyWebhookSignature } from "$lib/server/github-app.js";
 import { setCommitStatus } from "$lib/server/github-service.js";
 import { logError, logInfo } from "$lib/server/log.js";
-import { handlePullRequestWebhook, handlePullRequestClosed, MissingProviderError } from "$lib/server/service.js";
+import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingProviderError } from "$lib/server/service.js";
+import { InsufficientCreditsError } from "$lib/server/openai.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const rawBody = await request.text();
@@ -48,6 +49,13 @@ export const POST: RequestHandler = async ({ request }) => {
       await handlePullRequestClosed(payload);
     } else if (event === "pull_request") {
       await handlePullRequestWebhook(octokit, payload);
+    } else if (event === "issue_comment" && payload.action === "created" && payload.issue?.pull_request) {
+      const body = (payload.comment?.body ?? "").trim();
+      if (body === "/quiz") {
+        await handleQuizCommand(octokit, payload);
+      } else {
+        logInfo("webhook.ignored_comment", { event, action: payload.action, deliveryId });
+      }
     } else {
       logInfo("webhook.ignored_event", { event, action: payload.action, deliveryId });
     }
@@ -55,10 +63,15 @@ export const POST: RequestHandler = async ({ request }) => {
     logInfo("webhook.completed", { event, action: payload.action, deliveryId });
     return json({ ok: true });
   } catch (error) {
-    if (error instanceof MissingProviderError && event === "pull_request" && payload.pull_request) {
-      const pr = payload.pull_request;
+    const isPrEvent = event === "pull_request" && payload.pull_request;
+    const isCommentEvent = event === "issue_comment" && payload.issue?.pull_request;
+    if ((error instanceof MissingProviderError || error instanceof InsufficientCreditsError) && (isPrEvent || isCommentEvent)) {
       const owner = payload.repository.owner.login;
       const repo = payload.repository.name;
+      const pr = payload.pull_request ?? payload.issue;
+      const description = error instanceof InsufficientCreditsError
+        ? "LLM provider has insufficient credits. Add credits and re-trigger."
+        : "No LLM provider configured. Visit slopblock settings to connect one.";
       try {
         await setCommitStatus({
           octokit: await getInstallationOctokit(payload.installation.id),
@@ -66,15 +79,16 @@ export const POST: RequestHandler = async ({ request }) => {
           repo,
           sha: pr.head.sha,
           state: "error",
-          description: "No LLM provider configured. Visit slopblock settings to connect one."
+          description
         });
       } catch { /* best effort */ }
-      logInfo("webhook.missing_provider", {
+      logInfo("webhook.provider_error", {
+        type: error.name,
         installationId: payload.installation.id,
         repository: `${owner}/${repo}`,
         pullNumber: pr.number
       });
-      return json({ ok: true, skipped: "no_provider" });
+      return json({ ok: true, skipped: error.name });
     }
 
     logError("webhook.failed", error, {

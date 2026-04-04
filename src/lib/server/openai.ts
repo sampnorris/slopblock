@@ -14,6 +14,13 @@ interface OpenAIClientOptions {
   maxAttempts?: number;
 }
 
+export class InsufficientCreditsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InsufficientCreditsError";
+  }
+}
+
 export class OpenAICompatibleClient {
   constructor(private readonly options: OpenAIClientOptions) {}
 
@@ -36,7 +43,11 @@ export class OpenAICompatibleClient {
     });
 
     if (!response.ok) {
-      throw new Error(`LLM request failed: ${response.status} ${await response.text()}`);
+      const body = await response.text();
+      if (response.status === 402) {
+        throw new InsufficientCreditsError(`LLM provider returned 402: insufficient credits. ${body}`);
+      }
+      throw new Error(`LLM request failed: ${response.status} ${body}`);
     }
 
     const json = (await response.json()) as {
@@ -124,30 +135,44 @@ export class OpenAICompatibleClient {
     diffSummary: string;
     questionCount: number;
     validatorFeedback?: string[];
+    customSystemPrompt?: string;
+    customQuizInstructions?: string;
   }): Promise<QuizPayload> {
+    const defaultSystemPrompt =
+      "You generate strict JSON for a merge-gating PR quiz. Use repository context only as background. Every question must be answerable from the diff and changed behavior only. Prefer behavior and risk questions, but include implementation detail if it helps prove understanding. Multiple choice only.";
+
+    const systemPrompt = input.customSystemPrompt
+      ? `${defaultSystemPrompt}\n\nAdditional instructions from the repository owner:\n${input.customSystemPrompt}`
+      : defaultSystemPrompt;
+
+    const baseInstructions = [
+      "Ask only about the diff.",
+      "Do not ask trivia about unchanged code.",
+      "Make distractors plausible.",
+      "Use 4 options unless 5 is necessary.",
+      "Return JSON with summary and questions.",
+      "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
+      "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",
+      "correctOption must be a single option key letter such as A, B, C, D, or E.",
+      "diffAnchors should reference changed file paths or changed symbols.",
+      "If prior validator feedback is present, fix those issues instead of repeating them."
+    ];
+
+    if (input.customQuizInstructions) {
+      baseInstructions.push(input.customQuizInstructions);
+    }
+
     const rawQuiz = await this.chatForJson<QuizPayload>(
       [
         {
           role: "system",
-          content:
-            "You generate strict JSON for a merge-gating PR quiz. Use repository context only as background. Every question must be answerable from the diff and changed behavior only. Prefer behavior and risk questions, but include implementation detail if it helps prove understanding. Multiple choice only."
+          content: systemPrompt
         },
         {
           role: "user",
           content: JSON.stringify(
             {
-              instructions: [
-                "Ask only about the diff.",
-                "Do not ask trivia about unchanged code.",
-                "Make distractors plausible.",
-                "Use 4 options unless 5 is necessary.",
-                "Return JSON with summary and questions.",
-                "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
-                "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",
-                "correctOption must be a single option key letter such as A, B, C, D, or E.",
-                "diffAnchors should reference changed file paths or changed symbols.",
-                "If prior validator feedback is present, fix those issues instead of repeating them."
-              ],
+              instructions: baseInstructions,
               questionCount: input.questionCount,
               repoContext: input.repoContext,
               diffSummary: truncate(input.diffSummary, 14000),

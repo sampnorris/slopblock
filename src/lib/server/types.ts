@@ -34,6 +34,8 @@ export interface SlopblockConfig {
     baseUrl?: string;
     apiKey?: string;
   };
+  customSystemPrompt?: string;
+  customQuizInstructions?: string;
 }
 
 export interface ChangedFile {

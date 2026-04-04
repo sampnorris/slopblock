@@ -29,6 +29,8 @@ model InstallationSettings {
   retryMode        String?
   skipBots         Boolean?
   skipForks        Boolean?
+  customSystemPrompt String?
+  customQuizInstructions String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

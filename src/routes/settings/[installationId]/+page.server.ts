@@ -29,7 +29,9 @@ export const load: PageServerLoad = async ({ params, request, url }) => {
       questionCountMax: settings.questionCountMax,
       retryMode: settings.retryMode,
       skipBots: settings.skipBots,
-      skipForks: settings.skipForks
+      skipForks: settings.skipForks,
+      customSystemPrompt: settings.customSystemPrompt,
+      customQuizInstructions: settings.customQuizInstructions
     } : null
   };
 };

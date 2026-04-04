@@ -57,7 +57,9 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
       generationModel: settings.llmGenerationModel ?? config.llm.generationModel,
       validationModel: settings.llmValidationModel ?? config.llm.validationModel,
       skipModel: settings.llmSkipModel ?? config.llm.skipModel
-    }
+    },
+    customSystemPrompt: settings.customSystemPrompt ?? config.customSystemPrompt,
+    customQuizInstructions: settings.customQuizInstructions ?? config.customQuizInstructions
   };
 }
 
@@ -97,6 +99,8 @@ async function generateValidQuiz(params: {
   repoContext: Awaited<ReturnType<typeof buildRemoteRepoContext>>;
   diffSummary: string;
   questionCount: number;
+  customSystemPrompt?: string;
+  customQuizInstructions?: string;
 }): Promise<QuizPayload> {
   let feedback: string[] = [];
   let bestQuiz: QuizPayload | undefined;
@@ -106,7 +110,9 @@ async function generateValidQuiz(params: {
       repoContext: params.repoContext,
       diffSummary: params.diffSummary,
       questionCount: params.questionCount,
-      validatorFeedback: feedback
+      validatorFeedback: feedback,
+      customSystemPrompt: params.customSystemPrompt,
+      customQuizInstructions: params.customQuizInstructions
     });
     const localIssues = validateQuizPayload(quiz);
     if (localIssues.length > 0) {
@@ -235,7 +241,9 @@ export async function requestNewQuiz(params: {
     validationClient: llmClient(config, "validation"),
     repoContext,
     diffSummary: diffSummary(files),
-    questionCount: computeQuestionCount(files, config)
+    questionCount: computeQuestionCount(files, config),
+    customSystemPrompt: config.customSystemPrompt,
+    customQuizInstructions: config.customQuizInstructions
   });
 
   const updated = await renderAndPersistComment(octokit, {
@@ -269,7 +277,8 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     draft: payload.pull_request?.draft,
     headSha: payload.pull_request?.head?.sha
   });
-  if (!["opened", "reopened", "ready_for_review", "synchronize"].includes(payload.action)) {
+  const isManualTrigger = payload.action === "quiz_command";
+  if (!isManualTrigger && !["opened", "reopened", "ready_for_review", "synchronize"].includes(payload.action)) {
     logInfo("pull_request.handle.ignored_action", {
       action: payload.action,
       repository: payload.repository?.full_name,
@@ -287,7 +296,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   const config = await applyInstallationSettings(repoConfig, payload.installation.id);
   logInfo("pull_request.config.load_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
 
-  if (pr.draft) {
+  if (pr.draft && !isManualTrigger) {
     logInfo("pull_request.handle.ignored_draft", { repository: `${owner}/${repo}`, pullNumber: pr.number });
     return;
   }
@@ -389,7 +398,9 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     validationClient: llmClient(config, "validation"),
     repoContext,
     diffSummary: diffSummary(files),
-    questionCount: computeQuestionCount(files, config)
+    questionCount: computeQuestionCount(files, config),
+    customSystemPrompt: config.customSystemPrompt,
+    customQuizInstructions: config.customQuizInstructions
   });
   logInfo("pull_request.quiz.generate_complete", {
     repository: `${owner}/${repo}`,
@@ -422,6 +433,56 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     targetUrl: sessionTargetUrl(session)
   });
   logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+}
+
+export async function handleQuizCommand(octokit: any, payload: any): Promise<void> {
+  const owner = payload.repository.owner.login;
+  const repo = payload.repository.name;
+  const issueNumber = payload.issue.number;
+  const commentAuthor = payload.comment.user.login;
+
+  logInfo("quiz_command.received", {
+    repository: `${owner}/${repo}`,
+    pullNumber: issueNumber,
+    triggeredBy: commentAuthor
+  });
+
+  // React to the comment to acknowledge
+  try {
+    await octokit.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: payload.comment.id,
+      content: "eyes"
+    });
+  } catch { /* best effort */ }
+
+  // Fetch the PR details (issue_comment only gives us issue data)
+  const { data: pr } = await octokit.rest.pulls.get({
+    owner,
+    repo,
+    pull_number: issueNumber
+  });
+
+  // Build a synthetic payload matching what handlePullRequestWebhook expects
+  const syntheticPayload = {
+    action: "quiz_command",
+    pull_request: pr,
+    repository: payload.repository,
+    installation: payload.installation
+  };
+
+  await handlePullRequestWebhook(octokit, syntheticPayload);
+
+  // React with rocket to indicate completion
+  try {
+    await octokit.rest.reactions.createForIssueComment({
+      owner,
+      repo,
+      comment_id: payload.comment.id,
+      content: "rocket"
+    });
+  } catch { /* best effort */ }
 }
 
 export async function handlePullRequestClosed(payload: any): Promise<void> {

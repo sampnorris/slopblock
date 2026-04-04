@@ -47,7 +47,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     questionCountMax: body.questionCountMax != null ? Number(body.questionCountMax) : undefined,
     retryMode: body.retryMode || undefined,
     skipBots: body.skipBots != null ? Boolean(body.skipBots) : undefined,
-    skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined
+    skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
+    customSystemPrompt: body.customSystemPrompt ?? undefined,
+    customQuizInstructions: body.customQuizInstructions ?? undefined
   });
 
   return json({ ok: true, settings: maskSettings(updated) });

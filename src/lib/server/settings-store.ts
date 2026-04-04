@@ -16,6 +16,8 @@ export interface SettingsRecord {
   retryMode?: string;
   skipBots?: boolean;
   skipForks?: boolean;
+  customSystemPrompt?: string;
+  customQuizInstructions?: string;
 }
 
 function decryptApiKey(encrypted: string | null): string | undefined {
@@ -41,7 +43,9 @@ function fromRow(row: InstallationSettings): SettingsRecord {
     questionCountMax: row.questionCountMax ?? undefined,
     retryMode: row.retryMode ?? undefined,
     skipBots: row.skipBots ?? undefined,
-    skipForks: row.skipForks ?? undefined
+    skipForks: row.skipForks ?? undefined,
+    customSystemPrompt: row.customSystemPrompt ?? undefined,
+    customQuizInstructions: row.customQuizInstructions ?? undefined
   };
 }
 
@@ -84,7 +88,9 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       questionCountMax: input.questionCountMax,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
-      skipForks: input.skipForks
+      skipForks: input.skipForks,
+      customSystemPrompt: input.customSystemPrompt,
+      customQuizInstructions: input.customQuizInstructions
     },
     update: {
       accountLogin: input.accountLogin,
@@ -98,7 +104,9 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       questionCountMax: input.questionCountMax,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
-      skipForks: input.skipForks
+      skipForks: input.skipForks,
+      customSystemPrompt: input.customSystemPrompt,
+      customQuizInstructions: input.customQuizInstructions
     }
   });
   return fromRow(row);
