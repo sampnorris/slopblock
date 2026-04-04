@@ -1,6 +1,12 @@
-# slopblock
+<p align="center">
+  <img src="static/favicon.svg" alt="SlopBlock" width="120" />
+</p>
 
-`slopblock` is a GitHub App that gates pull request merges behind a diff-grounded quiz for the PR author.
+<h1 align="center">SlopBlock</h1>
+
+<p align="center">
+  A GitHub App that gates pull request merges behind a diff-grounded quiz for the PR author.
+</p>
 
 ## Goals
 
@@ -49,7 +55,7 @@
 
 Legacy `SLOPBLOCK_*` LLM variables still work, but the app now prefers Vercel AI Gateway env names.
 
-If `AI_GATEWAY_MODEL` or `SLOPBLOCK_MODEL` is set, it overrides all internal model roles with one model. Otherwise, slopblock uses role-specific defaults.
+If `AI_GATEWAY_MODEL` or `SLOPBLOCK_MODEL` is set, it overrides all internal model roles with one model. Otherwise, SlopBlock uses role-specific defaults.
 
 ## GitHub App Permissions
 
@@ -119,7 +125,7 @@ Once the GitHub App is deployed:
 
 ## Configuration
 
-All configuration is managed through the [slopblock app](https://github.com/apps/slop-block). After installing the app on a repository, use the app's settings UI to configure quiz behavior, heuristics, context budgets, and model preferences per repository.
+All configuration is managed through the [SlopBlock app](https://github.com/apps/slop-block). After installing the app on a repository, use the app's settings UI to configure quiz behavior, heuristics, context budgets, and model preferences per repository.
 
 ## Local Prompt Harness
 
