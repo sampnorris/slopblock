@@ -12,10 +12,10 @@
 
 ## Current Service Shape
 
-- Receive GitHub App webhooks for `pull_request` and `reaction` events.
+- Receive GitHub App webhooks for `pull_request` events.
 - Post one managed PR comment and edit it in place.
 - Ask one multiple-choice question at a time.
-- Use built-in GitHub reactions as answer input.
+- Link the PR author to a dedicated authenticated answer UI.
 - Update one commit status context named `slopblock`.
 - Skip bots and fork PRs by default.
 - Use heuristics first for trivial PR skipping, then ask the model only for borderline diffs.
@@ -37,6 +37,8 @@
 - `GITHUB_APP_ID`
 - `GITHUB_APP_PRIVATE_KEY`
 - `GITHUB_WEBHOOK_SECRET`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
 - `AI_GATEWAY_API_KEY`
 - `AI_GATEWAY_BASE_URL` optional, defaults to `https://ai-gateway.vercel.sh/v1`
 - `AI_GATEWAY_MODEL` optional
@@ -62,7 +64,6 @@ Recommended repository permissions:
 Subscribe to these webhook events:
 
 - Pull request
-- Reaction
 
 ## Local Setup
 
@@ -113,8 +114,8 @@ Once the GitHub App is deployed:
 2. Add `.github/slopblock.yml` to the target repository if you want per-repo tuning.
 3. Open a draft PR, then mark it ready for review.
 4. Watch for the `slopblock` status and the bot comment.
-5. React to the bot comment using the listed built-in reactions.
-6. Answer one question at a time until the status passes.
+5. Open the answer link from the bot comment and sign in with GitHub.
+6. Answer one question at a time in the linked UI until the status passes.
 7. Add `slopblock` as a required branch protection status once satisfied.
 
 ## Config
@@ -184,7 +185,7 @@ AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context
 
 - Related code context is currently fetched from the repository over the GitHub API, so very large repos may need tighter context budgets.
 - Fork PRs are skipped by default because repository secrets are not exposed there safely.
-- One-question-at-a-time interaction currently uses built-in GitHub reactions on the bot comment.
+- One-question-at-a-time interaction currently uses a linked GitHub-authenticated answer UI.
 - Model defaults are role-specific: quiz generation uses `anthropic/claude-sonnet-4.5`, validation uses `anthropic/claude-opus-4.1`, and borderline skip decisions use `anthropic/claude-sonnet-4.5` unless overridden.
 - Local Prisma migrations use `.env.local`, which matches the Vercel/Neon environment pulled into this repo.
 
@@ -198,8 +199,7 @@ AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context
    - Commit statuses: write
    - Metadata: read
 3. Subscribe the app to webhook events:
-   - Pull request
-   - Reaction
+    - Pull request
 4. Deploy this repo to Vercel.
 5. In Vercel, set these environment variables:
    - `DATABASE_URL`
@@ -207,6 +207,8 @@ AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context
    - `GITHUB_APP_ID`
    - `GITHUB_APP_PRIVATE_KEY`
    - `GITHUB_WEBHOOK_SECRET`
+   - `GITHUB_CLIENT_ID`
+   - `GITHUB_CLIENT_SECRET`
    - `AI_GATEWAY_API_KEY`
    - optional `AI_GATEWAY_BASE_URL`
    - optional `AI_GATEWAY_MODEL`
@@ -243,5 +245,5 @@ llm:
 
 10. Open a draft PR, then mark it ready for review.
 11. Wait for the `slopblock` status and bot comment.
-12. Answer the one-question-at-a-time quiz using the built-in reactions.
+12. Answer the one-question-at-a-time quiz using the linked web UI.
 13. Once satisfied, require `slopblock` in branch protection.

@@ -51,11 +51,12 @@ const baseSession: SessionRecord = {
   }
 };
 
-test("renderSessionComment shows one question at a time with reactions", () => {
+test("renderSessionComment links to the external answer UI", () => {
   const output = renderSessionComment(baseSession);
   assert.match(output, /Question 1 of 2/);
-  assert.match(output, /👍 Option A/);
-  assert.match(output, /❤️ Option B/);
+  assert.match(output, /A\. Option A/);
+  assert.match(output, /B\. Option B/);
+  assert.match(output, /\[Answer Question\]\(/);
   assert.doesNotMatch(output, /Question 2 of 2/);
 });
 

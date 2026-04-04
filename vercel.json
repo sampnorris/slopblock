@@ -8,6 +8,18 @@
   },
   "routes": [
     {
+      "src": "/session/(.*)",
+      "dest": "/api/session/$1"
+    },
+    {
+      "src": "/auth/start",
+      "dest": "/api/auth/start"
+    },
+    {
+      "src": "/auth/callback",
+      "dest": "/api/auth/callback"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     }

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getInstallationOctokit, verifyWebhookSignature } from "../../src/app/github-app.js";
 import { logError, logInfo } from "../../src/app/log.js";
-import { handlePullRequestWebhook, handleReactionWebhook } from "../../src/app/service.js";
+import { handlePullRequestWebhook } from "../../src/app/service.js";
 
 async function readRawBody(req: VercelRequest): Promise<string> {
   if (typeof req.body === "string") {
@@ -78,8 +78,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (event === "pull_request") {
       await handlePullRequestWebhook(octokit, payload);
-    } else if (event === "reaction") {
-      await handleReactionWebhook(octokit, payload);
     } else {
       logInfo("webhook.ignored_event", {
         event,

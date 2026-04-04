@@ -6,9 +6,8 @@ import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "..
 import { summarizePatch } from "../util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
-import { reactionIndexForContent } from "./reactions.js";
-import { getSession, type SessionRecord, upsertSession } from "./session-store.js";
-import { ensureCommentReactions, listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment, deleteIssueCommentReaction } from "./github-service.js";
+import { getSession, getSessionById, type SessionRecord, upsertSession } from "./session-store.js";
+import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 
@@ -95,34 +94,25 @@ async function generateValidQuiz(params: {
 }
 
 async function renderAndPersistComment(octokit: any, session: SessionRecord) {
+  const base = session.id ? session : await upsertSession(session);
   logInfo("session.comment.render_start", {
-    repository: `${session.repositoryOwner}/${session.repositoryName}`,
-    pullNumber: session.pullNumber,
-    commentId: session.commentId,
-    status: session.status,
-    currentQuestionIndex: session.currentQuestionIndex
+    repository: `${base.repositoryOwner}/${base.repositoryName}`,
+    pullNumber: base.pullNumber,
+    commentId: base.commentId,
+    status: base.status,
+    currentQuestionIndex: base.currentQuestionIndex
   });
-  const body = renderSessionComment(session);
+  const body = renderSessionComment(base);
   const commentId = await upsertIssueComment({
     octokit,
-    owner: session.repositoryOwner,
-    repo: session.repositoryName,
-    issueNumber: session.pullNumber,
-    commentId: session.commentId,
+    owner: base.repositoryOwner,
+    repo: base.repositoryName,
+    issueNumber: base.pullNumber,
+    commentId: base.commentId,
     body
   });
 
-  const updated = await upsertSession({ ...session, commentId });
-  const currentQuestion = updated.quiz?.questions[updated.currentQuestionIndex];
-  if (currentQuestion) {
-    logInfo("session.comment.ensure_reactions", {
-      repository: `${updated.repositoryOwner}/${updated.repositoryName}`,
-      pullNumber: updated.pullNumber,
-      commentId,
-      reactionCount: currentQuestion.options.length
-    });
-    await ensureCommentReactions(octokit, updated.repositoryOwner, updated.repositoryName, commentId, currentQuestion.options.length);
-  }
+  const updated = await upsertSession({ ...base, commentId });
 
   logInfo("session.comment.render_complete", {
     repository: `${updated.repositoryOwner}/${updated.repositoryName}`,
@@ -132,6 +122,95 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
     currentQuestionIndex: updated.currentQuestionIndex
   });
   return updated;
+}
+
+export async function submitAnswer(params: {
+  octokit: any;
+  sessionId: string;
+  actorLogin: string;
+  selectedKey: string;
+}): Promise<{ ok: boolean; redirectUrl: string; message?: string }> {
+  const session = await getSessionById(params.sessionId);
+  if (!session?.quiz) {
+    return { ok: false, redirectUrl: process.env.APP_BASE_URL ?? "/", message: "This quiz session no longer exists." };
+  }
+
+  if (params.actorLogin !== session.authorLogin) {
+    return {
+      ok: false,
+      redirectUrl: process.env.APP_BASE_URL ?? "/",
+      message: "Only the PR author can answer this quiz."
+    };
+  }
+
+  const question = session.quiz.questions[session.currentQuestionIndex];
+  if (!question) {
+    return { ok: false, redirectUrl: process.env.APP_BASE_URL ?? "/", message: "This quiz is already complete." };
+  }
+
+  const isCorrect = question.correctOption === params.selectedKey;
+  logInfo("session.answer.submit", {
+    repository: `${session.repositoryOwner}/${session.repositoryName}`,
+    pullNumber: session.pullNumber,
+    actorLogin: params.actorLogin,
+    questionIndex: session.currentQuestionIndex,
+    selectedKey: params.selectedKey,
+    correctKey: question.correctOption,
+    isCorrect
+  });
+
+  if (isCorrect) {
+    const nextIndex = session.currentQuestionIndex + 1;
+    if (nextIndex >= session.quiz.questions.length) {
+      const passed = await renderAndPersistComment(params.octokit, {
+        ...session,
+        status: SessionStatus.passed,
+        currentQuestionIndex: session.quiz.questions.length - 1,
+        failureMessage: undefined
+      });
+      await setCommitStatus({
+        octokit: params.octokit,
+        owner: session.repositoryOwner,
+        repo: session.repositoryName,
+        sha: session.headSha,
+        state: "success",
+        description: "PR author passed the slopblock quiz.",
+        targetUrl: sessionTargetUrl(passed)
+      });
+      return { ok: true, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=passed` };
+    }
+
+    await renderAndPersistComment(params.octokit, {
+      ...session,
+      currentQuestionIndex: nextIndex,
+      failureMessage: undefined
+    });
+    await setCommitStatus({
+      octokit: params.octokit,
+      owner: session.repositoryOwner,
+      repo: session.repositoryName,
+      sha: session.headSha,
+      state: "pending",
+      description: `Question ${nextIndex + 1} of ${session.quiz.questions.length} is waiting for the PR author.`,
+      targetUrl: sessionTargetUrl(session)
+    });
+    return { ok: true, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=correct` };
+  }
+
+  await renderAndPersistComment(params.octokit, {
+    ...session,
+    failureMessage: "That answer does not match the changed behavior. Try again."
+  });
+  await setCommitStatus({
+    octokit: params.octokit,
+    owner: session.repositoryOwner,
+    repo: session.repositoryName,
+    sha: session.headSha,
+    state: "pending",
+    description: `Question ${session.currentQuestionIndex + 1} still needs a correct answer.`,
+    targetUrl: sessionTargetUrl(session)
+  });
+  return { ok: false, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=incorrect` };
 }
 
 export async function handlePullRequestWebhook(octokit: any, payload: any): Promise<void> {
@@ -300,136 +379,4 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     targetUrl: sessionTargetUrl(session)
   });
   logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
-}
-
-export async function handleReactionWebhook(octokit: any, payload: any): Promise<void> {
-  logInfo("reaction.handle.start", {
-    action: payload.action,
-    repository: payload.repository?.full_name,
-    pullNumber: payload.issue?.number,
-    commentId: payload.comment?.id,
-    sender: payload.sender?.login,
-    content: payload.reaction?.content
-  });
-  if (payload.action !== "created" || !payload.issue?.pull_request || !payload.comment) {
-    logInfo("reaction.handle.ignored", {
-      action: payload.action,
-      repository: payload.repository?.full_name,
-      pullNumber: payload.issue?.number
-    });
-    return;
-  }
-
-  const owner = payload.repository.owner.login;
-  const repo = payload.repository.name;
-  const pullNumber = payload.issue.number;
-  const session = await getSession(owner, repo, pullNumber);
-  if (!session?.quiz || !session.commentId || session.commentId !== payload.comment.id) {
-    logInfo("reaction.handle.no_matching_session", {
-      repository: `${owner}/${repo}`,
-      pullNumber,
-      commentId: payload.comment.id,
-      foundSession: Boolean(session),
-      sessionCommentId: session?.commentId
-    });
-    return;
-  }
-
-  if (payload.sender?.login !== session.authorLogin || session.status !== SessionStatus.awaiting_answer) {
-    logInfo("reaction.handle.ignored_sender_or_status", {
-      repository: `${owner}/${repo}`,
-      pullNumber,
-      sender: payload.sender?.login,
-      authorLogin: session.authorLogin,
-      status: session.status
-    });
-    await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
-    return;
-  }
-
-  const question = session.quiz.questions[session.currentQuestionIndex];
-  if (!question) {
-    logInfo("reaction.handle.no_current_question", {
-      repository: `${owner}/${repo}`,
-      pullNumber,
-      currentQuestionIndex: session.currentQuestionIndex
-    });
-    await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
-    return;
-  }
-
-  const index = reactionIndexForContent(payload.reaction.content);
-  if (index < 0 || index >= question.options.length) {
-    logInfo("reaction.handle.invalid_reaction", {
-      repository: `${owner}/${repo}`,
-      pullNumber,
-      reaction: payload.reaction.content,
-      optionCount: question.options.length
-    });
-    await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
-    return;
-  }
-
-  const selected = question.options[index];
-  const isCorrect = selected.key === question.correctOption;
-  logInfo("reaction.handle.answer_received", {
-    repository: `${owner}/${repo}`,
-    pullNumber,
-    questionIndex: session.currentQuestionIndex,
-    selectedKey: selected.key,
-    correctKey: question.correctOption,
-    isCorrect
-  });
-
-  if (isCorrect) {
-    const nextIndex = session.currentQuestionIndex + 1;
-    if (nextIndex >= session.quiz.questions.length) {
-      const passed = await renderAndPersistComment(octokit, {
-        ...session,
-        status: SessionStatus.passed,
-        currentQuestionIndex: session.quiz.questions.length - 1,
-        failureMessage: undefined
-      });
-      await setCommitStatus({
-        octokit,
-        owner,
-        repo,
-        sha: session.headSha,
-        state: "success",
-        description: "PR author passed the slopblock quiz.",
-        targetUrl: sessionTargetUrl(passed)
-      });
-    } else {
-      const updated = await renderAndPersistComment(octokit, {
-        ...session,
-        currentQuestionIndex: nextIndex,
-        failureMessage: undefined
-      });
-      await setCommitStatus({
-        octokit,
-        owner,
-        repo,
-        sha: session.headSha,
-        state: "pending",
-        description: `Question ${nextIndex + 1} of ${session.quiz.questions.length} is waiting for the PR author.`,
-        targetUrl: sessionTargetUrl(updated)
-      });
-    }
-  } else {
-    const updated = await renderAndPersistComment(octokit, {
-      ...session,
-      failureMessage: "That reaction does not match the changed behavior. Try again."
-    });
-    await setCommitStatus({
-      octokit,
-      owner,
-      repo,
-      sha: session.headSha,
-      state: "pending",
-      description: `Question ${session.currentQuestionIndex + 1} still needs a correct answer.`,
-      targetUrl: sessionTargetUrl(updated)
-    });
-  }
-
-  await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
 }

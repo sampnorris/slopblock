@@ -88,3 +88,12 @@ export async function deleteIssueCommentReaction(octokit: any, owner: string, re
 export function sessionTargetUrl(session: SessionRecord): string {
   return `${process.env.APP_BASE_URL ?? `https://github.com/${session.repositoryOwner}/${session.repositoryName}`}/pull/${session.pullNumber}`;
 }
+
+export function sessionAnswerUrl(session: SessionRecord): string {
+  const baseUrl = process.env.APP_BASE_URL;
+  if (!baseUrl || !session.id) {
+    return sessionTargetUrl(session);
+  }
+
+  return `${baseUrl.replace(/\/$/, "")}/session/${session.id}`;
+}

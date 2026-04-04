@@ -3,6 +3,7 @@ import type { QuizPayload, RetryMode } from "../types.js";
 import { prisma } from "./db.js";
 
 export interface SessionRecord {
+  id?: string;
   installationId: number;
   repositoryId: number;
   repositoryOwner: string;
@@ -23,6 +24,7 @@ export interface SessionRecord {
 
 function fromRow(row: PullRequestSession): SessionRecord {
   return {
+    id: row.id,
     installationId: Number(row.installationId),
     repositoryId: Number(row.repositoryId),
     repositoryOwner: row.repositoryOwner,
@@ -53,6 +55,11 @@ export async function getSession(owner: string, repo: string, pullNumber: number
     }
   });
 
+  return row ? fromRow(row) : undefined;
+}
+
+export async function getSessionById(id: string): Promise<SessionRecord | undefined> {
+  const row = await prisma.pullRequestSession.findUnique({ where: { id } });
   return row ? fromRow(row) : undefined;
 }
 
