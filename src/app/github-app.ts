@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { App } from "@octokit/app";
+import { Octokit } from "octokit";
 
 declare global {
   var __slopblockApp: App | undefined;
@@ -25,7 +26,15 @@ export function getGitHubApp(): App {
 }
 
 export async function getInstallationOctokit(installationId: number) {
-  return await getGitHubApp().getInstallationOctokit(installationId);
+  const app = getGitHubApp();
+  const installationAuthentication = (await app.octokit.auth({
+    type: "installation",
+    installationId
+  })) as { token: string };
+
+  return new Octokit({
+    auth: installationAuthentication.token
+  });
 }
 
 export function verifyWebhookSignature(payload: string, signature: string | undefined): boolean {
