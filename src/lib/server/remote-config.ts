@@ -1,4 +1,4 @@
-import { loadConfigFromString } from "../config.js";
+import { loadConfigFromString } from "./config.js";
 
 function decodeContent(value: string): string {
   return Buffer.from(value, "base64").toString("utf8");

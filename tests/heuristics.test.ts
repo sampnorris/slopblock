@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { loadConfig } from "../src/config.js";
-import { computeQuestionCount, initialSkipDecision } from "../src/heuristics.js";
-import type { ChangedFile } from "../src/types.js";
+import { loadConfig } from "../src/lib/server/config.js";
+import { computeQuestionCount, initialSkipDecision } from "../src/lib/server/heuristics.js";
+import type { ChangedFile } from "../src/lib/server/types.js";
 
 const config = loadConfig(".github/slopblock.yml", process.cwd());
 

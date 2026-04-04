@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfig } from "../src/config.js";
+import { loadConfig } from "../src/lib/server/config.js";
 
 test("loadConfig returns defaults when config file is missing", () => {
   const workspace = mkdtempSync(join(tmpdir(), "slopblock-"));

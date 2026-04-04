@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SessionStatus } from "@prisma/client";
-import { renderSessionComment } from "../src/app/render.js";
-import { sessionAnswerUrl } from "../src/app/github-service.js";
-import type { SessionRecord } from "../src/app/session-store.js";
+import { renderSessionComment } from "../src/lib/server/render.js";
+import { sessionAnswerUrl } from "../src/lib/server/github-service.js";
+import type { SessionRecord } from "../src/lib/server/session-store.js";
 
 const baseSession: SessionRecord = {
   id: "session-123",

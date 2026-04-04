@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.svelte-kit/
+.vercel/
+build/
 coverage/
-.vercel
 .env*.local

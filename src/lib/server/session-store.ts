@@ -1,5 +1,5 @@
 import { SessionStatus, type PullRequestSession } from "@prisma/client";
-import type { QuizPayload, RetryMode } from "../types.js";
+import type { QuizPayload, RetryMode } from "./types.js";
 import { prisma } from "./db.js";
 
 export interface SessionRecord {

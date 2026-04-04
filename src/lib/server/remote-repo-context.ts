@@ -1,5 +1,5 @@
-import type { ChangedFile, RepoContext, SlopblockConfig } from "../types.js";
-import { isTextPath, truncate } from "../util.js";
+import type { ChangedFile, RepoContext, SlopblockConfig } from "./types.js";
+import { isTextPath, truncate } from "./util.js";
 
 function decodeContent(value: string): string {
   return Buffer.from(value, "base64").toString("utf8");

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { OpenAICompatibleClient } from "./openai.js";
+import { OpenAICompatibleClient } from "./lib/server/openai.js";
 
 function readArg(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);

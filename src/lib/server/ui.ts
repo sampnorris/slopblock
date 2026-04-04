@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import type { QuizQuestion } from "../types.js";
+import type { QuizQuestion } from "./types.js";
 import type { SessionRecord } from "./session-store.js";
 
 function hmacAnswer(questionId: string, key: string, secret: string): string {

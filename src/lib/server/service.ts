@@ -1,9 +1,9 @@
 import { SessionStatus } from "@prisma/client";
-import { computeQuestionCount, initialSkipDecision } from "../heuristics.js";
-import { OpenAICompatibleClient } from "../openai.js";
-import { validateQuizPayload } from "../quiz.js";
-import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "../types.js";
-import { summarizePatch } from "../util.js";
+import { computeQuestionCount, initialSkipDecision } from "./heuristics.js";
+import { OpenAICompatibleClient } from "./openai.js";
+import { validateQuizPayload } from "./quiz.js";
+import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "./types.js";
+import { summarizePatch } from "./util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
 import { deleteSession, getSession, type SessionRecord, upsertSession } from "./session-store.js";

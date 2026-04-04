@@ -1,21 +1,23 @@
 {
   "name": "slopblock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GitHub App for diff-grounded PR comprehension quizzes",
   "packageManager": "pnpm@10.33.0",
   "type": "module",
-  "main": "api/github/webhooks.ts",
   "bin": {
     "slopblock": "dist/cli.cjs"
   },
   "scripts": {
-    "build": "node ./scripts/build.mjs",
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:cli": "node ./scripts/build.mjs",
+    "preview": "vite preview",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "pnpm exec dotenv -e .env.local -- prisma migrate dev",
     "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts",
-    "typecheck": "tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run build && pnpm test"
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "pnpm run typecheck && pnpm test"
   },
   "keywords": [
     "github-app",
@@ -31,12 +33,17 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@vercel/node": "^5.3.13",
+    "@sveltejs/adapter-vercel": "^6.3.3",
+    "@sveltejs/kit": "^2.56.1",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/node": "^24.5.2",
     "dotenv-cli": "^8.0.0",
     "esbuild": "^0.25.10",
     "prisma": "^6.6.0",
+    "svelte": "^5.55.1",
+    "svelte-check": "^4.4.6",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vite": "^8.0.3"
   }
 }

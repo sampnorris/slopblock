@@ -1,5 +1,4 @@
 import { createHmac, randomBytes } from "node:crypto";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const SESSION_COOKIE = "slopblock_session";
 
@@ -51,28 +50,14 @@ function parseCookies(header: string | undefined): Record<string, string> {
   );
 }
 
-function appendCookie(res: VercelResponse, cookie: string) {
-  const existing = res.getHeader("Set-Cookie");
-  if (!existing) {
-    res.setHeader("Set-Cookie", cookie);
-    return;
-  }
-  const list = Array.isArray(existing) ? existing : [String(existing)];
-  res.setHeader("Set-Cookie", [...list, cookie]);
-}
-
-export function getSessionActor(req: VercelRequest): { login: string } | undefined {
+export function getSessionActor(req: { headers: { cookie?: string } }): { login: string } | undefined {
   const cookies = parseCookies(req.headers.cookie);
   return decodePayload<{ login: string }>(cookies[SESSION_COOKIE]);
 }
 
-export function setSessionActor(res: VercelResponse, login: string) {
+export function buildSessionCookie(login: string): string {
   const value = encodePayload({ login });
-  appendCookie(res, `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
-}
-
-export function clearSessionActor(res: VercelResponse) {
-  appendCookie(res, `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
+  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`;
 }
 
 export function buildOAuthState(sessionId: string): string {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeQuizPayload, validateQuizPayload } from "../src/quiz.js";
+import { normalizeQuizPayload, validateQuizPayload } from "../src/lib/server/quiz.js";
 
 test("normalizeQuizPayload converts string options into keyed options", () => {
   const quiz = normalizeQuizPayload({
