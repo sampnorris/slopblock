@@ -31238,7 +31238,9 @@ var DEFAULT_CONFIG = {
     skipBots: true
   },
   llm: {
-    model: "gpt-4.1-mini"
+    generationModel: "gpt-4.1-mini",
+    validationModel: "gpt-4.1",
+    skipModel: "gpt-4.1-mini"
   }
 };
 function mergeArrays(base, override) {
@@ -31285,7 +31287,10 @@ function loadConfig(configPath, workspace = process.env.GITHUB_WORKSPACE ?? proc
       skipBots: typeof heuristics.skipBots === "boolean" ? heuristics.skipBots : DEFAULT_CONFIG.heuristics.skipBots
     },
     llm: {
-      model: typeof llm.model === "string" ? llm.model : DEFAULT_CONFIG.llm.model,
+      model: typeof llm.model === "string" ? llm.model : void 0,
+      generationModel: typeof llm.generationModel === "string" ? llm.generationModel : typeof llm.model === "string" ? llm.model : DEFAULT_CONFIG.llm.generationModel,
+      validationModel: typeof llm.validationModel === "string" ? llm.validationModel : typeof llm.model === "string" ? llm.model : DEFAULT_CONFIG.llm.validationModel,
+      skipModel: typeof llm.skipModel === "string" ? llm.skipModel : typeof llm.model === "string" ? llm.model : DEFAULT_CONFIG.llm.skipModel,
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : void 0,
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : void 0
     }
@@ -31978,10 +31983,10 @@ function requiredString(name, value) {
   }
   return value;
 }
-function llmClient(config, overrides) {
+function llmClient(config, overrides, purpose) {
   const apiKey = overrides.apiKey ?? process.env.SLOPBLOCK_API_KEY ?? config.llm.apiKey;
   const baseUrl = overrides.baseUrl ?? process.env.SLOPBLOCK_BASE_URL ?? config.llm.baseUrl ?? "https://api.openai.com/v1";
-  const model = overrides.model ?? process.env.SLOPBLOCK_MODEL ?? config.llm.model;
+  const model = overrides.model ?? process.env.SLOPBLOCK_MODEL ?? (purpose === "generation" ? config.llm.generationModel : purpose === "validation" ? config.llm.validationModel : config.llm.skipModel);
   if (!apiKey) {
     throw new Error("Missing API key. Set the action input or SLOPBLOCK_API_KEY secret.");
   }
@@ -32025,7 +32030,7 @@ async function generateValidQuiz(params) {
   const maxAttempts = params.maxAttempts ?? 3;
   let feedback = [];
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const quiz = await params.client.generateQuiz({
+    const quiz = await params.generationClient.generateQuiz({
       repoContext: params.repoContext,
       diffSummary: params.diffSummary,
       questionCount: params.questionCount,
@@ -32036,7 +32041,7 @@ async function generateValidQuiz(params) {
       feedback = localValidationIssues;
       continue;
     }
-    const validation = await params.client.validateQuiz({
+    const validation = await params.validationClient.validateQuiz({
       quiz,
       repoContext: params.repoContext,
       diffSummary: params.diffSummary
@@ -32101,12 +32106,15 @@ async function handlePullRequestEvent() {
   }
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
   const heuristicDecision = initialSkipDecision(files, config);
-  const client = llmClient(config, {
+  const sharedOverrides = {
     apiKey: core.getInput("api-key") || void 0,
     baseUrl: core.getInput("base-url") || void 0,
     model: core.getInput("model") || void 0
-  });
-  const skipDecision = await maybeUseBorderlineSkipModel(client, heuristicDecision, files);
+  };
+  const skipClient = llmClient(config, sharedOverrides, "skip");
+  const generationClient = llmClient(config, sharedOverrides, "generation");
+  const validationClient = llmClient(config, sharedOverrides, "validation");
+  const skipDecision = await maybeUseBorderlineSkipModel(skipClient, heuristicDecision, files);
   if (skipDecision.outcome === "skip") {
     const state2 = {
       version: 1,
@@ -32155,7 +32163,8 @@ async function handlePullRequestEvent() {
   let quiz;
   try {
     quiz = await generateValidQuiz({
-      client,
+      generationClient,
+      validationClient,
       repoContext,
       diffSummary,
       questionCount
@@ -32327,18 +32336,21 @@ async function handleIssueCommentEvent() {
     });
     return "failed-same-quiz";
   }
-  const client = llmClient(config, {
+  const sharedOverrides = {
     apiKey: core.getInput("api-key") || void 0,
     baseUrl: core.getInput("base-url") || void 0,
     model: core.getInput("model") || void 0
-  });
+  };
+  const generationClient = llmClient(config, sharedOverrides, "generation");
+  const validationClient = llmClient(config, sharedOverrides, "validation");
   const files = await listChangedFiles(octokit, owner, repo, pullNumber);
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await generateValidQuiz({
-    client,
+    generationClient,
+    validationClient,
     repoContext,
     diffSummary,
     questionCount

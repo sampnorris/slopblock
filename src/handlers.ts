@@ -23,10 +23,17 @@ function requiredString(name: string, value: string | undefined): string {
   return value;
 }
 
-function llmClient(config: SlopblockConfig, overrides: { apiKey?: string; baseUrl?: string; model?: string }) {
+function llmClient(config: SlopblockConfig, overrides: { apiKey?: string; baseUrl?: string; model?: string }, purpose: "generation" | "validation" | "skip") {
   const apiKey = overrides.apiKey ?? process.env.SLOPBLOCK_API_KEY ?? config.llm.apiKey;
   const baseUrl = overrides.baseUrl ?? process.env.SLOPBLOCK_BASE_URL ?? config.llm.baseUrl ?? "https://api.openai.com/v1";
-  const model = overrides.model ?? process.env.SLOPBLOCK_MODEL ?? config.llm.model;
+  const model =
+    overrides.model ??
+    process.env.SLOPBLOCK_MODEL ??
+    (purpose === "generation"
+      ? config.llm.generationModel
+      : purpose === "validation"
+        ? config.llm.validationModel
+        : config.llm.skipModel);
   if (!apiKey) {
     throw new Error("Missing API key. Set the action input or SLOPBLOCK_API_KEY secret.");
   }
@@ -80,7 +87,8 @@ function createAwaitingState(params: {
 }
 
 async function generateValidQuiz(params: {
-  client: OpenAICompatibleClient;
+  generationClient: OpenAICompatibleClient;
+  validationClient: OpenAICompatibleClient;
   repoContext: Awaited<ReturnType<typeof buildRepoContext>>;
   diffSummary: string;
   questionCount: number;
@@ -90,7 +98,7 @@ async function generateValidQuiz(params: {
   let feedback: string[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const quiz = await params.client.generateQuiz({
+    const quiz = await params.generationClient.generateQuiz({
       repoContext: params.repoContext,
       diffSummary: params.diffSummary,
       questionCount: params.questionCount,
@@ -103,7 +111,7 @@ async function generateValidQuiz(params: {
       continue;
     }
 
-    const validation = await params.client.validateQuiz({
+    const validation = await params.validationClient.validateQuiz({
       quiz,
       repoContext: params.repoContext,
       diffSummary: params.diffSummary
@@ -177,12 +185,15 @@ export async function handlePullRequestEvent(): Promise<string> {
 
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
   const heuristicDecision = initialSkipDecision(files, config);
-  const client = llmClient(config, {
+  const sharedOverrides = {
     apiKey: core.getInput("api-key") || undefined,
     baseUrl: core.getInput("base-url") || undefined,
     model: core.getInput("model") || undefined
-  });
-  const skipDecision = await maybeUseBorderlineSkipModel(client, heuristicDecision, files);
+  };
+  const skipClient = llmClient(config, sharedOverrides, "skip");
+  const generationClient = llmClient(config, sharedOverrides, "generation");
+  const validationClient = llmClient(config, sharedOverrides, "validation");
+  const skipDecision = await maybeUseBorderlineSkipModel(skipClient, heuristicDecision, files);
 
   if (skipDecision.outcome === "skip") {
     const state: SlopblockState = {
@@ -235,7 +246,8 @@ export async function handlePullRequestEvent(): Promise<string> {
   let quiz: QuizPayload;
   try {
     quiz = await generateValidQuiz({
-      client,
+      generationClient,
+      validationClient,
       repoContext,
       diffSummary,
       questionCount
@@ -421,18 +433,21 @@ export async function handleIssueCommentEvent(): Promise<string> {
     return "failed-same-quiz";
   }
 
-  const client = llmClient(config, {
+  const sharedOverrides = {
     apiKey: core.getInput("api-key") || undefined,
     baseUrl: core.getInput("base-url") || undefined,
     model: core.getInput("model") || undefined
-  });
+  };
+  const generationClient = llmClient(config, sharedOverrides, "generation");
+  const validationClient = llmClient(config, sharedOverrides, "validation");
   const files = await listChangedFiles(octokit, owner, repo, pullNumber);
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await generateValidQuiz({
-    client,
+    generationClient,
+    validationClient,
     repoContext,
     diffSummary,
     questionCount

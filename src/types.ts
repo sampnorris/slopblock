@@ -27,7 +27,10 @@ export interface SlopblockConfig {
     skipBots: boolean;
   };
   llm: {
-    model: string;
+    model?: string;
+    generationModel: string;
+    validationModel: string;
+    skipModel: string;
     baseUrl?: string;
     apiKey?: string;
   };

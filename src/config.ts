@@ -49,7 +49,9 @@ const DEFAULT_CONFIG: SlopblockConfig = {
     skipBots: true
   },
   llm: {
-    model: "gpt-4.1-mini"
+    generationModel: "gpt-4.1-mini",
+    validationModel: "gpt-4.1",
+    skipModel: "gpt-4.1-mini"
   }
 };
 
@@ -126,7 +128,25 @@ export function loadConfig(configPath: string, workspace = process.env.GITHUB_WO
         typeof heuristics.skipBots === "boolean" ? heuristics.skipBots : DEFAULT_CONFIG.heuristics.skipBots
     },
     llm: {
-      model: typeof llm.model === "string" ? llm.model : DEFAULT_CONFIG.llm.model,
+      model: typeof llm.model === "string" ? llm.model : undefined,
+      generationModel:
+        typeof llm.generationModel === "string"
+          ? llm.generationModel
+          : typeof llm.model === "string"
+            ? llm.model
+            : DEFAULT_CONFIG.llm.generationModel,
+      validationModel:
+        typeof llm.validationModel === "string"
+          ? llm.validationModel
+          : typeof llm.model === "string"
+            ? llm.model
+            : DEFAULT_CONFIG.llm.validationModel,
+      skipModel:
+        typeof llm.skipModel === "string"
+          ? llm.skipModel
+          : typeof llm.model === "string"
+            ? llm.model
+            : DEFAULT_CONFIG.llm.skipModel,
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : undefined,
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined
     }

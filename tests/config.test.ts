@@ -11,6 +11,9 @@ test("loadConfig returns defaults when config file is missing", () => {
   assert.equal(config.checkName, "slopblock");
   assert.equal(config.questionCount.min, 2);
   assert.equal(config.retryMode, "new_quiz");
+  assert.equal(config.llm.generationModel, "gpt-4.1-mini");
+  assert.equal(config.llm.validationModel, "gpt-4.1");
+  assert.equal(config.llm.skipModel, "gpt-4.1-mini");
 });
 
 test("loadConfig merges overrides", () => {
@@ -24,6 +27,10 @@ test("loadConfig merges overrides", () => {
       "questionCount:",
       "  min: 1",
       "  max: 3",
+      "llm:",
+      "  generationModel: model-a",
+      "  validationModel: model-b",
+      "  skipModel: model-c",
       "heuristics:",
       "  skipBots: false"
     ].join("\n")
@@ -35,4 +42,7 @@ test("loadConfig merges overrides", () => {
   assert.equal(config.questionCount.min, 1);
   assert.equal(config.questionCount.max, 3);
   assert.equal(config.heuristics.skipBots, false);
+  assert.equal(config.llm.generationModel, "model-a");
+  assert.equal(config.llm.validationModel, "model-b");
+  assert.equal(config.llm.skipModel, "model-c");
 });

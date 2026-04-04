@@ -26,6 +26,8 @@
 - `SLOPBLOCK_BASE_URL`
 - `SLOPBLOCK_MODEL` optional
 
+If `SLOPBLOCK_MODEL` is set, it overrides all internal model roles with one model. Otherwise, slopblock uses role-specific defaults.
+
 ## Install On A Test Project
 
 The simplest way to test `slopblock` today is from a second repository in the same machine or org.
@@ -140,6 +142,11 @@ heuristics:
   riskyGlobs:
     - auth/
     - api/
+
+llm:
+  generationModel: gpt-4.1-mini
+  validationModel: gpt-4.1
+  skipModel: gpt-4.1-mini
 ```
 
 ## Local prompt harness
@@ -172,3 +179,4 @@ SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs quiz --diff fixtu
 - The bundled `dist/` output is intentionally committed so other repositories can consume this as a standard JavaScript action.
 - The merge gate is implemented as a commit status context instead of a custom check run so it remains compatible with current GitHub Actions restrictions.
 - The consuming workflow must grant `statuses: write` to `GITHUB_TOKEN` so slopblock can publish the merge-gating status context.
+- Model defaults are role-specific: quiz generation uses `gpt-4.1-mini`, validation uses `gpt-4.1`, and borderline skip decisions use `gpt-4.1-mini` unless overridden.
