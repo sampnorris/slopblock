@@ -15,7 +15,7 @@
 - Trigger on `pull_request` when a PR is ready for review or updated.
 - Trigger on `issue_comment` to grade the PR author's reply.
 - Post one managed PR comment with the latest quiz.
-- Update one check run named `slopblock`.
+- Update one commit status context named `slopblock`.
 - Skip bots and fork PRs by default.
 - Use heuristics first for trivial PR skipping, then ask the model only for borderline diffs.
 - Generate multiple-choice questions adaptively based on diff size and risk.
@@ -43,7 +43,7 @@ The simplest way to test `slopblock` today is from a second repository in the sa
 6. Open a draft PR, then mark it ready for review.
 7. Watch for the `slopblock` check and the managed PR comment.
 8. Reply using the answer template.
-9. If it works, add `slopblock` as a required branch protection check in the test repo.
+9. If it works, add the `slopblock` status check as a required branch protection rule in the test repo.
 
 For a zero-publish local smoke test, you can also point a workflow in this repo at `uses: ./` and exercise it with PRs against this repository.
 
@@ -170,3 +170,4 @@ SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs quiz --diff fixtu
 - The best repo context comes from running `actions/checkout` before the action.
 - Fork PRs are skipped by default because repository secrets are not exposed there safely.
 - The bundled `dist/` output is intentionally committed so other repositories can consume this as a standard JavaScript action.
+- The merge gate is implemented as a commit status context instead of a custom check run so it remains compatible with current GitHub Actions restrictions.

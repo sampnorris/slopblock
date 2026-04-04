@@ -2,7 +2,7 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { loadConfig } from "./config.js";
 import { buildQuizComment, gradeAnswers, parseAnswers, parseStateFromComment } from "./comment-state.js";
-import { getOctokit, listChangedFiles, upsertCheckRun, upsertManagedComment } from "./github-api.js";
+import { getOctokit, listChangedFiles, upsertCommitStatus, upsertManagedComment } from "./github-api.js";
 import { computeQuestionCount, initialSkipDecision } from "./heuristics.js";
 import { OpenAICompatibleClient } from "./openai.js";
 import { buildRepoContext } from "./repo-context.js";
@@ -10,6 +10,10 @@ import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig, Slopblock
 import { summarizePatch } from "./util.js";
 
 const MARKER = "slopblock:state";
+
+function statusTargetUrl(owner: string, repo: string, pullNumber: number): string {
+  return `https://github.com/${owner}/${repo}/pull/${pullNumber}`;
+}
 
 function requiredString(name: string, value: string | undefined): string {
   if (!value) {
@@ -90,40 +94,43 @@ export async function handlePullRequestEvent(): Promise<string> {
   const headSha = pr.head.sha;
 
   if (pr.draft) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "neutral",
-      summary: "Pull request is still in draft mode."
+      context: config.checkName,
+      state: "success",
+      summary: "Pull request is still in draft mode.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "draft";
   }
 
   if (config.heuristics.skipBots && pr.user?.type === "Bot") {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: "Bot-authored pull request skipped by configuration."
+      context: config.checkName,
+      state: "success",
+      summary: "Bot-authored pull request skipped by configuration.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped-bot";
   }
 
   if (config.heuristics.skipForkPullRequests && pr.head.repo?.fork) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "neutral",
-      summary: "Fork pull requests are skipped by default because quiz secrets are not exposed to forks."
+      context: config.checkName,
+      state: "success",
+      summary: "Fork pull requests are skipped by default because quiz secrets are not exposed to forks.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped-fork";
   }
@@ -157,17 +164,29 @@ export async function handlePullRequestEvent(): Promise<string> {
       marker: MARKER,
       body: buildQuizComment(state)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: skipDecision.reason
+      context: config.checkName,
+      state: "success",
+      summary: skipDecision.reason,
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped";
   }
+
+  await upsertCommitStatus({
+    octokit,
+    owner,
+    repo,
+    headSha,
+    context: config.checkName,
+    state: "pending",
+    summary: "Generating diff-grounded quiz.",
+    detailsUrl: statusTargetUrl(owner, repo, pr.number)
+  });
 
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   const repoContext = await buildRepoContext(workspace, files, config);
@@ -177,15 +196,15 @@ export async function handlePullRequestEvent(): Promise<string> {
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
 
   if (!validation.valid) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "action_required",
+      context: config.checkName,
+      state: "error",
       summary: "Quiz generation failed validation.",
-      text: validation.issues.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     throw new Error(`Quiz validation failed: ${validation.issues.join("; ")}`);
   }
@@ -216,14 +235,15 @@ export async function handlePullRequestEvent(): Promise<string> {
     marker: MARKER,
     body: buildQuizComment(state)
   });
-  await upsertCheckRun({
+  await upsertCommitStatus({
     octokit,
     owner,
     repo,
     headSha,
-    checkName: config.checkName,
-    conclusion: "action_required",
-    summary: `Quiz posted with ${quiz.questions.length} questions. Waiting for the PR author to answer.`
+    context: config.checkName,
+    state: "pending",
+    summary: `Quiz posted with ${quiz.questions.length} questions. Waiting for the PR author to answer.`,
+    detailsUrl: statusTargetUrl(owner, repo, pr.number)
   });
   return "quiz-posted";
 }
@@ -287,14 +307,15 @@ export async function handleIssueCommentEvent(): Promise<string> {
       marker: MARKER,
       body: buildQuizComment(passedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: `Quiz passed on attempt ${state.attempt}.`
+      context: config.checkName,
+      state: "success",
+      summary: `Quiz passed on attempt ${state.attempt}.`,
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "passed";
   }
@@ -314,15 +335,15 @@ export async function handleIssueCommentEvent(): Promise<string> {
       marker: MARKER,
       body: buildQuizComment(failedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "failure",
+      context: config.checkName,
+      state: "failure",
       summary: "Quiz failed. Maintainer rerun required.",
-      text: result.failures.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "failed-maintainer-rerun";
   }
@@ -342,15 +363,15 @@ export async function handleIssueCommentEvent(): Promise<string> {
       marker: MARKER,
       body: buildQuizComment(failedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "failure",
+      context: config.checkName,
+      state: "failure",
       summary: "Quiz failed. The author may retry the same quiz.",
-      text: result.failures.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "failed-same-quiz";
   }
@@ -389,15 +410,15 @@ export async function handleIssueCommentEvent(): Promise<string> {
     marker: MARKER,
     body: buildQuizComment(retryState)
   });
-  await upsertCheckRun({
+  await upsertCommitStatus({
     octokit,
     owner,
     repo,
     headSha: pr.head.sha,
-    checkName: config.checkName,
-    conclusion: "failure",
+    context: config.checkName,
+    state: "failure",
     summary: "Quiz failed. A new quiz has been posted.",
-    text: result.failures.join("\n")
+    detailsUrl: statusTargetUrl(owner, repo, pullNumber)
   });
   return "failed-new-quiz";
 }

@@ -31479,34 +31479,16 @@ async function listChangedFiles(octokit, owner, repo, pullNumber) {
     per_page: 100
   });
 }
-async function upsertCheckRun(params) {
-  const existing = await params.octokit.rest.checks.listForRef({
+async function upsertCommitStatus(params) {
+  await params.octokit.rest.repos.createCommitStatus({
     owner: params.owner,
     repo: params.repo,
-    ref: params.headSha,
-    check_name: params.checkName,
-    per_page: 20
+    sha: params.headSha,
+    context: params.context,
+    state: params.state,
+    description: params.summary.slice(0, 140),
+    target_url: params.detailsUrl
   });
-  const latest = existing.data.check_runs.find((run2) => run2.name === params.checkName);
-  const payload = {
-    owner: params.owner,
-    repo: params.repo,
-    name: params.checkName,
-    head_sha: params.headSha,
-    status: "completed",
-    conclusion: params.conclusion,
-    output: {
-      title: params.checkName,
-      summary: params.summary,
-      text: params.text
-    },
-    details_url: params.detailsUrl
-  };
-  if (latest) {
-    await params.octokit.rest.checks.update({ check_run_id: latest.id, ...payload });
-    return;
-  }
-  await params.octokit.rest.checks.create(payload);
 }
 async function findManagedComment(params) {
   const comments = await params.octokit.paginate(params.octokit.rest.issues.listComments, {
@@ -31847,6 +31829,9 @@ async function buildRepoContext(workspace, changedFiles, config) {
 
 // src/handlers.ts
 var MARKER = "slopblock:state";
+function statusTargetUrl(owner, repo, pullNumber) {
+  return `https://github.com/${owner}/${repo}/pull/${pullNumber}`;
+}
 function requiredString(name, value) {
   if (!value) {
     throw new Error(`Missing required value: ${name}`);
@@ -31909,38 +31894,41 @@ async function handlePullRequestEvent() {
   const repo = context3.repo.repo;
   const headSha = pr.head.sha;
   if (pr.draft) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "neutral",
-      summary: "Pull request is still in draft mode."
+      context: config.checkName,
+      state: "success",
+      summary: "Pull request is still in draft mode.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "draft";
   }
   if (config.heuristics.skipBots && pr.user?.type === "Bot") {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: "Bot-authored pull request skipped by configuration."
+      context: config.checkName,
+      state: "success",
+      summary: "Bot-authored pull request skipped by configuration.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped-bot";
   }
   if (config.heuristics.skipForkPullRequests && pr.head.repo?.fork) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "neutral",
-      summary: "Fork pull requests are skipped by default because quiz secrets are not exposed to forks."
+      context: config.checkName,
+      state: "success",
+      summary: "Fork pull requests are skipped by default because quiz secrets are not exposed to forks.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped-fork";
   }
@@ -31971,17 +31959,28 @@ async function handlePullRequestEvent() {
       marker: MARKER,
       body: buildQuizComment(state2)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: skipDecision.reason
+      context: config.checkName,
+      state: "success",
+      summary: skipDecision.reason,
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     return "skipped";
   }
+  await upsertCommitStatus({
+    octokit,
+    owner,
+    repo,
+    headSha,
+    context: config.checkName,
+    state: "pending",
+    summary: "Generating diff-grounded quiz.",
+    detailsUrl: statusTargetUrl(owner, repo, pr.number)
+  });
   const workspace = process.env.GITHUB_WORKSPACE ?? process.cwd();
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
@@ -31989,15 +31988,15 @@ async function handlePullRequestEvent() {
   const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
   if (!validation.valid) {
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha,
-      checkName: config.checkName,
-      conclusion: "action_required",
+      context: config.checkName,
+      state: "error",
       summary: "Quiz generation failed validation.",
-      text: validation.issues.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
     throw new Error(`Quiz validation failed: ${validation.issues.join("; ")}`);
   }
@@ -32023,14 +32022,15 @@ async function handlePullRequestEvent() {
     marker: MARKER,
     body: buildQuizComment(state)
   });
-  await upsertCheckRun({
+  await upsertCommitStatus({
     octokit,
     owner,
     repo,
     headSha,
-    checkName: config.checkName,
-    conclusion: "action_required",
-    summary: `Quiz posted with ${quiz.questions.length} questions. Waiting for the PR author to answer.`
+    context: config.checkName,
+    state: "pending",
+    summary: `Quiz posted with ${quiz.questions.length} questions. Waiting for the PR author to answer.`,
+    detailsUrl: statusTargetUrl(owner, repo, pr.number)
   });
   return "quiz-posted";
 }
@@ -32088,14 +32088,15 @@ async function handleIssueCommentEvent() {
       marker: MARKER,
       body: buildQuizComment(passedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "success",
-      summary: `Quiz passed on attempt ${state.attempt}.`
+      context: config.checkName,
+      state: "success",
+      summary: `Quiz passed on attempt ${state.attempt}.`,
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "passed";
   }
@@ -32114,15 +32115,15 @@ async function handleIssueCommentEvent() {
       marker: MARKER,
       body: buildQuizComment(failedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "failure",
+      context: config.checkName,
+      state: "failure",
       summary: "Quiz failed. Maintainer rerun required.",
-      text: result.failures.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "failed-maintainer-rerun";
   }
@@ -32141,15 +32142,15 @@ async function handleIssueCommentEvent() {
       marker: MARKER,
       body: buildQuizComment(failedState)
     });
-    await upsertCheckRun({
+    await upsertCommitStatus({
       octokit,
       owner,
       repo,
       headSha: pr.head.sha,
-      checkName: config.checkName,
-      conclusion: "failure",
+      context: config.checkName,
+      state: "failure",
       summary: "Quiz failed. The author may retry the same quiz.",
-      text: result.failures.join("\n")
+      detailsUrl: statusTargetUrl(owner, repo, pullNumber)
     });
     return "failed-same-quiz";
   }
@@ -32185,15 +32186,15 @@ async function handleIssueCommentEvent() {
     marker: MARKER,
     body: buildQuizComment(retryState)
   });
-  await upsertCheckRun({
+  await upsertCommitStatus({
     octokit,
     owner,
     repo,
     headSha: pr.head.sha,
-    checkName: config.checkName,
-    conclusion: "failure",
+    context: config.checkName,
+    state: "failure",
     summary: "Quiz failed. A new quiz has been posted.",
-    text: result.failures.join("\n")
+    detailsUrl: statusTargetUrl(owner, repo, pullNumber)
   });
   return "failed-new-quiz";
 }

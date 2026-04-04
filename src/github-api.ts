@@ -1,5 +1,5 @@
 import * as github from "@actions/github";
-import type { ChangedFile, SlopblockState } from "./types.js";
+import type { ChangedFile } from "./types.js";
 
 export function getOctokit(token: string) {
   return github.getOctokit(token);
@@ -14,47 +14,25 @@ export async function listChangedFiles(octokit: ReturnType<typeof getOctokit>, o
   });
 }
 
-export async function upsertCheckRun(params: {
+export async function upsertCommitStatus(params: {
   octokit: ReturnType<typeof getOctokit>;
   owner: string;
   repo: string;
   headSha: string;
-  checkName: string;
-  conclusion: "success" | "failure" | "neutral" | "action_required";
+  context: string;
+  state: "success" | "failure" | "pending" | "error";
   summary: string;
-  text?: string;
   detailsUrl?: string;
 }): Promise<void> {
-  const existing = await params.octokit.rest.checks.listForRef({
+  await params.octokit.rest.repos.createCommitStatus({
     owner: params.owner,
     repo: params.repo,
-    ref: params.headSha,
-    check_name: params.checkName,
-    per_page: 20
+    sha: params.headSha,
+    context: params.context,
+    state: params.state,
+    description: params.summary.slice(0, 140),
+    target_url: params.detailsUrl
   });
-
-  const latest = existing.data.check_runs.find((run) => run.name === params.checkName);
-  const payload = {
-    owner: params.owner,
-    repo: params.repo,
-    name: params.checkName,
-    head_sha: params.headSha,
-    status: "completed" as const,
-    conclusion: params.conclusion,
-    output: {
-      title: params.checkName,
-      summary: params.summary,
-      text: params.text
-    },
-    details_url: params.detailsUrl
-  };
-
-  if (latest) {
-    await params.octokit.rest.checks.update({ check_run_id: latest.id, ...payload });
-    return;
-  }
-
-  await params.octokit.rest.checks.create(payload);
 }
 
 export async function findManagedComment(params: {
