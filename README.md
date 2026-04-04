@@ -32,7 +32,7 @@ The simplest way to test `slopblock` today is from a second repository in the sa
 
 1. Push this repository somewhere GitHub can access.
 2. In your test repository, add `SLOPBLOCK_API_KEY` and `SLOPBLOCK_BASE_URL` as repository secrets.
-3. Copy in the workflow from `.github/workflows/slopblock.yml`.
+3. Copy in the workflow from `.github/workflows/slopblock.yml` and make sure it grants `statuses: write`.
 4. Change the action reference from `uses: ./` to your published repo ref, for example:
 
 ```yaml
@@ -84,10 +84,10 @@ on:
     types: [created]
 
 permissions:
-  checks: write
   contents: read
   issues: write
   pull-requests: write
+  statuses: write
 
 jobs:
   slopblock:
@@ -171,3 +171,4 @@ SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs quiz --diff fixtu
 - Fork PRs are skipped by default because repository secrets are not exposed there safely.
 - The bundled `dist/` output is intentionally committed so other repositories can consume this as a standard JavaScript action.
 - The merge gate is implemented as a commit status context instead of a custom check run so it remains compatible with current GitHub Actions restrictions.
+- The consuming workflow must grant `statuses: write` to `GITHUB_TOKEN` so slopblock can publish the merge-gating status context.
