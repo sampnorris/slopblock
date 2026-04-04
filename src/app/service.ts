@@ -6,8 +6,8 @@ import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "..
 import { summarizePatch } from "../util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
-import { getSession, getSessionById, type SessionRecord, upsertSession } from "./session-store.js";
-import { listChangedFiles, sessionAppUrl, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
+import { getSession, type SessionRecord, upsertSession } from "./session-store.js";
+import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 
@@ -135,94 +135,94 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
   return updated;
 }
 
-export async function submitAnswer(params: {
+export async function markQuizPassed(params: {
   octokit: any;
-  sessionId: string;
-  actorLogin: string;
-  selectedKey: string;
-}): Promise<{ ok: boolean; redirectUrl: string; message?: string }> {
-  const session = await getSessionById(params.sessionId);
-  const sessionUrl = session ? sessionAppUrl(session) : undefined;
-  if (!session?.quiz) {
-    return { ok: false, redirectUrl: process.env.APP_BASE_URL ?? "/", message: "This quiz session no longer exists." };
+  session: SessionRecord;
+}): Promise<{ ok: boolean; message?: string }> {
+  const { octokit, session } = params;
+
+  if (session.status === SessionStatus.passed) {
+    return { ok: true, message: "Already passed." };
   }
 
-  if (params.actorLogin !== session.authorLogin) {
-    return {
-      ok: false,
-      redirectUrl: sessionUrl ?? process.env.APP_BASE_URL ?? "/",
-      message: "Only the PR author can answer this quiz."
-    };
-  }
-
-  const question = session.quiz.questions[session.currentQuestionIndex];
-  if (!question) {
-    return { ok: false, redirectUrl: sessionUrl ?? process.env.APP_BASE_URL ?? "/", message: "This quiz is already complete." };
-  }
-
-  const isCorrect = question.correctOption === params.selectedKey;
-  logInfo("session.answer.submit", {
+  logInfo("session.quiz.passed", {
     repository: `${session.repositoryOwner}/${session.repositoryName}`,
-    pullNumber: session.pullNumber,
-    actorLogin: params.actorLogin,
-    questionIndex: session.currentQuestionIndex,
-    selectedKey: params.selectedKey,
-    correctKey: question.correctOption,
-    isCorrect
+    pullNumber: session.pullNumber
   });
 
-  if (isCorrect) {
-    const nextIndex = session.currentQuestionIndex + 1;
-    if (nextIndex >= session.quiz.questions.length) {
-      const passed = await renderAndPersistComment(params.octokit, {
-        ...session,
-        status: SessionStatus.passed,
-        currentQuestionIndex: session.quiz.questions.length - 1,
-        failureMessage: undefined
-      });
-      await setCommitStatus({
-        octokit: params.octokit,
-        owner: session.repositoryOwner,
-        repo: session.repositoryName,
-        sha: session.headSha,
-        state: "success",
-        description: "PR author passed the slopblock quiz.",
-        targetUrl: sessionTargetUrl(passed)
-      });
-      return { ok: true, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=passed` };
-    }
-
-    await renderAndPersistComment(params.octokit, {
-      ...session,
-      currentQuestionIndex: nextIndex,
-      failureMessage: undefined
-    });
-    await setCommitStatus({
-      octokit: params.octokit,
-      owner: session.repositoryOwner,
-      repo: session.repositoryName,
-      sha: session.headSha,
-      state: "pending",
-      description: `Question ${nextIndex + 1} of ${session.quiz.questions.length} is waiting for the PR author.`,
-      targetUrl: sessionTargetUrl(session)
-    });
-    return { ok: true, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=correct` };
-  }
-
-  await renderAndPersistComment(params.octokit, {
+  const passed = await renderAndPersistComment(octokit, {
     ...session,
-    failureMessage: "That answer does not match the changed behavior. Try again."
+    status: SessionStatus.passed,
+    failureMessage: undefined
   });
+
   await setCommitStatus({
-    octokit: params.octokit,
+    octokit,
     owner: session.repositoryOwner,
     repo: session.repositoryName,
     sha: session.headSha,
-    state: "pending",
-    description: `Question ${session.currentQuestionIndex + 1} still needs a correct answer.`,
-    targetUrl: sessionTargetUrl(session)
+    state: "success",
+    description: "PR author passed the slopblock quiz.",
+    targetUrl: sessionTargetUrl(passed)
   });
-  return { ok: false, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=incorrect` };
+
+  return { ok: true };
+}
+
+export async function requestNewQuiz(params: {
+  octokit: any;
+  session: SessionRecord;
+}): Promise<{ ok: boolean; message?: string }> {
+  const { octokit, session } = params;
+  const owner = session.repositoryOwner;
+  const repo = session.repositoryName;
+
+  logInfo("session.quiz.retry_new", {
+    repository: `${owner}/${repo}`,
+    pullNumber: session.pullNumber
+  });
+
+  await setCommitStatus({
+    octokit,
+    owner,
+    repo,
+    sha: session.headSha,
+    state: "pending",
+    description: "Generating new quiz..."
+  });
+
+  const config = await loadRemoteConfig(octokit, owner, repo, session.headSha);
+  const files = await listChangedFiles(octokit, owner, repo, session.pullNumber);
+  const repoContext = await buildRemoteRepoContext(octokit, owner, repo, session.headSha, files, config);
+  const quiz = await generateValidQuiz({
+    generationClient: llmClient(config, "generation"),
+    validationClient: llmClient(config, "validation"),
+    repoContext,
+    diffSummary: diffSummary(files),
+    questionCount: computeQuestionCount(files, config)
+  });
+
+  const updated = await renderAndPersistComment(octokit, {
+    ...session,
+    status: SessionStatus.awaiting_answer,
+    currentQuestionIndex: 0,
+    questionCount: quiz.questions.length,
+    summary: quiz.summary,
+    failureMessage: undefined,
+    quiz
+  });
+
+  await setCommitStatus({
+    octokit,
+    owner,
+    repo,
+    sha: session.headSha,
+    state: "pending",
+    description: `${quiz.questions.length} questions waiting for the PR author.`,
+    targetUrl: sessionTargetUrl(updated)
+  });
+
+  return { ok: true };
 }
 
 export async function handlePullRequestWebhook(octokit: any, payload: any): Promise<void> {
@@ -375,19 +375,13 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     quiz
   });
 
-  logInfo("pull_request.status.pending_question", {
-    repository: `${owner}/${repo}`,
-    pullNumber: pr.number,
-    questionCount: quiz.questions.length,
-    commentId: session.commentId
-  });
   await setCommitStatus({
     octokit,
     owner,
     repo,
     sha: headSha,
     state: "pending",
-    description: `Question 1 of ${quiz.questions.length} is waiting for the PR author.`,
+    description: `${quiz.questions.length} questions waiting for the PR author.`,
     targetUrl: sessionTargetUrl(session)
   });
   logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });

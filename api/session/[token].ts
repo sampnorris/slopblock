@@ -17,7 +17,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const actor = getSessionActor(req);
-  const result = typeof req.query.result === "string" ? req.query.result : undefined;
   res.setHeader("content-type", "text/html; charset=utf-8");
 
   if (!actor) {
@@ -25,5 +24,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  res.status(200).send(renderQuizPage(session, actor.login, result));
+  res.status(200).send(renderQuizPage(session, actor.login));
 }

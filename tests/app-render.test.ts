@@ -53,17 +53,16 @@ const baseSession: SessionRecord = {
   }
 };
 
-test("renderSessionComment links to the external answer UI", () => {
+test("renderSessionComment links to the quiz UI", () => {
   const originalAppBaseUrl = process.env.APP_BASE_URL;
   process.env.APP_BASE_URL = "https://slopblock.example.com";
 
   try {
     const output = renderSessionComment(baseSession);
-    assert.match(output, /Question 1 of 2/);
-    assert.match(output, /A\. Option A/);
-    assert.match(output, /B\. Option B/);
-    assert.match(output, /\[Answer Question\]\(https:\/\/slopblock\.example\.com\/session\//);
-    assert.doesNotMatch(output, /Question 2 of 2/);
+    assert.match(output, /waiting for PR author/);
+    assert.match(output, /Questions:\*\* 2/);
+    assert.match(output, /Take the quiz/);
+    assert.match(output, /https:\/\/slopblock\.example\.com\/session\//);
   } finally {
     if (originalAppBaseUrl === undefined) {
       delete process.env.APP_BASE_URL;
@@ -107,5 +106,16 @@ test("renderSessionComment shows passed state", () => {
     ...baseSession,
     status: SessionStatus.passed
   });
-  assert.match(output, /Status: passed/);
+  assert.match(output, /passed/);
+  assert.match(output, /abcdef1/);
+});
+
+test("renderSessionComment shows skipped state", () => {
+  const output = renderSessionComment({
+    ...baseSession,
+    status: SessionStatus.skipped,
+    skipReason: "Docs-only change."
+  });
+  assert.match(output, /skipped/);
+  assert.match(output, /Docs-only change/);
 });
