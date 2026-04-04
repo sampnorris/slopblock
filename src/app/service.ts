@@ -7,7 +7,7 @@ import { summarizePatch } from "../util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
 import { getSession, getSessionById, type SessionRecord, upsertSession } from "./session-store.js";
-import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
+import { listChangedFiles, sessionAppUrl, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 
@@ -142,6 +142,7 @@ export async function submitAnswer(params: {
   selectedKey: string;
 }): Promise<{ ok: boolean; redirectUrl: string; message?: string }> {
   const session = await getSessionById(params.sessionId);
+  const sessionUrl = session ? sessionAppUrl(session) : undefined;
   if (!session?.quiz) {
     return { ok: false, redirectUrl: process.env.APP_BASE_URL ?? "/", message: "This quiz session no longer exists." };
   }
@@ -149,14 +150,14 @@ export async function submitAnswer(params: {
   if (params.actorLogin !== session.authorLogin) {
     return {
       ok: false,
-      redirectUrl: process.env.APP_BASE_URL ?? "/",
+      redirectUrl: sessionUrl ?? process.env.APP_BASE_URL ?? "/",
       message: "Only the PR author can answer this quiz."
     };
   }
 
   const question = session.quiz.questions[session.currentQuestionIndex];
   if (!question) {
-    return { ok: false, redirectUrl: process.env.APP_BASE_URL ?? "/", message: "This quiz is already complete." };
+    return { ok: false, redirectUrl: sessionUrl ?? process.env.APP_BASE_URL ?? "/", message: "This quiz is already complete." };
   }
 
   const isCorrect = question.correctOption === params.selectedKey;
@@ -188,7 +189,7 @@ export async function submitAnswer(params: {
         description: "PR author passed the slopblock quiz.",
         targetUrl: sessionTargetUrl(passed)
       });
-      return { ok: true, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=passed` };
+      return { ok: true, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=passed` };
     }
 
     await renderAndPersistComment(params.octokit, {
@@ -205,7 +206,7 @@ export async function submitAnswer(params: {
       description: `Question ${nextIndex + 1} of ${session.quiz.questions.length} is waiting for the PR author.`,
       targetUrl: sessionTargetUrl(session)
     });
-    return { ok: true, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=correct` };
+    return { ok: true, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=correct` };
   }
 
   await renderAndPersistComment(params.octokit, {
@@ -221,7 +222,7 @@ export async function submitAnswer(params: {
     description: `Question ${session.currentQuestionIndex + 1} still needs a correct answer.`,
     targetUrl: sessionTargetUrl(session)
   });
-  return { ok: false, redirectUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "")}/session/${session.id}?result=incorrect` };
+  return { ok: false, redirectUrl: `${sessionUrl ?? `/session/${session.id}`}?result=incorrect` };
 }
 
 export async function handlePullRequestWebhook(octokit: any, payload: any): Promise<void> {

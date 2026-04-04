@@ -1,6 +1,29 @@
 import type { SessionRecord } from "./session-store.js";
 import { REACTION_OPTIONS } from "./reactions.js";
 
+function appBaseUrl(): string | undefined {
+  const baseUrl = process.env.APP_BASE_URL?.trim();
+  if (baseUrl) {
+    return baseUrl.replace(/\/$/, "");
+  }
+
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  if (!vercelUrl) {
+    return undefined;
+  }
+
+  return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+}
+
+export function sessionAppUrl(session: SessionRecord): string | undefined {
+  const baseUrl = appBaseUrl();
+  if (!baseUrl || !session.id) {
+    return undefined;
+  }
+
+  return `${baseUrl}/session/${session.id}`;
+}
+
 export async function listChangedFiles(octokit: any, owner: string, repo: string, pullNumber: number) {
   return await octokit.paginate(octokit.rest.pulls.listFiles, {
     owner,
@@ -40,13 +63,20 @@ export async function upsertIssueComment(params: {
   body: string;
 }): Promise<number> {
   if (params.commentId) {
-    await params.octokit.rest.issues.updateComment({
-      owner: params.owner,
-      repo: params.repo,
-      comment_id: params.commentId,
-      body: params.body
-    });
-    return params.commentId;
+    try {
+      await params.octokit.rest.issues.updateComment({
+        owner: params.owner,
+        repo: params.repo,
+        comment_id: params.commentId,
+        body: params.body
+      });
+      return params.commentId;
+    } catch (error: any) {
+      if (error.status !== 404) {
+        throw error;
+      }
+      // Comment was deleted; fall through to create a new one.
+    }
   }
 
   const created = await params.octokit.rest.issues.createComment({
@@ -86,14 +116,9 @@ export async function deleteIssueCommentReaction(octokit: any, owner: string, re
 }
 
 export function sessionTargetUrl(session: SessionRecord): string {
-  return `${process.env.APP_BASE_URL ?? `https://github.com/${session.repositoryOwner}/${session.repositoryName}`}/pull/${session.pullNumber}`;
+  return `https://github.com/${session.repositoryOwner}/${session.repositoryName}/pull/${session.pullNumber}`;
 }
 
 export function sessionAnswerUrl(session: SessionRecord): string {
-  const baseUrl = process.env.APP_BASE_URL;
-  if (!baseUrl || !session.id) {
-    return sessionTargetUrl(session);
-  }
-
-  return `${baseUrl.replace(/\/$/, "")}/session/${session.id}`;
+  return sessionAppUrl(session) ?? sessionTargetUrl(session);
 }

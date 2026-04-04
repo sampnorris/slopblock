@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SessionStatus } from "@prisma/client";
 import { renderSessionComment } from "../src/app/render.js";
+import { sessionAnswerUrl } from "../src/app/github-service.js";
 import type { SessionRecord } from "../src/app/session-store.js";
 
 const baseSession: SessionRecord = {
+  id: "session-123",
   installationId: 1,
   repositoryId: 1,
   repositoryOwner: "owner",
@@ -52,12 +54,52 @@ const baseSession: SessionRecord = {
 };
 
 test("renderSessionComment links to the external answer UI", () => {
-  const output = renderSessionComment(baseSession);
-  assert.match(output, /Question 1 of 2/);
-  assert.match(output, /A\. Option A/);
-  assert.match(output, /B\. Option B/);
-  assert.match(output, /\[Answer Question\]\(/);
-  assert.doesNotMatch(output, /Question 2 of 2/);
+  const originalAppBaseUrl = process.env.APP_BASE_URL;
+  process.env.APP_BASE_URL = "https://slopblock.example.com";
+
+  try {
+    const output = renderSessionComment(baseSession);
+    assert.match(output, /Question 1 of 2/);
+    assert.match(output, /A\. Option A/);
+    assert.match(output, /B\. Option B/);
+    assert.match(output, /\[Answer Question\]\(https:\/\/slopblock\.example\.com\/session\//);
+    assert.doesNotMatch(output, /Question 2 of 2/);
+  } finally {
+    if (originalAppBaseUrl === undefined) {
+      delete process.env.APP_BASE_URL;
+    } else {
+      process.env.APP_BASE_URL = originalAppBaseUrl;
+    }
+  }
+});
+
+test("sessionAnswerUrl falls back to Vercel deployment URL", () => {
+  const originalAppBaseUrl = process.env.APP_BASE_URL;
+  const originalVercelProjectProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const originalVercelUrl = process.env.VERCEL_URL;
+  delete process.env.APP_BASE_URL;
+  process.env.VERCEL_PROJECT_PRODUCTION_URL = "slopblock.vercel.app";
+  delete process.env.VERCEL_URL;
+
+  try {
+    assert.equal(sessionAnswerUrl({ ...baseSession, id: "session-123" }), "https://slopblock.vercel.app/session/session-123");
+  } finally {
+    if (originalAppBaseUrl === undefined) {
+      delete process.env.APP_BASE_URL;
+    } else {
+      process.env.APP_BASE_URL = originalAppBaseUrl;
+    }
+    if (originalVercelProjectProductionUrl === undefined) {
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    } else {
+      process.env.VERCEL_PROJECT_PRODUCTION_URL = originalVercelProjectProductionUrl;
+    }
+    if (originalVercelUrl === undefined) {
+      delete process.env.VERCEL_URL;
+    } else {
+      process.env.VERCEL_URL = originalVercelUrl;
+    }
+  }
 });
 
 test("renderSessionComment shows passed state", () => {
