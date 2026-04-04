@@ -95,14 +95,15 @@ If you pulled Vercel envs into `.env.local`, the included Neon database credenti
 1. Create a Vercel project from this repository.
 2. Add all environment variables listed above.
 3. Provision a Postgres-compatible database and set both `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
-4. Run Prisma migrations as part of deploy or separately in CI.
-5. Point your GitHub App webhook URL to:
+4. Keep the project as a serverless/API deployment. This repo includes `vercel.json` so Vercel should not expect a static `public` output directory.
+5. Run Prisma migrations as part of deploy or separately in CI.
+6. Point your GitHub App webhook URL to:
 
 ```text
 https://<your-domain>/api/github/webhooks
 ```
 
-6. Install the app on your test repository.
+7. Install the app on your test repository.
 
 ## Install On A Test Project
 
