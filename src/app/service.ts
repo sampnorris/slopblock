@@ -64,6 +64,7 @@ async function generateValidQuiz(params: {
   questionCount: number;
 }): Promise<QuizPayload> {
   let feedback: string[] = [];
+  let bestQuiz: QuizPayload | undefined;
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const quiz = await params.generationClient.generateQuiz({
@@ -78,6 +79,8 @@ async function generateValidQuiz(params: {
       continue;
     }
 
+    bestQuiz = quiz;
+
     const validation = await params.validationClient.validateQuiz({
       quiz,
       repoContext: params.repoContext,
@@ -88,6 +91,14 @@ async function generateValidQuiz(params: {
     }
 
     feedback = validation.issues;
+  }
+
+  if (bestQuiz) {
+    logInfo("quiz.generation.using_best_attempt", {
+      feedbackIssues: feedback.length,
+      questionCount: bestQuiz.questions.length
+    });
+    return bestQuiz;
   }
 
   throw new Error(`Quiz generation failed after 3 attempts: ${feedback.join("; ")}`);

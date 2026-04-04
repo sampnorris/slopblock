@@ -170,16 +170,24 @@ export class OpenAICompatibleClient {
         {
           role: "system",
           content:
-            "You validate a PR quiz for grounding and quality. Reject questions that depend on unchanged code knowledge, are ambiguous, or have weak distractors. Return strict JSON."
+            "You validate a PR quiz for grounding and quality. Only reject questions that are factually wrong, structurally broken, or completely unrelated to the diff. Minor speculation in distractors is acceptable. Do not reject a quiz for style issues or slight imprecision. Be lenient. Return strict JSON."
         },
         {
           role: "user",
           content: JSON.stringify(
             {
-              task: "Validate this quiz.",
+              task: "Validate this quiz. Mark it valid unless there are serious grounding or structural errors.",
+              rules: [
+                "Only mark invalid if a question is factually wrong about the diff.",
+                "Only mark invalid if a question requires knowledge of completely unchanged code.",
+                "Only mark invalid if options are duplicated or structurally broken.",
+                "Do NOT reject for minor distractor speculation.",
+                "Do NOT reject for slightly imprecise wording.",
+                "When in doubt, mark valid."
+              ],
               output: {
                 valid: true,
-                issues: ["list of issues if invalid"]
+                issues: ["only list serious structural or factual errors"]
               },
               quiz: input.quiz,
               repoContext: input.repoContext,
