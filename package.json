@@ -12,7 +12,7 @@
     "build": "node ./scripts/build.mjs",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "pnpm exec dotenv-cli -e .env.local -- prisma migrate dev",
+    "prisma:migrate": "pnpm exec dotenv -e .env.local -- prisma migrate dev",
     "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "pnpm run typecheck && pnpm run build && pnpm test"
