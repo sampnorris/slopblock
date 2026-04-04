@@ -11,9 +11,9 @@ test("loadConfig returns defaults when config file is missing", () => {
   assert.equal(config.checkName, "slopblock");
   assert.equal(config.questionCount.min, 2);
   assert.equal(config.retryMode, "new_quiz");
-  assert.equal(config.llm.generationModel, "gpt-4.1-mini");
-  assert.equal(config.llm.validationModel, "gpt-4.1");
-  assert.equal(config.llm.skipModel, "gpt-4.1-mini");
+  assert.equal(config.llm.generationModel, "anthropic/claude-sonnet-4.5");
+  assert.equal(config.llm.validationModel, "anthropic/claude-opus-4.1");
+  assert.equal(config.llm.skipModel, "anthropic/claude-sonnet-4.5");
 });
 
 test("loadConfig merges overrides", () => {

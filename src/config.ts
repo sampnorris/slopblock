@@ -49,9 +49,9 @@ const DEFAULT_CONFIG: SlopblockConfig = {
     skipBots: true
   },
   llm: {
-    generationModel: "gpt-4.1-mini",
-    validationModel: "gpt-4.1",
-    skipModel: "gpt-4.1-mini"
+    generationModel: "anthropic/claude-sonnet-4.5",
+    validationModel: "anthropic/claude-opus-4.1",
+    skipModel: "anthropic/claude-sonnet-4.5"
   }
 };
 
@@ -63,13 +63,8 @@ function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-export function loadConfig(configPath: string, workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()): SlopblockConfig {
-  const fullPath = join(workspace, configPath);
-  if (!existsSync(fullPath)) {
-    return DEFAULT_CONFIG;
-  }
-
-  const raw = YAML.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
+export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig {
+  const raw = rawValue;
   const questionCount = asObject(raw.questionCount);
   const passRule = asObject(raw.passRule);
   const contextBudget = asObject(raw.contextBudget);
@@ -151,4 +146,21 @@ export function loadConfig(configPath: string, workspace = process.env.GITHUB_WO
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined
     }
   };
+}
+
+export function loadConfigFromString(contents: string | undefined): SlopblockConfig {
+  if (!contents) {
+    return DEFAULT_CONFIG;
+  }
+
+  return parseConfig((YAML.parse(contents) as Record<string, unknown>) ?? {});
+}
+
+export function loadConfig(configPath: string, workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()): SlopblockConfig {
+  const fullPath = join(workspace, configPath);
+  if (!existsSync(fullPath)) {
+    return DEFAULT_CONFIG;
+  }
+
+  return loadConfigFromString(readFileSync(fullPath, "utf8"));
 }

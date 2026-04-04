@@ -5,7 +5,7 @@ await rm("dist", { recursive: true, force: true });
 
 await build({
   bundle: true,
-  entryPoints: ["src/main.ts", "src/cli.ts"],
+  entryPoints: ["src/cli.ts"],
   format: "cjs",
   outdir: "dist",
   outExtension: {

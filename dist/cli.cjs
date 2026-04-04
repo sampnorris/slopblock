@@ -284,11 +284,11 @@ function readArg(flag) {
 }
 async function main() {
   const command = process.argv[2];
-  const baseUrl = process.env.SLOPBLOCK_BASE_URL ?? "https://api.openai.com/v1";
-  const apiKey = process.env.SLOPBLOCK_API_KEY;
-  const model = process.env.SLOPBLOCK_MODEL ?? "gpt-4.1-mini";
+  const baseUrl = process.env.AI_GATEWAY_BASE_URL ?? process.env.SLOPBLOCK_BASE_URL ?? "https://ai-gateway.vercel.sh/v1";
+  const apiKey = process.env.AI_GATEWAY_API_KEY ?? process.env.SLOPBLOCK_API_KEY;
+  const model = process.env.AI_GATEWAY_MODEL ?? process.env.SLOPBLOCK_MODEL ?? "anthropic/claude-sonnet-4.5";
   if (!apiKey) {
-    throw new Error("Set SLOPBLOCK_API_KEY before using the CLI.");
+    throw new Error("Set AI_GATEWAY_API_KEY or SLOPBLOCK_API_KEY before using the CLI.");
   }
   const client = new OpenAICompatibleClient({ baseUrl, apiKey, model });
   if (command === "skip") {

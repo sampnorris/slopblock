@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum SessionStatus {
+  awaiting_answer
+  passed
+  skipped
+  failed
+}
+
+model PullRequestSession {
+  id                   String        @id @default(cuid())
+  installationId       String
+  repositoryId         String
+  repositoryOwner      String
+  repositoryName       String
+  pullNumber           Int
+  authorLogin          String
+  headSha              String
+  status               SessionStatus
+  currentQuestionIndex Int           @default(0)
+  questionCount        Int           @default(0)
+  retryMode            String
+  summary              String?
+  skipReason           String?
+  failureMessage       String?
+  commentId            String?
+  quiz                 Json?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([repositoryOwner, repositoryName, pullNumber])
+  @@index([installationId])
+}

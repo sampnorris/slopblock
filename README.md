@@ -1,6 +1,6 @@
 # slopblock
 
-`slopblock` is a reusable GitHub Action that gates pull request merges behind a diff-grounded quiz for the PR author.
+`slopblock` is a GitHub App that gates pull request merges behind a diff-grounded quiz for the PR author.
 
 ## Goals
 
@@ -10,103 +10,111 @@
 - Work with any OpenAI-compatible endpoint.
 - Expose a required status check for branch protection.
 
-## Current v1 shape
+## Current Service Shape
 
-- Trigger on `pull_request` when a PR is ready for review or updated.
-- Trigger on `issue_comment` to grade the PR author's reply.
-- Post one managed PR comment with the latest quiz.
+- Receive GitHub App webhooks for `pull_request` and `reaction` events.
+- Post one managed PR comment and edit it in place.
+- Ask one multiple-choice question at a time.
+- Use built-in GitHub reactions as answer input.
 - Update one commit status context named `slopblock`.
 - Skip bots and fork PRs by default.
 - Use heuristics first for trivial PR skipping, then ask the model only for borderline diffs.
 - Generate multiple-choice questions adaptively based on diff size and risk.
 
-## Required secrets
+## Stack
 
-- `SLOPBLOCK_API_KEY`
-- `SLOPBLOCK_BASE_URL`
-- `SLOPBLOCK_MODEL` optional
+- Vercel-hosted REST handlers
+- TypeScript
+- Prisma
+- PostgreSQL-compatible database
+- GitHub App auth via `@octokit/app`
+- Vercel AI Gateway for skip, generation, and validation
 
-If `SLOPBLOCK_MODEL` is set, it overrides all internal model roles with one model. Otherwise, slopblock uses role-specific defaults.
+## Required Environment Variables
+
+- `DATABASE_URL`
+- `DATABASE_URL_UNPOOLED`
+- `GITHUB_APP_ID`
+- `GITHUB_APP_PRIVATE_KEY`
+- `GITHUB_WEBHOOK_SECRET`
+- `AI_GATEWAY_API_KEY`
+- `AI_GATEWAY_BASE_URL` optional, defaults to `https://ai-gateway.vercel.sh/v1`
+- `AI_GATEWAY_MODEL` optional
+- `AI_GATEWAY_GENERATION_MODEL` optional
+- `AI_GATEWAY_VALIDATION_MODEL` optional
+- `AI_GATEWAY_SKIP_MODEL` optional
+- `APP_BASE_URL` optional
+
+Legacy `SLOPBLOCK_*` LLM variables still work, but the app now prefers Vercel AI Gateway env names.
+
+If `AI_GATEWAY_MODEL` or `SLOPBLOCK_MODEL` is set, it overrides all internal model roles with one model. Otherwise, slopblock uses role-specific defaults.
+
+## GitHub App Permissions
+
+Recommended repository permissions:
+
+- Contents: read
+- Pull requests: read/write
+- Issues: read/write
+- Commit statuses: write
+- Metadata: read
+
+Subscribe to these webhook events:
+
+- Pull request
+- Reaction
+
+## Local Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Generate Prisma client:
+
+```bash
+npm run prisma:generate
+```
+
+3. Run a local migration against your Postgres-compatible database:
+
+```bash
+npm run prisma:migrate -- --name init
+```
+
+4. Set the required environment variables.
+
+If you pulled Vercel envs into `.env.local`, the included Neon database credentials are already in the right shape for Prisma.
+
+5. Run the Vercel dev server or deploy handlers from `api/`.
+
+## Vercel Deployment
+
+1. Create a Vercel project from this repository.
+2. Add all environment variables listed above.
+3. Provision a Postgres-compatible database and set both `DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+4. Run Prisma migrations as part of deploy or separately in CI.
+5. Point your GitHub App webhook URL to:
+
+```text
+https://<your-domain>/api/github/webhooks
+```
+
+6. Install the app on your test repository.
 
 ## Install On A Test Project
 
-The simplest way to test `slopblock` today is from a second repository in the same machine or org.
+Once the GitHub App is deployed:
 
-1. Push this repository somewhere GitHub can access.
-2. In your test repository, add `SLOPBLOCK_API_KEY` and `SLOPBLOCK_BASE_URL` as repository secrets.
-3. Copy in the workflow from `.github/workflows/slopblock.yml` and make sure it grants `statuses: write`.
-4. Change the action reference from `uses: ./` to your published repo ref, for example:
-
-```yaml
-- uses: sampnorris/slopblock@main
-```
-
-5. Add `.github/slopblock.yml` to the test repository.
-6. Open a draft PR, then mark it ready for review.
-7. Watch for the `slopblock` check and the managed PR comment.
-8. Reply using the answer template.
-9. If it works, add the `slopblock` status check as a required branch protection rule in the test repo.
-
-For a zero-publish local smoke test, you can also point a workflow in this repo at `uses: ./` and exercise it with PRs against this repository.
-
-## Release Notes
-
-This repository now follows the normal JavaScript GitHub Action pattern:
-
-- source lives under `src/`
-- bundled runtime lives under `dist/`
-- consumers use the published repo ref directly
-
-Before tagging or pushing a release:
-
-```bash
-npm run check
-git add src dist action.yml package.json package-lock.json README.md .github fixtures tests tsconfig.json scripts .gitignore
-git commit -m "feat: add initial slopblock GitHub Action"
-git tag v0.1.0
-git push origin master --tags
-```
-
-When you change action runtime code later, rebuild `dist/` before committing:
-
-```bash
-npm run build
-git add src dist
-```
-
-## Example workflow
-
-```yaml
-name: slopblock
-
-on:
-  pull_request:
-    types: [ready_for_review, synchronize, reopened]
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
-  statuses: write
-
-jobs:
-  slopblock:
-    if: github.event_name == 'pull_request' || github.event.issue.pull_request
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: ./
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          api-key: ${{ secrets.SLOPBLOCK_API_KEY }}
-          base-url: ${{ secrets.SLOPBLOCK_BASE_URL }}
-          model: ${{ secrets.SLOPBLOCK_MODEL }}
-```
+1. Install the GitHub App on the repository.
+2. Add `.github/slopblock.yml` to the target repository if you want per-repo tuning.
+3. Open a draft PR, then mark it ready for review.
+4. Watch for the `slopblock` status and the bot comment.
+5. React to the bot comment using the listed built-in reactions.
+6. Answer one question at a time until the status passes.
+7. Add `slopblock` as a required branch protection status once satisfied.
 
 ## Config
 
@@ -144,18 +152,18 @@ heuristics:
     - api/
 
 llm:
-  generationModel: gpt-4.1-mini
-  validationModel: gpt-4.1
-  skipModel: gpt-4.1-mini
+  generationModel: anthropic/claude-sonnet-4.5
+  validationModel: anthropic/claude-opus-4.1
+  skipModel: anthropic/claude-sonnet-4.5
 ```
 
-## Local prompt harness
+## Local Prompt Harness
 
 Build the project and run:
 
 ```bash
 npm run build
-SLOPBLOCK_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
+AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
 ```
 
 Run the local validation suite with:
@@ -167,16 +175,72 @@ npm run check
 Use the included fixtures to smoke-test the prompts locally:
 
 ```bash
-SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs skip --diff fixtures/diff.txt --files fixtures/files.txt
-SLOPBLOCK_API_KEY=... SLOPBLOCK_BASE_URL=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
+AI_GATEWAY_API_KEY=... node dist/cli.cjs skip --diff fixtures/diff.txt --files fixtures/files.txt
+AI_GATEWAY_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
 ```
 
-## Known limits in v1
+## Known Limits
 
-- The action stores canonical quiz state in a managed PR comment so it can survive separate workflow events.
-- The best repo context comes from running `actions/checkout` before the action.
+- Related code context is currently fetched from the repository over the GitHub API, so very large repos may need tighter context budgets.
 - Fork PRs are skipped by default because repository secrets are not exposed there safely.
-- The bundled `dist/` output is intentionally committed so other repositories can consume this as a standard JavaScript action.
-- The merge gate is implemented as a commit status context instead of a custom check run so it remains compatible with current GitHub Actions restrictions.
-- The consuming workflow must grant `statuses: write` to `GITHUB_TOKEN` so slopblock can publish the merge-gating status context.
-- Model defaults are role-specific: quiz generation uses `gpt-4.1-mini`, validation uses `gpt-4.1`, and borderline skip decisions use `gpt-4.1-mini` unless overridden.
+- One-question-at-a-time interaction currently uses built-in GitHub reactions on the bot comment.
+- Model defaults are role-specific: quiz generation uses `anthropic/claude-sonnet-4.5`, validation uses `anthropic/claude-opus-4.1`, and borderline skip decisions use `anthropic/claude-sonnet-4.5` unless overridden.
+- Local Prisma migrations use `.env.local`, which matches the Vercel/Neon environment pulled into this repo.
+
+## Install Instructions
+
+1. Create a GitHub App.
+2. Set repository permissions:
+   - Contents: read
+   - Pull requests: read/write
+   - Issues: read/write
+   - Commit statuses: write
+   - Metadata: read
+3. Subscribe the app to webhook events:
+   - Pull request
+   - Reaction
+4. Deploy this repo to Vercel.
+5. In Vercel, set these environment variables:
+   - `DATABASE_URL`
+   - `DATABASE_URL_UNPOOLED`
+   - `GITHUB_APP_ID`
+   - `GITHUB_APP_PRIVATE_KEY`
+   - `GITHUB_WEBHOOK_SECRET`
+   - `AI_GATEWAY_API_KEY`
+   - optional `AI_GATEWAY_BASE_URL`
+   - optional `AI_GATEWAY_MODEL`
+   - optional `AI_GATEWAY_GENERATION_MODEL`
+   - optional `AI_GATEWAY_VALIDATION_MODEL`
+   - optional `AI_GATEWAY_SKIP_MODEL`
+   - optional `APP_BASE_URL`
+6. Run Prisma migrations against your database:
+   - locally: `npm run prisma:migrate -- --name init`
+   - or in your deployment process
+7. Point the GitHub App webhook URL to:
+   - `https://<your-domain>/api/github/webhooks`
+8. Install the app on a repository.
+9. Add a repo config file if you want tuning:
+
+```yaml
+checkName: slopblock
+retryMode: new_quiz
+
+questionCount:
+  min: 2
+  max: 5
+
+heuristics:
+  tinyChangeMaxLines: 4
+  skipForkPullRequests: true
+  skipBots: true
+
+llm:
+  generationModel: anthropic/claude-sonnet-4.5
+  validationModel: anthropic/claude-opus-4.1
+  skipModel: anthropic/claude-sonnet-4.5
+```
+
+10. Open a draft PR, then mark it ready for review.
+11. Wait for the `slopblock` status and bot comment.
+12. Answer the one-question-at-a-time quiz using the built-in reactions.
+13. Once satisfied, require `slopblock` in branch protection.

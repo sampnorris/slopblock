@@ -1,0 +1,39 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { App } from "@octokit/app";
+
+declare global {
+  var __slopblockApp: App | undefined;
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+export function getGitHubApp(): App {
+  if (!globalThis.__slopblockApp) {
+    globalThis.__slopblockApp = new App({
+      appId: requiredEnv("GITHUB_APP_ID"),
+      privateKey: requiredEnv("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n")
+    });
+  }
+
+  return globalThis.__slopblockApp;
+}
+
+export async function getInstallationOctokit(installationId: number) {
+  return await getGitHubApp().getInstallationOctokit(installationId);
+}
+
+export function verifyWebhookSignature(payload: string, signature: string | undefined): boolean {
+  const secret = requiredEnv("GITHUB_WEBHOOK_SECRET");
+  if (!signature) {
+    return false;
+  }
+
+  const expected = `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
+  return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}

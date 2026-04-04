@@ -1,0 +1,104 @@
+import { SessionStatus, type PullRequestSession } from "@prisma/client";
+import type { QuizPayload, RetryMode } from "../types.js";
+import { prisma } from "./db.js";
+
+export interface SessionRecord {
+  installationId: number;
+  repositoryId: number;
+  repositoryOwner: string;
+  repositoryName: string;
+  pullNumber: number;
+  authorLogin: string;
+  headSha: string;
+  status: SessionStatus;
+  currentQuestionIndex: number;
+  questionCount: number;
+  retryMode: RetryMode;
+  summary?: string;
+  skipReason?: string;
+  failureMessage?: string;
+  commentId?: number;
+  quiz?: QuizPayload;
+}
+
+function fromRow(row: PullRequestSession): SessionRecord {
+  return {
+    installationId: Number(row.installationId),
+    repositoryId: Number(row.repositoryId),
+    repositoryOwner: row.repositoryOwner,
+    repositoryName: row.repositoryName,
+    pullNumber: row.pullNumber,
+    authorLogin: row.authorLogin,
+    headSha: row.headSha,
+    status: row.status,
+    currentQuestionIndex: row.currentQuestionIndex,
+    questionCount: row.questionCount,
+    retryMode: row.retryMode as RetryMode,
+    summary: row.summary ?? undefined,
+    skipReason: row.skipReason ?? undefined,
+    failureMessage: row.failureMessage ?? undefined,
+    commentId: row.commentId ? Number(row.commentId) : undefined,
+    quiz: (row.quiz as QuizPayload | null) ?? undefined
+  };
+}
+
+export async function getSession(owner: string, repo: string, pullNumber: number): Promise<SessionRecord | undefined> {
+  const row = await prisma.pullRequestSession.findUnique({
+    where: {
+      repositoryOwner_repositoryName_pullNumber: {
+        repositoryOwner: owner,
+        repositoryName: repo,
+        pullNumber
+      }
+    }
+  });
+
+  return row ? fromRow(row) : undefined;
+}
+
+export async function upsertSession(input: SessionRecord): Promise<SessionRecord> {
+  const row = await prisma.pullRequestSession.upsert({
+    where: {
+      repositoryOwner_repositoryName_pullNumber: {
+        repositoryOwner: input.repositoryOwner,
+        repositoryName: input.repositoryName,
+        pullNumber: input.pullNumber
+      }
+    },
+    create: {
+      installationId: String(input.installationId),
+      repositoryId: String(input.repositoryId),
+      repositoryOwner: input.repositoryOwner,
+      repositoryName: input.repositoryName,
+      pullNumber: input.pullNumber,
+      authorLogin: input.authorLogin,
+      headSha: input.headSha,
+      status: input.status,
+      currentQuestionIndex: input.currentQuestionIndex,
+      questionCount: input.questionCount,
+      retryMode: input.retryMode,
+      summary: input.summary,
+      skipReason: input.skipReason,
+      failureMessage: input.failureMessage,
+      commentId: input.commentId ? String(input.commentId) : undefined,
+      quiz: input.quiz as unknown as object | undefined
+    },
+    update: {
+      installationId: String(input.installationId),
+      repositoryId: String(input.repositoryId),
+      authorLogin: input.authorLogin,
+      headSha: input.headSha,
+      status: input.status,
+      currentQuestionIndex: input.currentQuestionIndex,
+      questionCount: input.questionCount,
+      retryMode: input.retryMode,
+      summary: input.summary,
+      skipReason: input.skipReason,
+      failureMessage: input.failureMessage,
+      commentId: input.commentId ? String(input.commentId) : null,
+      quiz: input.quiz as unknown as object | undefined
+    }
+  });
+
+  return fromRow(row);
+}
