@@ -9,6 +9,7 @@ import { renderSessionComment } from "./render.js";
 import { reactionIndexForContent } from "./reactions.js";
 import { getSession, type SessionRecord, upsertSession } from "./session-store.js";
 import { ensureCommentReactions, listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment, deleteIssueCommentReaction } from "./github-service.js";
+import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 
 function diffSummary(files: ChangedFile[]): string {
@@ -94,6 +95,13 @@ async function generateValidQuiz(params: {
 }
 
 async function renderAndPersistComment(octokit: any, session: SessionRecord) {
+  logInfo("session.comment.render_start", {
+    repository: `${session.repositoryOwner}/${session.repositoryName}`,
+    pullNumber: session.pullNumber,
+    commentId: session.commentId,
+    status: session.status,
+    currentQuestionIndex: session.currentQuestionIndex
+  });
   const body = renderSessionComment(session);
   const commentId = await upsertIssueComment({
     octokit,
@@ -107,14 +115,39 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
   const updated = await upsertSession({ ...session, commentId });
   const currentQuestion = updated.quiz?.questions[updated.currentQuestionIndex];
   if (currentQuestion) {
+    logInfo("session.comment.ensure_reactions", {
+      repository: `${updated.repositoryOwner}/${updated.repositoryName}`,
+      pullNumber: updated.pullNumber,
+      commentId,
+      reactionCount: currentQuestion.options.length
+    });
     await ensureCommentReactions(octokit, updated.repositoryOwner, updated.repositoryName, commentId, currentQuestion.options.length);
   }
 
+  logInfo("session.comment.render_complete", {
+    repository: `${updated.repositoryOwner}/${updated.repositoryName}`,
+    pullNumber: updated.pullNumber,
+    commentId,
+    status: updated.status,
+    currentQuestionIndex: updated.currentQuestionIndex
+  });
   return updated;
 }
 
 export async function handlePullRequestWebhook(octokit: any, payload: any): Promise<void> {
+  logInfo("pull_request.handle.start", {
+    action: payload.action,
+    repository: payload.repository?.full_name,
+    pullNumber: payload.pull_request?.number,
+    draft: payload.pull_request?.draft,
+    headSha: payload.pull_request?.head?.sha
+  });
   if (!["opened", "reopened", "ready_for_review", "synchronize"].includes(payload.action)) {
+    logInfo("pull_request.handle.ignored_action", {
+      action: payload.action,
+      repository: payload.repository?.full_name,
+      pullNumber: payload.pull_request?.number
+    });
     return;
   }
 
@@ -122,9 +155,12 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   const owner = payload.repository.owner.login;
   const repo = payload.repository.name;
   const headSha = pr.head.sha;
+  logInfo("pull_request.config.load_start", { repository: `${owner}/${repo}`, pullNumber: pr.number, headSha });
   const config = await loadRemoteConfig(octokit, owner, repo, headSha);
+  logInfo("pull_request.config.load_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
 
   if (pr.draft) {
+    logInfo("pull_request.handle.ignored_draft", { repository: `${owner}/${repo}`, pullNumber: pr.number });
     return;
   }
 
@@ -152,9 +188,18 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
+  logInfo("pull_request.files.list_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
+  logInfo("pull_request.files.list_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number, fileCount: files.length });
   const skipClient = llmClient(config, "skip");
   const skipDecision = await maybeSkip(skipClient, initialSkipDecision(files, config), files);
+  logInfo("pull_request.skip.decision", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    outcome: skipDecision.outcome,
+    certainty: skipDecision.certainty,
+    reason: skipDecision.reason
+  });
   const baseSession: SessionRecord = {
     installationId: payload.installation.id,
     repositoryId: payload.repository.id,
@@ -192,6 +237,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
+  logInfo("pull_request.status.pending_generation", { repository: `${owner}/${repo}`, pullNumber: pr.number, headSha });
   await setCommitStatus({
     octokit,
     owner,
@@ -201,7 +247,15 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     description: "Generating diff-grounded quiz."
   });
 
+  logInfo("pull_request.context.build_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const repoContext = await buildRemoteRepoContext(octokit, owner, repo, headSha, files, config);
+  logInfo("pull_request.context.build_complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    repoMapEntries: repoContext.repoMap.length,
+    changedFiles: repoContext.changedFileContexts.length
+  });
+  logInfo("pull_request.quiz.generate_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const quiz = await generateValidQuiz({
     generationClient: llmClient(config, "generation"),
     validationClient: llmClient(config, "validation"),
@@ -209,8 +263,19 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     diffSummary: diffSummary(files),
     questionCount: computeQuestionCount(files, config)
   });
+  logInfo("pull_request.quiz.generate_complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    questionCount: quiz.questions.length
+  });
 
+  logInfo("pull_request.session.lookup_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const existing = await getSession(owner, repo, pr.number);
+  logInfo("pull_request.session.lookup_complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    foundExisting: Boolean(existing)
+  });
   const session = await renderAndPersistComment(octokit, {
     ...baseSession,
     commentId: existing?.commentId,
@@ -219,6 +284,12 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     quiz
   });
 
+  logInfo("pull_request.status.pending_question", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    questionCount: quiz.questions.length,
+    commentId: session.commentId
+  });
   await setCommitStatus({
     octokit,
     owner,
@@ -228,10 +299,24 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     description: `Question 1 of ${quiz.questions.length} is waiting for the PR author.`,
     targetUrl: sessionTargetUrl(session)
   });
+  logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
 }
 
 export async function handleReactionWebhook(octokit: any, payload: any): Promise<void> {
+  logInfo("reaction.handle.start", {
+    action: payload.action,
+    repository: payload.repository?.full_name,
+    pullNumber: payload.issue?.number,
+    commentId: payload.comment?.id,
+    sender: payload.sender?.login,
+    content: payload.reaction?.content
+  });
   if (payload.action !== "created" || !payload.issue?.pull_request || !payload.comment) {
+    logInfo("reaction.handle.ignored", {
+      action: payload.action,
+      repository: payload.repository?.full_name,
+      pullNumber: payload.issue?.number
+    });
     return;
   }
 
@@ -240,28 +325,61 @@ export async function handleReactionWebhook(octokit: any, payload: any): Promise
   const pullNumber = payload.issue.number;
   const session = await getSession(owner, repo, pullNumber);
   if (!session?.quiz || !session.commentId || session.commentId !== payload.comment.id) {
+    logInfo("reaction.handle.no_matching_session", {
+      repository: `${owner}/${repo}`,
+      pullNumber,
+      commentId: payload.comment.id,
+      foundSession: Boolean(session),
+      sessionCommentId: session?.commentId
+    });
     return;
   }
 
   if (payload.sender?.login !== session.authorLogin || session.status !== SessionStatus.awaiting_answer) {
+    logInfo("reaction.handle.ignored_sender_or_status", {
+      repository: `${owner}/${repo}`,
+      pullNumber,
+      sender: payload.sender?.login,
+      authorLogin: session.authorLogin,
+      status: session.status
+    });
     await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
     return;
   }
 
   const question = session.quiz.questions[session.currentQuestionIndex];
   if (!question) {
+    logInfo("reaction.handle.no_current_question", {
+      repository: `${owner}/${repo}`,
+      pullNumber,
+      currentQuestionIndex: session.currentQuestionIndex
+    });
     await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
     return;
   }
 
   const index = reactionIndexForContent(payload.reaction.content);
   if (index < 0 || index >= question.options.length) {
+    logInfo("reaction.handle.invalid_reaction", {
+      repository: `${owner}/${repo}`,
+      pullNumber,
+      reaction: payload.reaction.content,
+      optionCount: question.options.length
+    });
     await deleteIssueCommentReaction(octokit, owner, repo, payload.reaction.id);
     return;
   }
 
   const selected = question.options[index];
   const isCorrect = selected.key === question.correctOption;
+  logInfo("reaction.handle.answer_received", {
+    repository: `${owner}/${repo}`,
+    pullNumber,
+    questionIndex: session.currentQuestionIndex,
+    selectedKey: selected.key,
+    correctKey: question.correctOption,
+    isCorrect
+  });
 
   if (isCorrect) {
     const nextIndex = session.currentQuestionIndex + 1;
