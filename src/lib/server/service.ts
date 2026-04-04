@@ -64,8 +64,8 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
 }
 
 function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
-  const apiKey = process.env.AI_GATEWAY_API_KEY ?? process.env.SLOPBLOCK_API_KEY ?? config.llm.apiKey;
-  const baseUrl = process.env.AI_GATEWAY_BASE_URL ?? process.env.SLOPBLOCK_BASE_URL ?? config.llm.baseUrl ?? "https://ai-gateway.vercel.sh/v1";
+  const apiKey = (config.llm.apiKey ?? process.env.AI_GATEWAY_API_KEY ?? process.env.SLOPBLOCK_API_KEY)?.trim();
+  const baseUrl = (config.llm.baseUrl ?? process.env.AI_GATEWAY_BASE_URL ?? process.env.SLOPBLOCK_BASE_URL ?? "https://ai-gateway.vercel.sh/v1").trim();
   const overrideModel = process.env.AI_GATEWAY_MODEL ?? process.env.SLOPBLOCK_MODEL;
   const model =
     overrideModel ??

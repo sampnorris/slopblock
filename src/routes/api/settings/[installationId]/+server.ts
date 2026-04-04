@@ -34,12 +34,14 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   }
 
   const body = await request.json();
+  const existing = await getSettings(params.installationId);
 
   // Don't pass llmApiKey through PUT -- it's set via OpenRouter OAuth or manual key endpoint
   const updated = await upsertSettings({
     installationId: params.installationId,
     accountLogin: body.accountLogin ?? actor.login,
-    llmBaseUrl: body.llmBaseUrl || undefined,
+    // Preserve the connected provider endpoint when saving unrelated settings.
+    llmBaseUrl: body.llmBaseUrl ?? existing?.llmBaseUrl,
     llmGenerationModel: body.llmGenerationModel || undefined,
     llmValidationModel: body.llmValidationModel || undefined,
     llmSkipModel: body.llmSkipModel || undefined,

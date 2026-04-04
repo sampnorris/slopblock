@@ -1,11 +1,12 @@
 <script lang="ts">
+  import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-  <title>slopblock - settings</title>
+  <title>SlopBlock - settings</title>
 </svelte:head>
 
 <div class="app-layout">
@@ -13,9 +14,9 @@
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <SlopBlockLogo />
       </div>
-      <span class="sidebar-title">slopblock</span>
+      <span class="sidebar-title">SlopBlock</span>
     </div>
 
     <nav class="sidebar-nav">
@@ -23,7 +24,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Installations
       </a>
-      <a href="https://github.com/apps/slopblock" target="_blank" class="sidebar-link">
+      <a href="https://github.com/apps/slop-block" target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
         GitHub App
       </a>
@@ -50,7 +51,7 @@
       <span class="topbar-title">Installations</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <a class="topbar-btn primary" href="https://github.com/apps/slopblock/installations/new" target="_blank">
+        <a class="topbar-btn primary" href="https://github.com/apps/slop-block/installations/new" target="_blank">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Installation
         </a>
@@ -60,7 +61,7 @@
     <div class="content">
       <div class="page-header">
         <h1>Settings</h1>
-        <p>Choose an installation to configure slopblock's quiz behavior and LLM provider.</p>
+        <p>Choose an installation to configure SlopBlock's quiz behavior and LLM provider.</p>
       </div>
 
       <!-- Stats cards (like the reference) -->
@@ -92,8 +93,8 @@
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           </div>
           <h2>No installations found</h2>
-          <p>Install the slopblock GitHub App on a repository to get started.</p>
-          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 8px;" href="https://github.com/apps/slopblock/installations/new" target="_blank">Install slopblock</a>
+          <p>Install the SlopBlock GitHub App on a repository to get started.</p>
+          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 8px;" href="https://github.com/apps/slop-block/installations/new" target="_blank">Install SlopBlock</a>
         </div>
       {:else}
         <div class="install-list">

@@ -46,3 +46,23 @@ test("loadConfig merges overrides", () => {
   assert.equal(config.llm.validationModel, "model-b");
   assert.equal(config.llm.skipModel, "model-c");
 });
+
+test("installation config values remain available for provider selection", () => {
+  const config = loadConfigFromStringForTest([
+    "llm:",
+    "  baseUrl: https://openrouter.ai/api/v1",
+    "  apiKey: openrouter-key",
+    "  generationModel: anthropic/claude-sonnet-4.5"
+  ].join("\n"));
+
+  assert.equal(config.llm.baseUrl, "https://openrouter.ai/api/v1");
+  assert.equal(config.llm.apiKey, "openrouter-key");
+  assert.equal(config.llm.generationModel, "anthropic/claude-sonnet-4.5");
+});
+
+function loadConfigFromStringForTest(contents: string) {
+  const workspace = mkdtempSync(join(tmpdir(), "slopblock-"));
+  mkdirSync(join(workspace, ".github"));
+  writeFileSync(join(workspace, ".github", "slopblock.yml"), contents);
+  return loadConfig(".github/slopblock.yml", workspace);
+}
