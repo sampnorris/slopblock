@@ -6,22 +6,22 @@
       "runtime": "@vercel/node@5.3.13"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/session/(.*)",
-      "dest": "/api/session/$1"
+      "source": "/session/:token/answer",
+      "destination": "/api/session/:token/answer"
     },
     {
-      "src": "/auth/start",
-      "dest": "/api/auth/start"
+      "source": "/session/:token",
+      "destination": "/api/session/:token"
     },
     {
-      "src": "/auth/callback",
-      "dest": "/api/auth/callback"
+      "source": "/auth/start",
+      "destination": "/api/auth/start"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/auth/callback",
+      "destination": "/api/auth/callback"
     }
   ]
 }
