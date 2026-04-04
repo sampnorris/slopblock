@@ -1,4 +1,4 @@
-import { error, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { getSettings } from "$lib/server/settings-store.js";
@@ -16,9 +16,20 @@ export const load: PageServerLoad = async ({ params, request, url }) => {
   return {
     installationId: params.installationId,
     actor: { login: actor.login },
+    hasApiKey: !!settings?.llmApiKey,
+    provider: settings?.llmApiKey
+      ? (settings.llmBaseUrl?.includes("openrouter") ? "openrouter" : "manual")
+      : "none",
     settings: settings ? {
-      ...settings,
-      llmApiKey: settings.llmApiKey ? "••••••••" : undefined
+      llmBaseUrl: settings.llmBaseUrl,
+      llmGenerationModel: settings.llmGenerationModel,
+      llmValidationModel: settings.llmValidationModel,
+      llmSkipModel: settings.llmSkipModel,
+      questionCountMin: settings.questionCountMin,
+      questionCountMax: settings.questionCountMax,
+      retryMode: settings.retryMode,
+      skipBots: settings.skipBots,
+      skipForks: settings.skipForks
     } : null
   };
 };

@@ -9,9 +9,17 @@
   let saving = $state(false);
   let saveMessage = $state("");
   let saveOk = $state(false);
+  let provider = $state<"openrouter" | "manual" | "none">(data.provider as any);
+  let hasApiKey = $state(data.hasApiKey);
 
-  let llmApiKey = $state(data.settings?.llmApiKey ?? "");
-  let llmBaseUrl = $state(data.settings?.llmBaseUrl ?? "");
+  // Manual key entry
+  let showManualKey = $state(false);
+  let manualApiKey = $state("");
+  let manualBaseUrl = $state("");
+  let settingKey = $state(false);
+  let keyMessage = $state("");
+
+  // Settings fields
   let llmGenerationModel = $state(data.settings?.llmGenerationModel ?? "");
   let llmValidationModel = $state(data.settings?.llmValidationModel ?? "");
   let llmSkipModel = $state(data.settings?.llmSkipModel ?? "");
@@ -21,28 +29,6 @@
   let skipBots = $state(data.settings?.skipBots ?? true);
   let skipForks = $state(data.settings?.skipForks ?? true);
 
-  const providers = [
-    { label: "Vercel AI Gateway (default)", baseUrl: "", hint: "Uses AI_GATEWAY_API_KEY env var" },
-    { label: "OpenAI", baseUrl: "https://api.openai.com/v1", hint: "Use your OpenAI API key" },
-    { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", hint: "Use your Anthropic API key" },
-    { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", hint: "Use your OpenRouter API key" },
-    { label: "GitHub Models", baseUrl: "https://models.inference.ai.azure.com/v1", hint: "Use a GitHub PAT with models:read scope. Free tier has low rate limits." },
-    { label: "Custom", baseUrl: "custom", hint: "Any OpenAI-compatible endpoint" },
-  ];
-
-  let selectedProvider = $state(
-    providers.find(p => p.baseUrl === llmBaseUrl)?.label ??
-    (llmBaseUrl ? "Custom" : "Vercel AI Gateway (default)")
-  );
-
-  function onProviderChange(label: string) {
-    selectedProvider = label;
-    const p = providers.find(pr => pr.label === label);
-    if (p && p.baseUrl !== "custom") {
-      llmBaseUrl = p.baseUrl;
-    }
-  }
-
   const models = [
     "anthropic/claude-sonnet-4.5",
     "anthropic/claude-opus-4.1",
@@ -51,6 +37,134 @@
     "openai/gpt-4o-mini",
     "google/gemini-2.0-flash",
   ];
+
+  // -- OpenRouter OAuth PKCE --
+  async function connectOpenRouter() {
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await sha256Base64Url(codeVerifier);
+
+    // Store verifier in sessionStorage for the callback
+    sessionStorage.setItem("or_code_verifier", codeVerifier);
+    sessionStorage.setItem("or_installation_id", installationId);
+
+    const callbackUrl = `${window.location.origin}/settings/${installationId}`;
+    const url = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(callbackUrl)}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
+    window.location.href = url;
+  }
+
+  function generateCodeVerifier(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  async function sha256Base64Url(input: string): Promise<string> {
+    const encoded = new TextEncoder().encode(input);
+    const hash = await crypto.subtle.digest("SHA-256", encoded);
+    return btoa(String.fromCharCode(...new Uint8Array(hash)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  // Handle OpenRouter callback (code in URL)
+  async function handleOpenRouterCallback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    if (!code) return;
+
+    const codeVerifier = sessionStorage.getItem("or_code_verifier");
+    const storedInstallationId = sessionStorage.getItem("or_installation_id");
+    sessionStorage.removeItem("or_code_verifier");
+    sessionStorage.removeItem("or_installation_id");
+
+    if (!codeVerifier || storedInstallationId !== installationId) {
+      keyMessage = "OAuth state mismatch. Please try again.";
+      return;
+    }
+
+    // Clean URL
+    window.history.replaceState({}, "", window.location.pathname);
+
+    settingKey = true;
+    keyMessage = "";
+    try {
+      const res = await fetch("/auth/openrouter", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ code, codeVerifier, installationId })
+      });
+      const json = await res.json();
+      if (json.ok) {
+        provider = "openrouter";
+        hasApiKey = true;
+        keyMessage = "Connected to OpenRouter.";
+        saveOk = true;
+      } else {
+        keyMessage = json.message || "Failed to connect.";
+        saveOk = false;
+      }
+    } catch {
+      keyMessage = "Network error.";
+      saveOk = false;
+    } finally {
+      settingKey = false;
+    }
+  }
+
+  // Handle manual key
+  async function submitManualKey() {
+    if (!manualApiKey.trim()) return;
+    settingKey = true;
+    keyMessage = "";
+    try {
+      const res = await fetch(`/api/settings/${installationId}/key`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ apiKey: manualApiKey, baseUrl: manualBaseUrl || undefined })
+      });
+      const json = await res.json();
+      if (json.ok) {
+        provider = "manual";
+        hasApiKey = true;
+        keyMessage = "API key saved.";
+        saveOk = true;
+        manualApiKey = "";
+        showManualKey = false;
+      } else {
+        keyMessage = json.message || "Failed to save.";
+        saveOk = false;
+      }
+    } catch {
+      keyMessage = "Network error.";
+      saveOk = false;
+    } finally {
+      settingKey = false;
+    }
+  }
+
+  async function disconnect() {
+    settingKey = true;
+    try {
+      const res = await fetch(`/api/settings/${installationId}`, {
+        method: "DELETE",
+        credentials: "same-origin"
+      });
+      const json = await res.json();
+      if (json.ok) {
+        provider = "none";
+        hasApiKey = false;
+        keyMessage = "Disconnected.";
+        saveOk = true;
+      }
+    } catch {
+      keyMessage = "Network error.";
+      saveOk = false;
+    } finally {
+      settingKey = false;
+    }
+  }
 
   async function save() {
     saving = true;
@@ -62,8 +176,6 @@
         credentials: "same-origin",
         body: JSON.stringify({
           accountLogin: actor.login,
-          llmApiKey,
-          llmBaseUrl,
           llmGenerationModel: llmGenerationModel || undefined,
           llmValidationModel: llmValidationModel || undefined,
           llmSkipModel: llmSkipModel || undefined,
@@ -78,9 +190,6 @@
       if (json.ok) {
         saveMessage = "Settings saved.";
         saveOk = true;
-        if (json.settings?.llmApiKey) {
-          llmApiKey = json.settings.llmApiKey;
-        }
       } else {
         saveMessage = json.error || "Failed to save.";
         saveOk = false;
@@ -91,6 +200,11 @@
     } finally {
       saving = false;
     }
+  }
+
+  // Check for OpenRouter callback on mount
+  if (typeof window !== "undefined") {
+    handleOpenRouterCallback();
   }
 </script>
 
@@ -107,36 +221,69 @@
   </div>
 
   <div class="stack">
-    <!-- LLM Provider -->
+    <!-- LLM Provider Connection -->
     <section class="section">
       <h2>LLM Provider</h2>
-      <div class="field">
-        <label for="provider">Provider</label>
-        <select id="provider" value={selectedProvider} onchange={(e) => onProviderChange(e.currentTarget.value)}>
-          {#each providers as p}
-            <option value={p.label}>{p.label}</option>
-          {/each}
-        </select>
-        <span class="hint">{providers.find(p => p.label === selectedProvider)?.hint ?? ""}</span>
-      </div>
+      <p class="section-desc">Connect an LLM provider to power quiz generation. This is required -- slopblock won't generate quizzes without it. Your API key is encrypted at rest and never exposed.</p>
 
-      {#if selectedProvider === "Custom"}
-        <div class="field">
-          <label for="baseUrl">Base URL</label>
-          <input id="baseUrl" type="url" bind:value={llmBaseUrl} placeholder="https://your-provider.com/v1" />
+      {#if provider === "openrouter"}
+        <div class="provider-status connected">
+          <span class="status-dot"></span>
+          <span>Connected via OpenRouter</span>
+        </div>
+      {:else if provider === "manual"}
+        <div class="provider-status connected">
+          <span class="status-dot"></span>
+          <span>Connected via API key</span>
+        </div>
+      {:else}
+        <div class="provider-status">
+          <span class="status-dot"></span>
+          <span>No provider configured</span>
         </div>
       {/if}
 
-      <div class="field">
-        <label for="apiKey">API Key</label>
-        <input id="apiKey" type="password" bind:value={llmApiKey} placeholder="Leave blank to use env var" />
-        <span class="hint">Stored encrypted. Leave blank to use the AI_GATEWAY_API_KEY environment variable.</span>
+      {#if keyMessage}
+        <p class="key-msg" class:good={saveOk} class:bad={!saveOk}>{keyMessage}</p>
+      {/if}
+
+      <div class="provider-actions">
+        {#if provider === "openrouter" || provider === "manual"}
+          <button class="button" onclick={disconnect} disabled={settingKey}>
+            {provider === "openrouter" ? "Disconnect OpenRouter" : "Remove API key"}
+          </button>
+        {:else}
+          <button class="button primary" onclick={connectOpenRouter} disabled={settingKey}>
+            Connect with OpenRouter
+          </button>
+          <button class="button secondary" onclick={() => showManualKey = !showManualKey}>
+            {showManualKey ? "Cancel" : "Use API key instead"}
+          </button>
+        {/if}
       </div>
+
+      {#if showManualKey && provider !== "openrouter" && provider !== "manual"}
+        <div class="manual-key">
+          <div class="field">
+            <label for="manualBaseUrl">Base URL (optional)</label>
+            <input id="manualBaseUrl" type="url" bind:value={manualBaseUrl} placeholder="https://api.openai.com/v1" />
+            <span class="hint">Leave blank for OpenAI-compatible default. Use for Anthropic, custom endpoints, etc.</span>
+          </div>
+          <div class="field">
+            <label for="manualKey">API Key</label>
+            <input id="manualKey" type="password" bind:value={manualApiKey} placeholder="sk-..." />
+          </div>
+          <button class="button" onclick={submitManualKey} disabled={settingKey || !manualApiKey.trim()}>
+            {settingKey ? "Saving..." : "Save API Key"}
+          </button>
+        </div>
+      {/if}
     </section>
 
     <!-- Models -->
     <section class="section">
       <h2>Models</h2>
+      <p class="section-desc">Override which models are used for each stage. Leave blank for defaults.</p>
       <div class="field">
         <label for="genModel">Generation Model</label>
         <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="anthropic/claude-sonnet-4.5" />
@@ -206,6 +353,66 @@
   .section {
     border-top: 1px solid var(--line);
     padding-top: 20px;
+  }
+
+  .section-desc {
+    font-size: 14px;
+    margin-top: 4px;
+    margin-bottom: 14px;
+  }
+
+  .provider-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .provider-status.connected {
+    border-color: rgba(143, 255, 216, 0.3);
+    color: var(--good);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex: none;
+  }
+
+  .provider-status.connected .status-dot {
+    background: var(--good);
+  }
+
+  .provider-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .button.secondary {
+    background: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+  }
+
+  .button.secondary:hover {
+    border-color: rgba(148, 163, 184, 0.4);
+    color: var(--text);
+  }
+
+  .manual-key {
+    margin-top: 14px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    display: grid;
+    gap: 12px;
   }
 
   .field {
@@ -280,11 +487,12 @@
     cursor: pointer;
   }
 
-  .save-msg {
+  .save-msg, .key-msg {
     font-size: 14px;
     font-weight: 500;
+    margin-top: 8px;
   }
 
-  .save-msg.good { color: var(--good); }
-  .save-msg.bad { color: var(--bad); }
+  .save-msg.good, .key-msg.good { color: var(--good); }
+  .save-msg.bad, .key-msg.bad { color: var(--bad); }
 </style>

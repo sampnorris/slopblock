@@ -1,8 +1,9 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getInstallationOctokit, verifyWebhookSignature } from "$lib/server/github-app.js";
+import { setCommitStatus } from "$lib/server/github-service.js";
 import { logError, logInfo } from "$lib/server/log.js";
-import { handlePullRequestWebhook, handlePullRequestClosed } from "$lib/server/service.js";
+import { handlePullRequestWebhook, handlePullRequestClosed, MissingProviderError } from "$lib/server/service.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const rawBody = await request.text();
@@ -54,6 +55,28 @@ export const POST: RequestHandler = async ({ request }) => {
     logInfo("webhook.completed", { event, action: payload.action, deliveryId });
     return json({ ok: true });
   } catch (error) {
+    if (error instanceof MissingProviderError && event === "pull_request" && payload.pull_request) {
+      const pr = payload.pull_request;
+      const owner = payload.repository.owner.login;
+      const repo = payload.repository.name;
+      try {
+        await setCommitStatus({
+          octokit: await getInstallationOctokit(payload.installation.id),
+          owner,
+          repo,
+          sha: pr.head.sha,
+          state: "error",
+          description: "No LLM provider configured. Visit slopblock settings to connect one."
+        });
+      } catch { /* best effort */ }
+      logInfo("webhook.missing_provider", {
+        installationId: payload.installation.id,
+        repository: `${owner}/${repo}`,
+        pullNumber: pr.number
+      });
+      return json({ ok: true, skipped: "no_provider" });
+    }
+
     logError("webhook.failed", error, {
       event,
       action: payload.action,

@@ -8,5 +8,7 @@ export const GET: RequestHandler = async ({ url }) => {
     return new Response("Missing session id", { status: 400 });
   }
 
-  redirect(302, githubAuthorizeUrl(sessionId));
+  const returnTo = url.searchParams.get("return") ?? undefined;
+
+  redirect(302, githubAuthorizeUrl(sessionId, returnTo));
 };

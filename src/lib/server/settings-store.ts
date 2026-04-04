@@ -1,5 +1,6 @@
 import type { InstallationSettings } from "@prisma/client";
 import { prisma } from "./db.js";
+import { encrypt, decrypt } from "./crypto.js";
 
 export interface SettingsRecord {
   id?: string;
@@ -17,12 +18,21 @@ export interface SettingsRecord {
   skipForks?: boolean;
 }
 
+function decryptApiKey(encrypted: string | null): string | undefined {
+  if (!encrypted) return undefined;
+  try {
+    return decrypt(encrypted);
+  } catch {
+    return undefined;
+  }
+}
+
 function fromRow(row: InstallationSettings): SettingsRecord {
   return {
     id: row.id,
     installationId: row.installationId,
     accountLogin: row.accountLogin,
-    llmApiKey: row.llmApiKey ?? undefined,
+    llmApiKey: decryptApiKey(row.llmApiKeyEncrypted),
     llmBaseUrl: row.llmBaseUrl ?? undefined,
     llmGenerationModel: row.llmGenerationModel ?? undefined,
     llmValidationModel: row.llmValidationModel ?? undefined,
@@ -42,13 +52,30 @@ export async function getSettings(installationId: string): Promise<SettingsRecor
   return row ? fromRow(row) : undefined;
 }
 
+export async function hasApiKey(installationId: string): Promise<boolean> {
+  const row = await prisma.installationSettings.findUnique({
+    where: { installationId },
+    select: { llmApiKeyEncrypted: true }
+  });
+  return !!row?.llmApiKeyEncrypted;
+}
+
+export async function clearApiKey(installationId: string): Promise<void> {
+  await prisma.installationSettings.updateMany({
+    where: { installationId },
+    data: { llmApiKeyEncrypted: null, llmBaseUrl: null }
+  });
+}
+
 export async function upsertSettings(input: SettingsRecord): Promise<SettingsRecord> {
+  const encryptedKey = input.llmApiKey ? encrypt(input.llmApiKey) : undefined;
+
   const row = await prisma.installationSettings.upsert({
     where: { installationId: input.installationId },
     create: {
       installationId: input.installationId,
       accountLogin: input.accountLogin,
-      llmApiKey: input.llmApiKey,
+      llmApiKeyEncrypted: encryptedKey ?? null,
       llmBaseUrl: input.llmBaseUrl,
       llmGenerationModel: input.llmGenerationModel,
       llmValidationModel: input.llmValidationModel,
@@ -61,7 +88,8 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
     },
     update: {
       accountLogin: input.accountLogin,
-      llmApiKey: input.llmApiKey,
+      // Only update key if explicitly provided (undefined means keep existing)
+      ...(encryptedKey !== undefined ? { llmApiKeyEncrypted: encryptedKey } : {}),
       llmBaseUrl: input.llmBaseUrl,
       llmGenerationModel: input.llmGenerationModel,
       llmValidationModel: input.llmValidationModel,

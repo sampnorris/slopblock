@@ -64,14 +64,16 @@ export function buildOAuthState(sessionId: string): string {
   return encodePayload({ sessionId, nonce: randomBytes(8).toString("hex") });
 }
 
-export function readOAuthState(value: string | undefined): { sessionId: string; nonce: string } | undefined {
-  return decodePayload<{ sessionId: string; nonce: string }>(value);
+export function readOAuthState(value: string | undefined): { sessionId: string; nonce: string; returnTo?: string } | undefined {
+  return decodePayload<{ sessionId: string; nonce: string; returnTo?: string }>(value);
 }
 
-export function githubAuthorizeUrl(sessionId: string): string {
+export function githubAuthorizeUrl(sessionId: string, returnTo?: string): string {
   const clientId = requiredEnv("GITHUB_CLIENT_ID");
   const baseUrl = requiredEnv("APP_BASE_URL").replace(/\/$/, "");
-  const state = buildOAuthState(sessionId);
+  const statePayload: Record<string, string> = { sessionId, nonce: randomBytes(8).toString("hex") };
+  if (returnTo) statePayload.returnTo = returnTo;
+  const state = encodePayload(statePayload);
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", `${baseUrl}/auth/callback`);

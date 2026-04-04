@@ -12,6 +12,13 @@ import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 import { getSettings } from "./settings-store.js";
 
+export class MissingProviderError extends Error {
+  constructor() {
+    super("No LLM provider configured. Connect one at /settings.");
+    this.name = "MissingProviderError";
+  }
+}
+
 function diffSummary(files: ChangedFile[]): string {
   return files
     .map((file) => {
@@ -67,7 +74,7 @@ function llmClient(config: SlopblockConfig, purpose: "generation" | "validation"
         : process.env.AI_GATEWAY_SKIP_MODEL ?? process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel);
 
   if (!apiKey) {
-    throw new Error("Missing AI gateway API key. Set AI_GATEWAY_API_KEY or SLOPBLOCK_API_KEY.");
+    throw new MissingProviderError();
   }
 
   return new OpenAICompatibleClient({ apiKey, baseUrl, model });

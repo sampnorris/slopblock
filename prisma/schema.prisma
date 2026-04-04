@@ -19,7 +19,7 @@ model InstallationSettings {
   id               String   @id @default(cuid())
   installationId   String   @unique
   accountLogin     String
-  llmApiKey        String?
+  llmApiKeyEncrypted String?
   llmBaseUrl       String?
   llmGenerationModel String?
   llmValidationModel String?
