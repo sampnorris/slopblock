@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 3 * * 0"
+    }
+  ],
   "functions": {
     "api/**/*.ts": {
       "runtime": "@vercel/node@5.3.13"

@@ -63,6 +63,37 @@ export async function getSessionById(id: string): Promise<SessionRecord | undefi
   return row ? fromRow(row) : undefined;
 }
 
+export async function deleteSession(owner: string, repo: string, pullNumber: number): Promise<boolean> {
+  try {
+    await prisma.pullRequestSession.delete({
+      where: {
+        repositoryOwner_repositoryName_pullNumber: {
+          repositoryOwner: owner,
+          repositoryName: repo,
+          pullNumber
+        }
+      }
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteStaleSessions(olderThanDays: number): Promise<number> {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - olderThanDays);
+
+  const result = await prisma.pullRequestSession.deleteMany({
+    where: {
+      updatedAt: { lt: cutoff },
+      status: { in: [SessionStatus.passed, SessionStatus.skipped, SessionStatus.failed] }
+    }
+  });
+
+  return result.count;
+}
+
 export async function upsertSession(input: SessionRecord): Promise<SessionRecord> {
   const row = await prisma.pullRequestSession.upsert({
     where: {

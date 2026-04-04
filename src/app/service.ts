@@ -6,7 +6,7 @@ import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "..
 import { summarizePatch } from "../util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
-import { getSession, type SessionRecord, upsertSession } from "./session-store.js";
+import { deleteSession, getSession, type SessionRecord, upsertSession } from "./session-store.js";
 import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
@@ -385,4 +385,23 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     targetUrl: sessionTargetUrl(session)
   });
   logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+}
+
+export async function handlePullRequestClosed(payload: any): Promise<void> {
+  const owner = payload.repository.owner.login;
+  const repo = payload.repository.name;
+  const pullNumber = payload.pull_request.number;
+
+  logInfo("pull_request.closed", {
+    repository: `${owner}/${repo}`,
+    pullNumber,
+    merged: payload.pull_request.merged
+  });
+
+  const deleted = await deleteSession(owner, repo, pullNumber);
+  logInfo("pull_request.closed.session_cleanup", {
+    repository: `${owner}/${repo}`,
+    pullNumber,
+    deleted
+  });
 }
