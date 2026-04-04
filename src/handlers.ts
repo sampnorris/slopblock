@@ -79,6 +79,45 @@ function createAwaitingState(params: {
   };
 }
 
+async function generateValidQuiz(params: {
+  client: OpenAICompatibleClient;
+  repoContext: Awaited<ReturnType<typeof buildRepoContext>>;
+  diffSummary: string;
+  questionCount: number;
+  maxAttempts?: number;
+}): Promise<QuizPayload> {
+  const maxAttempts = params.maxAttempts ?? 3;
+  let feedback: string[] = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const quiz = await params.client.generateQuiz({
+      repoContext: params.repoContext,
+      diffSummary: params.diffSummary,
+      questionCount: params.questionCount,
+      validatorFeedback: feedback
+    });
+
+    const localValidationIssues = validateQuizPayload(quiz);
+    if (localValidationIssues.length > 0) {
+      feedback = localValidationIssues;
+      continue;
+    }
+
+    const validation = await params.client.validateQuiz({
+      quiz,
+      repoContext: params.repoContext,
+      diffSummary: params.diffSummary
+    });
+    if (validation.valid) {
+      return quiz;
+    }
+
+    feedback = validation.issues;
+  }
+
+  throw new Error(`Quiz generation failed after ${maxAttempts} attempts: ${feedback.join("; ")}`);
+}
+
 export async function handlePullRequestEvent(): Promise<string> {
   const token = requiredString("github-token", core.getInput("github-token"));
   const config = loadConfig(core.getInput("config-path") || ".github/slopblock.yml");
@@ -193,24 +232,15 @@ export async function handlePullRequestEvent(): Promise<string> {
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
-  const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
-  const localValidationIssues = validateQuizPayload(quiz);
-  if (localValidationIssues.length > 0) {
-    await upsertCommitStatus({
-      octokit,
-      owner,
-      repo,
-      headSha,
-      context: config.checkName,
-      state: "error",
-      summary: "Quiz generation failed local validation.",
-      detailsUrl: statusTargetUrl(owner, repo, pr.number)
+  let quiz: QuizPayload;
+  try {
+    quiz = await generateValidQuiz({
+      client,
+      repoContext,
+      diffSummary,
+      questionCount
     });
-    throw new Error(`Quiz local validation failed: ${localValidationIssues.join("; ")}`);
-  }
-  const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
-
-  if (!validation.valid) {
+  } catch (error) {
     await upsertCommitStatus({
       octokit,
       owner,
@@ -221,7 +251,7 @@ export async function handlePullRequestEvent(): Promise<string> {
       summary: "Quiz generation failed validation.",
       detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
-    throw new Error(`Quiz validation failed: ${validation.issues.join("; ")}`);
+    throw error;
   }
 
   const existing = await octokit.paginate(octokit.rest.issues.listComments, {
@@ -401,15 +431,12 @@ export async function handleIssueCommentEvent(): Promise<string> {
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
-  const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
-  const localValidationIssues = validateQuizPayload(quiz);
-  if (localValidationIssues.length > 0) {
-    throw new Error(`Regenerated quiz failed local validation: ${localValidationIssues.join("; ")}`);
-  }
-  const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
-  if (!validation.valid) {
-    throw new Error(`Regenerated quiz failed validation: ${validation.issues.join("; ")}`);
-  }
+  const quiz = await generateValidQuiz({
+    client,
+    repoContext,
+    diffSummary,
+    questionCount
+  });
 
   const retryState = createAwaitingState({
     prNumber: pullNumber,

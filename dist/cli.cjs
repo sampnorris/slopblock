@@ -230,11 +230,13 @@ var OpenAICompatibleClient = class {
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
                 'options must be an array of objects shaped exactly like {"key":"A","text":"option text"}.',
                 "correctOption must be a single option key letter such as A, B, C, D, or E.",
-                "diffAnchors should reference changed file paths or changed symbols."
+                "diffAnchors should reference changed file paths or changed symbols.",
+                "If prior validator feedback is present, fix those issues instead of repeating them."
               ],
               questionCount: input.questionCount,
               repoContext: input.repoContext,
-              diffSummary: truncate(input.diffSummary, 14e3)
+              diffSummary: truncate(input.diffSummary, 14e3),
+              validatorFeedback: input.validatorFeedback ?? []
             },
             null,
             2

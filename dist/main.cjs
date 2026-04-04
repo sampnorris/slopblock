@@ -31846,11 +31846,13 @@ var OpenAICompatibleClient = class {
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
                 'options must be an array of objects shaped exactly like {"key":"A","text":"option text"}.',
                 "correctOption must be a single option key letter such as A, B, C, D, or E.",
-                "diffAnchors should reference changed file paths or changed symbols."
+                "diffAnchors should reference changed file paths or changed symbols.",
+                "If prior validator feedback is present, fix those issues instead of repeating them."
               ],
               questionCount: input.questionCount,
               repoContext: input.repoContext,
-              diffSummary: truncate(input.diffSummary, 14e3)
+              diffSummary: truncate(input.diffSummary, 14e3),
+              validatorFeedback: input.validatorFeedback ?? []
             },
             null,
             2
@@ -32019,6 +32021,33 @@ function createAwaitingState(params) {
     quiz: params.quiz
   };
 }
+async function generateValidQuiz(params) {
+  const maxAttempts = params.maxAttempts ?? 3;
+  let feedback = [];
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const quiz = await params.client.generateQuiz({
+      repoContext: params.repoContext,
+      diffSummary: params.diffSummary,
+      questionCount: params.questionCount,
+      validatorFeedback: feedback
+    });
+    const localValidationIssues = validateQuizPayload(quiz);
+    if (localValidationIssues.length > 0) {
+      feedback = localValidationIssues;
+      continue;
+    }
+    const validation = await params.client.validateQuiz({
+      quiz,
+      repoContext: params.repoContext,
+      diffSummary: params.diffSummary
+    });
+    if (validation.valid) {
+      return quiz;
+    }
+    feedback = validation.issues;
+  }
+  throw new Error(`Quiz generation failed after ${maxAttempts} attempts: ${feedback.join("; ")}`);
+}
 async function handlePullRequestEvent() {
   const token = requiredString("github-token", core.getInput("github-token"));
   const config = loadConfig(core.getInput("config-path") || ".github/slopblock.yml");
@@ -32123,23 +32152,15 @@ async function handlePullRequestEvent() {
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
-  const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
-  const localValidationIssues = validateQuizPayload(quiz);
-  if (localValidationIssues.length > 0) {
-    await upsertCommitStatus({
-      octokit,
-      owner,
-      repo,
-      headSha,
-      context: config.checkName,
-      state: "error",
-      summary: "Quiz generation failed local validation.",
-      detailsUrl: statusTargetUrl(owner, repo, pr.number)
+  let quiz;
+  try {
+    quiz = await generateValidQuiz({
+      client,
+      repoContext,
+      diffSummary,
+      questionCount
     });
-    throw new Error(`Quiz local validation failed: ${localValidationIssues.join("; ")}`);
-  }
-  const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
-  if (!validation.valid) {
+  } catch (error) {
     await upsertCommitStatus({
       octokit,
       owner,
@@ -32150,7 +32171,7 @@ async function handlePullRequestEvent() {
       summary: "Quiz generation failed validation.",
       detailsUrl: statusTargetUrl(owner, repo, pr.number)
     });
-    throw new Error(`Quiz validation failed: ${validation.issues.join("; ")}`);
+    throw error;
   }
   const existing = await octokit.paginate(octokit.rest.issues.listComments, {
     owner,
@@ -32316,15 +32337,12 @@ async function handleIssueCommentEvent() {
   const repoContext = await buildRepoContext(workspace, files, config);
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
-  const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
-  const localValidationIssues = validateQuizPayload(quiz);
-  if (localValidationIssues.length > 0) {
-    throw new Error(`Regenerated quiz failed local validation: ${localValidationIssues.join("; ")}`);
-  }
-  const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
-  if (!validation.valid) {
-    throw new Error(`Regenerated quiz failed validation: ${validation.issues.join("; ")}`);
-  }
+  const quiz = await generateValidQuiz({
+    client,
+    repoContext,
+    diffSummary,
+    questionCount
+  });
   const retryState = createAwaitingState({
     prNumber: pullNumber,
     headSha: pr.head.sha,

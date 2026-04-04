@@ -123,6 +123,7 @@ export class OpenAICompatibleClient {
     repoContext: RepoContext;
     diffSummary: string;
     questionCount: number;
+    validatorFeedback?: string[];
   }): Promise<QuizPayload> {
     const rawQuiz = await this.chatForJson<QuizPayload>(
       [
@@ -144,11 +145,13 @@ export class OpenAICompatibleClient {
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
                 "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",
                 "correctOption must be a single option key letter such as A, B, C, D, or E.",
-                "diffAnchors should reference changed file paths or changed symbols."
+                "diffAnchors should reference changed file paths or changed symbols.",
+                "If prior validator feedback is present, fix those issues instead of repeating them."
               ],
               questionCount: input.questionCount,
               repoContext: input.repoContext,
-              diffSummary: truncate(input.diffSummary, 14000)
+              diffSummary: truncate(input.diffSummary, 14000),
+              validatorFeedback: input.validatorFeedback ?? []
             },
             null,
             2
