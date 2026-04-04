@@ -15,6 +15,24 @@ enum SessionStatus {
   failed
 }
 
+model InstallationSettings {
+  id               String   @id @default(cuid())
+  installationId   String   @unique
+  accountLogin     String
+  llmApiKey        String?
+  llmBaseUrl       String?
+  llmGenerationModel String?
+  llmValidationModel String?
+  llmSkipModel     String?
+  questionCountMin Int?
+  questionCountMax Int?
+  retryMode        String?
+  skipBots         Boolean?
+  skipForks        Boolean?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 model PullRequestSession {
   id                   String        @id @default(cuid())
   installationId       String

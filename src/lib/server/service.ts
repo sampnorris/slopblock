@@ -10,6 +10,7 @@ import { deleteSession, getSession, type SessionRecord, upsertSession } from "./
 import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
+import { getSettings } from "./settings-store.js";
 
 function diffSummary(files: ChangedFile[]): string {
   return files
@@ -24,6 +25,33 @@ function diffSummary(files: ChangedFile[]): string {
       ].join("\n");
     })
     .join("\n\n");
+}
+
+async function applyInstallationSettings(config: SlopblockConfig, installationId: number): Promise<SlopblockConfig> {
+  const settings = await getSettings(String(installationId));
+  if (!settings) return config;
+
+  return {
+    ...config,
+    questionCount: {
+      min: settings.questionCountMin ?? config.questionCount.min,
+      max: settings.questionCountMax ?? config.questionCount.max
+    },
+    retryMode: (settings.retryMode as SlopblockConfig["retryMode"]) ?? config.retryMode,
+    heuristics: {
+      ...config.heuristics,
+      skipBots: settings.skipBots ?? config.heuristics.skipBots,
+      skipForkPullRequests: settings.skipForks ?? config.heuristics.skipForkPullRequests
+    },
+    llm: {
+      ...config.llm,
+      apiKey: settings.llmApiKey ?? config.llm.apiKey,
+      baseUrl: settings.llmBaseUrl ?? config.llm.baseUrl,
+      generationModel: settings.llmGenerationModel ?? config.llm.generationModel,
+      validationModel: settings.llmValidationModel ?? config.llm.validationModel,
+      skipModel: settings.llmSkipModel ?? config.llm.skipModel
+    }
+  };
 }
 
 function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
@@ -191,7 +219,8 @@ export async function requestNewQuiz(params: {
     description: "Generating new quiz..."
   });
 
-  const config = await loadRemoteConfig(octokit, owner, repo, session.headSha);
+  const repoConfig = await loadRemoteConfig(octokit, owner, repo, session.headSha);
+  const config = await applyInstallationSettings(repoConfig, session.installationId);
   const files = await listChangedFiles(octokit, owner, repo, session.pullNumber);
   const repoContext = await buildRemoteRepoContext(octokit, owner, repo, session.headSha, files, config);
   const quiz = await generateValidQuiz({
@@ -247,7 +276,8 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   const repo = payload.repository.name;
   const headSha = pr.head.sha;
   logInfo("pull_request.config.load_start", { repository: `${owner}/${repo}`, pullNumber: pr.number, headSha });
-  const config = await loadRemoteConfig(octokit, owner, repo, headSha);
+  const repoConfig = await loadRemoteConfig(octokit, owner, repo, headSha);
+  const config = await applyInstallationSettings(repoConfig, payload.installation.id);
   logInfo("pull_request.config.load_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
 
   if (pr.draft) {
