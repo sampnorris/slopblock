@@ -29,7 +29,7 @@
   let skipBots = $state(data.settings?.skipBots ?? true);
   let skipForks = $state(data.settings?.skipForks ?? true);
 
-  const models = [
+  const defaultModels = [
     "anthropic/claude-sonnet-4.5",
     "anthropic/claude-opus-4.1",
     "anthropic/claude-haiku-3.5",
@@ -37,6 +37,39 @@
     "openai/gpt-4o-mini",
     "google/gemini-2.0-flash",
   ];
+
+  interface ModelInfo {
+    id: string;
+    name: string;
+    contextLength?: number;
+    promptPrice?: string;
+    completionPrice?: string;
+  }
+
+  let availableModels = $state<ModelInfo[]>([]);
+  let modelsLoading = $state(false);
+  let modelsSource = $state<"static" | "openrouter" | "error">("static");
+
+  async function fetchModels() {
+    modelsLoading = true;
+    try {
+      const res = await fetch(`/api/settings/${installationId}/models`, { credentials: "same-origin" });
+      const json = await res.json();
+      modelsSource = json.source;
+      if (json.models?.length) {
+        availableModels = json.models;
+      }
+    } catch {
+      modelsSource = "error";
+    } finally {
+      modelsLoading = false;
+    }
+  }
+
+  // Fetch models on mount if connected via OpenRouter
+  if (typeof window !== "undefined" && data.provider === "openrouter") {
+    fetchModels();
+  }
 
   // -- OpenRouter OAuth PKCE --
   async function connectOpenRouter() {
@@ -100,6 +133,7 @@
         hasApiKey = true;
         keyMessage = "Connected to OpenRouter.";
         saveOk = true;
+        fetchModels();
       } else {
         keyMessage = json.message || "Failed to connect.";
         saveOk = false;
@@ -283,24 +317,63 @@
     <!-- Models -->
     <section class="section">
       <h2>Models</h2>
-      <p class="section-desc">Override which models are used for each stage. Leave blank for defaults.</p>
-      <div class="field">
-        <label for="genModel">Generation Model</label>
-        <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="anthropic/claude-sonnet-4.5" />
-      </div>
-      <div class="field">
-        <label for="valModel">Validation Model</label>
-        <input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="anthropic/claude-opus-4.1" />
-      </div>
-      <div class="field">
-        <label for="skipModel">Skip Evaluation Model</label>
-        <input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="anthropic/claude-sonnet-4.5" />
-      </div>
-      <datalist id="model-list">
-        {#each models as m}
-          <option value={m}></option>
-        {/each}
-      </datalist>
+      <p class="section-desc">
+        {#if modelsLoading}
+          Loading available models...
+        {:else if modelsSource === "openrouter"}
+          Showing {availableModels.length} models from your OpenRouter account.
+        {:else}
+          Override which models are used for each stage. Leave blank for defaults.
+        {/if}
+      </p>
+
+      {#if availableModels.length > 0}
+        <div class="field">
+          <label for="genModel">Generation Model</label>
+          <select id="genModel" bind:value={llmGenerationModel}>
+            <option value="">Default (anthropic/claude-sonnet-4.5)</option>
+            {#each availableModels as m}
+              <option value={m.id}>{m.name} ({m.id})</option>
+            {/each}
+          </select>
+        </div>
+        <div class="field">
+          <label for="valModel">Validation Model</label>
+          <select id="valModel" bind:value={llmValidationModel}>
+            <option value="">Default (anthropic/claude-opus-4.1)</option>
+            {#each availableModels as m}
+              <option value={m.id}>{m.name} ({m.id})</option>
+            {/each}
+          </select>
+        </div>
+        <div class="field">
+          <label for="skipModel">Skip Evaluation Model</label>
+          <select id="skipModel" bind:value={llmSkipModel}>
+            <option value="">Default (anthropic/claude-sonnet-4.5)</option>
+            {#each availableModels as m}
+              <option value={m.id}>{m.name} ({m.id})</option>
+            {/each}
+          </select>
+        </div>
+      {:else}
+        <div class="field">
+          <label for="genModel">Generation Model</label>
+          <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="anthropic/claude-sonnet-4.5" />
+        </div>
+        <div class="field">
+          <label for="valModel">Validation Model</label>
+          <input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="anthropic/claude-opus-4.1" />
+        </div>
+        <div class="field">
+          <label for="skipModel">Skip Evaluation Model</label>
+          <input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="anthropic/claude-sonnet-4.5" />
+        </div>
+        <datalist id="model-list">
+          {#each defaultModels as m}
+            <option value={m}></option>
+          {/each}
+        </datalist>
+      {/if}
     </section>
 
     <!-- Quiz Behavior -->
