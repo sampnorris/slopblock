@@ -1,0 +1,27 @@
+{
+  "repoMap": [
+    "src/featureFlags.ts",
+    "src/checkout.ts",
+    "src/routes/api/checkout.ts",
+    "tests/checkout.test.ts"
+  ],
+  "changedFileContexts": [
+    {
+      "path": "src/featureFlags.ts",
+      "summary": "status=modified additions=2 deletions=2",
+      "content": "export const checkoutV2Enabled = true;\nexport const checkoutV2Audience = \"all\";"
+    }
+  ],
+  "relatedSnippets": [
+    {
+      "path": "src/checkout.ts",
+      "reason": "Contains touched symbol checkoutV2Enabled",
+      "snippet": "if (checkoutV2Enabled && userMatchesAudience(checkoutV2Audience, user)) {\n  return renderNewCheckout();\n}"
+    },
+    {
+      "path": "tests/checkout.test.ts",
+      "reason": "Contains touched symbol checkoutV2Audience",
+      "snippet": "it('renders checkout v2 only for matching users', () => {\n  expect(renderCheckout(testUser)).toContain('checkout-v2');\n});"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+file: src/featureFlags.ts
+status: modified
+additions: 2
+deletions: 2
+patch:
+@@
+-export const checkoutV2Enabled = false;
++export const checkoutV2Enabled = true;
+-export const checkoutV2Audience = "internal";
++export const checkoutV2Audience = "all";

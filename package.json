@@ -1,0 +1,34 @@
+{
+  "name": "slopblock",
+  "version": "0.1.0",
+  "description": "GitHub Action that gates PR merges behind a diff-grounded quiz",
+  "type": "module",
+  "main": "dist/main.js",
+  "bin": {
+    "slopblock": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "node --import tsx --test tests/config.test.ts tests/comment-state.test.ts tests/heuristics.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build && npm test"
+  },
+  "keywords": [
+    "github-action",
+    "pull-request",
+    "llm",
+    "quiz"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "esbuild": "^0.25.10",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}
