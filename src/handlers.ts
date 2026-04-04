@@ -5,6 +5,7 @@ import { buildQuizComment, gradeAnswers, parseAnswers, parseStateFromComment } f
 import { getOctokit, listChangedFiles, upsertCommitStatus, upsertManagedComment } from "./github-api.js";
 import { computeQuestionCount, initialSkipDecision } from "./heuristics.js";
 import { OpenAICompatibleClient } from "./openai.js";
+import { validateQuizPayload } from "./quiz.js";
 import { buildRepoContext } from "./repo-context.js";
 import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig, SlopblockState } from "./types.js";
 import { summarizePatch } from "./util.js";
@@ -193,6 +194,20 @@ export async function handlePullRequestEvent(): Promise<string> {
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
+  const localValidationIssues = validateQuizPayload(quiz);
+  if (localValidationIssues.length > 0) {
+    await upsertCommitStatus({
+      octokit,
+      owner,
+      repo,
+      headSha,
+      context: config.checkName,
+      state: "error",
+      summary: "Quiz generation failed local validation.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
+    });
+    throw new Error(`Quiz local validation failed: ${localValidationIssues.join("; ")}`);
+  }
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
 
   if (!validation.valid) {
@@ -387,6 +402,10 @@ export async function handleIssueCommentEvent(): Promise<string> {
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
+  const localValidationIssues = validateQuizPayload(quiz);
+  if (localValidationIssues.length > 0) {
+    throw new Error(`Regenerated quiz failed local validation: ${localValidationIssues.join("; ")}`);
+  }
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
   if (!validation.valid) {
     throw new Error(`Regenerated quiz failed validation: ${validation.issues.join("; ")}`);

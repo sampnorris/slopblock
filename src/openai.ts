@@ -1,4 +1,5 @@
 import type { QuizPayload, QuizValidation, RepoContext, SkipDecision } from "./types.js";
+import { normalizeQuizPayload } from "./quiz.js";
 import { truncate } from "./util.js";
 
 interface Message {
@@ -123,7 +124,7 @@ export class OpenAICompatibleClient {
     diffSummary: string;
     questionCount: number;
   }): Promise<QuizPayload> {
-    return await this.chatForJson<QuizPayload>(
+    const rawQuiz = await this.chatForJson<QuizPayload>(
       [
         {
           role: "system",
@@ -141,6 +142,8 @@ export class OpenAICompatibleClient {
                 "Use 4 options unless 5 is necessary.",
                 "Return JSON with summary and questions.",
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
+                "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",
+                "correctOption must be a single option key letter such as A, B, C, D, or E.",
                 "diffAnchors should reference changed file paths or changed symbols."
               ],
               questionCount: input.questionCount,
@@ -154,6 +157,8 @@ export class OpenAICompatibleClient {
       ],
       0.2
     );
+
+    return normalizeQuizPayload(rawQuiz);
   }
 
   async validateQuiz(input: { quiz: QuizPayload; repoContext: RepoContext; diffSummary: string }): Promise<QuizValidation> {

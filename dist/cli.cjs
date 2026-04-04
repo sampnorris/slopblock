@@ -5,9 +5,118 @@
 var import_promises = require("node:fs/promises");
 
 // src/util.ts
+function normalizeWhitespace(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
 function truncate(value, max = 3e3) {
   return value.length <= max ? value : `${value.slice(0, max)}
 ...[truncated]`;
+}
+
+// src/quiz.ts
+var OPTION_KEYS = ["A", "B", "C", "D", "E"];
+function asRecord(value) {
+  return value && typeof value === "object" ? value : void 0;
+}
+function normalizeOptionKey(value, index) {
+  if (typeof value === "string") {
+    const candidate = value.trim().toUpperCase();
+    if (OPTION_KEYS.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return OPTION_KEYS[index];
+}
+function normalizeOptionText(value) {
+  if (typeof value === "string") {
+    const text = normalizeWhitespace(value);
+    return text || void 0;
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return void 0;
+  }
+  const candidates = [record.text, record.value, record.option, record.content, record.body, record.description];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const text = normalizeWhitespace(candidate);
+      if (text) {
+        return text;
+      }
+    }
+  }
+  return void 0;
+}
+function normalizeOptions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((option, index) => {
+    if (typeof option === "string") {
+      return {
+        key: OPTION_KEYS[index],
+        text: normalizeWhitespace(option)
+      };
+    }
+    const record = asRecord(option);
+    if (!record) {
+      return void 0;
+    }
+    const key = normalizeOptionKey(record.key ?? record.label, index);
+    const text = normalizeOptionText(record);
+    if (!key || !text) {
+      return void 0;
+    }
+    return { key, text };
+  }).filter((option) => Boolean(option)).slice(0, OPTION_KEYS.length);
+}
+function normalizeCorrectOption(value, options) {
+  if (typeof value === "number") {
+    const index = value > 0 ? value - 1 : value;
+    return options[index]?.key;
+  }
+  if (typeof value === "string") {
+    const candidate = value.trim();
+    const asKey = candidate.toUpperCase();
+    if (OPTION_KEYS.includes(asKey)) {
+      return options.find((option) => option.key === asKey)?.key;
+    }
+    return options.find((option) => normalizeWhitespace(option.text) === normalizeWhitespace(candidate))?.key;
+  }
+  return void 0;
+}
+function normalizeQuestion(value, index) {
+  const record = asRecord(value);
+  if (!record) {
+    return void 0;
+  }
+  const prompt = typeof record.prompt === "string" ? normalizeWhitespace(record.prompt) : "";
+  const options = normalizeOptions(record.options);
+  const correctOption = normalizeCorrectOption(record.correctOption, options);
+  const explanation = typeof record.explanation === "string" ? normalizeWhitespace(record.explanation) : "";
+  const diffAnchors = Array.isArray(record.diffAnchors) ? record.diffAnchors.filter((anchor) => typeof anchor === "string" && Boolean(normalizeWhitespace(anchor))) : [];
+  const focus = record.focus === "behavior" || record.focus === "risk" || record.focus === "implementation" ? record.focus : "behavior";
+  if (!prompt || options.length < 3 || !correctOption) {
+    return void 0;
+  }
+  return {
+    id: typeof record.id === "string" && normalizeWhitespace(record.id) ? record.id : `q${index + 1}`,
+    prompt,
+    options,
+    correctOption,
+    explanation: explanation || "Correct answer verified against the diff.",
+    diffAnchors,
+    focus
+  };
+}
+function normalizeQuizPayload(value) {
+  const record = asRecord(value) ?? {};
+  const summary = typeof record.summary === "string" ? normalizeWhitespace(record.summary) : "";
+  const questions = Array.isArray(record.questions) ? record.questions.map((question, index) => normalizeQuestion(question, index)).filter((question) => Boolean(question)) : [];
+  return {
+    summary: summary || "Review the questions below about the changed behavior in this pull request.",
+    questions
+  };
 }
 
 // src/openai.ts
@@ -102,7 +211,7 @@ var OpenAICompatibleClient = class {
     );
   }
   async generateQuiz(input) {
-    return await this.chatForJson(
+    const rawQuiz = await this.chatForJson(
       [
         {
           role: "system",
@@ -119,6 +228,8 @@ var OpenAICompatibleClient = class {
                 "Use 4 options unless 5 is necessary.",
                 "Return JSON with summary and questions.",
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
+                'options must be an array of objects shaped exactly like {"key":"A","text":"option text"}.',
+                "correctOption must be a single option key letter such as A, B, C, D, or E.",
                 "diffAnchors should reference changed file paths or changed symbols."
               ],
               questionCount: input.questionCount,
@@ -132,6 +243,7 @@ var OpenAICompatibleClient = class {
       ],
       0.2
     );
+    return normalizeQuizPayload(rawQuiz);
   }
   async validateQuiz(input) {
     return await this.chatForJson(

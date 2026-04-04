@@ -31600,6 +31600,141 @@ function initialSkipDecision(files, config) {
   return { outcome: "quiz", reason: "Diff is substantial enough to require a quiz.", certainty: "high" };
 }
 
+// src/quiz.ts
+var OPTION_KEYS = ["A", "B", "C", "D", "E"];
+function asRecord(value) {
+  return value && typeof value === "object" ? value : void 0;
+}
+function normalizeOptionKey(value, index) {
+  if (typeof value === "string") {
+    const candidate = value.trim().toUpperCase();
+    if (OPTION_KEYS.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return OPTION_KEYS[index];
+}
+function normalizeOptionText(value) {
+  if (typeof value === "string") {
+    const text = normalizeWhitespace(value);
+    return text || void 0;
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return void 0;
+  }
+  const candidates = [record.text, record.value, record.option, record.content, record.body, record.description];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string") {
+      const text = normalizeWhitespace(candidate);
+      if (text) {
+        return text;
+      }
+    }
+  }
+  return void 0;
+}
+function normalizeOptions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((option, index) => {
+    if (typeof option === "string") {
+      return {
+        key: OPTION_KEYS[index],
+        text: normalizeWhitespace(option)
+      };
+    }
+    const record = asRecord(option);
+    if (!record) {
+      return void 0;
+    }
+    const key = normalizeOptionKey(record.key ?? record.label, index);
+    const text = normalizeOptionText(record);
+    if (!key || !text) {
+      return void 0;
+    }
+    return { key, text };
+  }).filter((option) => Boolean(option)).slice(0, OPTION_KEYS.length);
+}
+function normalizeCorrectOption(value, options) {
+  if (typeof value === "number") {
+    const index = value > 0 ? value - 1 : value;
+    return options[index]?.key;
+  }
+  if (typeof value === "string") {
+    const candidate = value.trim();
+    const asKey = candidate.toUpperCase();
+    if (OPTION_KEYS.includes(asKey)) {
+      return options.find((option) => option.key === asKey)?.key;
+    }
+    return options.find((option) => normalizeWhitespace(option.text) === normalizeWhitespace(candidate))?.key;
+  }
+  return void 0;
+}
+function normalizeQuestion(value, index) {
+  const record = asRecord(value);
+  if (!record) {
+    return void 0;
+  }
+  const prompt = typeof record.prompt === "string" ? normalizeWhitespace(record.prompt) : "";
+  const options = normalizeOptions(record.options);
+  const correctOption = normalizeCorrectOption(record.correctOption, options);
+  const explanation = typeof record.explanation === "string" ? normalizeWhitespace(record.explanation) : "";
+  const diffAnchors = Array.isArray(record.diffAnchors) ? record.diffAnchors.filter((anchor) => typeof anchor === "string" && Boolean(normalizeWhitespace(anchor))) : [];
+  const focus = record.focus === "behavior" || record.focus === "risk" || record.focus === "implementation" ? record.focus : "behavior";
+  if (!prompt || options.length < 3 || !correctOption) {
+    return void 0;
+  }
+  return {
+    id: typeof record.id === "string" && normalizeWhitespace(record.id) ? record.id : `q${index + 1}`,
+    prompt,
+    options,
+    correctOption,
+    explanation: explanation || "Correct answer verified against the diff.",
+    diffAnchors,
+    focus
+  };
+}
+function normalizeQuizPayload(value) {
+  const record = asRecord(value) ?? {};
+  const summary = typeof record.summary === "string" ? normalizeWhitespace(record.summary) : "";
+  const questions = Array.isArray(record.questions) ? record.questions.map((question, index) => normalizeQuestion(question, index)).filter((question) => Boolean(question)) : [];
+  return {
+    summary: summary || "Review the questions below about the changed behavior in this pull request.",
+    questions
+  };
+}
+function validateQuizPayload(quiz) {
+  const issues = [];
+  if (!quiz.summary.trim()) {
+    issues.push("Quiz summary is empty.");
+  }
+  if (quiz.questions.length === 0) {
+    issues.push("Quiz did not contain any valid questions.");
+  }
+  quiz.questions.forEach((question, index) => {
+    if (!question.prompt.trim()) {
+      issues.push(`Question ${index + 1} is missing a prompt.`);
+    }
+    if (question.options.length < 3 || question.options.length > 5) {
+      issues.push(`Question ${index + 1} must have between 3 and 5 options.`);
+    }
+    const optionKeys = new Set(question.options.map((option) => option.key));
+    if (optionKeys.size !== question.options.length) {
+      issues.push(`Question ${index + 1} contains duplicate option keys.`);
+    }
+    const optionTexts = new Set(question.options.map((option) => normalizeWhitespace(option.text).toLowerCase()));
+    if (optionTexts.size !== question.options.length) {
+      issues.push(`Question ${index + 1} contains duplicate option text.`);
+    }
+    if (!question.options.some((option) => option.key === question.correctOption)) {
+      issues.push(`Question ${index + 1} has a correct option that does not exist in the options list.`);
+    }
+  });
+  return issues;
+}
+
 // src/openai.ts
 var OpenAICompatibleClient = class {
   constructor(options) {
@@ -31692,7 +31827,7 @@ var OpenAICompatibleClient = class {
     );
   }
   async generateQuiz(input) {
-    return await this.chatForJson(
+    const rawQuiz = await this.chatForJson(
       [
         {
           role: "system",
@@ -31709,6 +31844,8 @@ var OpenAICompatibleClient = class {
                 "Use 4 options unless 5 is necessary.",
                 "Return JSON with summary and questions.",
                 "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
+                'options must be an array of objects shaped exactly like {"key":"A","text":"option text"}.',
+                "correctOption must be a single option key letter such as A, B, C, D, or E.",
                 "diffAnchors should reference changed file paths or changed symbols."
               ],
               questionCount: input.questionCount,
@@ -31722,6 +31859,7 @@ var OpenAICompatibleClient = class {
       ],
       0.2
     );
+    return normalizeQuizPayload(rawQuiz);
   }
   async validateQuiz(input) {
     return await this.chatForJson(
@@ -31986,6 +32124,20 @@ async function handlePullRequestEvent() {
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
+  const localValidationIssues = validateQuizPayload(quiz);
+  if (localValidationIssues.length > 0) {
+    await upsertCommitStatus({
+      octokit,
+      owner,
+      repo,
+      headSha,
+      context: config.checkName,
+      state: "error",
+      summary: "Quiz generation failed local validation.",
+      detailsUrl: statusTargetUrl(owner, repo, pr.number)
+    });
+    throw new Error(`Quiz local validation failed: ${localValidationIssues.join("; ")}`);
+  }
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
   if (!validation.valid) {
     await upsertCommitStatus({
@@ -32165,6 +32317,10 @@ async function handleIssueCommentEvent() {
   const diffSummary = buildDiffSummary(files);
   const questionCount = computeQuestionCount(files, config);
   const quiz = await client.generateQuiz({ repoContext, diffSummary, questionCount });
+  const localValidationIssues = validateQuizPayload(quiz);
+  if (localValidationIssues.length > 0) {
+    throw new Error(`Regenerated quiz failed local validation: ${localValidationIssues.join("; ")}`);
+  }
   const validation = await client.validateQuiz({ quiz, repoContext, diffSummary });
   if (!validation.valid) {
     throw new Error(`Regenerated quiz failed validation: ${validation.issues.join("; ")}`);

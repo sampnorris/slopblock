@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
-    "test": "node --import tsx --test tests/config.test.ts tests/comment-state.test.ts tests/heuristics.test.ts",
+    "test": "node --import tsx --test tests/config.test.ts tests/comment-state.test.ts tests/heuristics.test.ts tests/quiz.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build && npm test"
   },
