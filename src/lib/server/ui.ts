@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { QuizQuestion } from "./types.js";
 import type { SessionRecord } from "./session-store.js";
+import { renderMarkdown } from "./markdown.js";
 
 function hmacAnswer(questionId: string, key: string, secret: string): string {
   return createHmac("sha256", secret).update(`${questionId}:${key}`).digest("hex").slice(0, 16);
@@ -21,6 +22,15 @@ function diffAnchorUrl(session: SessionRecord, anchor: string): string {
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function modelBadge(label: string, value?: string): string {
+  if (!value) return "";
+  return `<div class="pill" title="${escapeHtml(value)}">${escapeHtml(label)}: <code>${escapeHtml(value)}</code></div>`;
+}
+
+function escapeAttribute(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 function pageShell(title: string, body: string, script?: string): string {
@@ -128,6 +138,11 @@ function pageShell(title: string, body: string, script?: string): string {
       .question-number { width: 36px; height: 36px; border-radius: 50%; background: var(--pink-100); color: var(--pink-600); display: grid; place-items: center; font-weight: 700; font-size: 15px; flex: none; }
       .question-label { font-size: 13px; color: var(--muted); font-weight: 500; }
       .question-prompt { color: var(--gray-800); font-size: 15px; line-height: 1.6; margin-bottom: 6px; }
+      .markdown p, .choice-markdown p { margin: 0; color: inherit; }
+      .markdown p + p, .choice-markdown p + p { margin-top: 10px; }
+      .markdown ul, .markdown ol, .choice-markdown ul, .choice-markdown ol { margin: 8px 0 0 20px; padding: 0; }
+      .markdown li + li, .choice-markdown li + li { margin-top: 4px; }
+      .markdown code, .choice-markdown code, .pill code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.92em; background: rgba(24, 24, 27, 0.06); padding: 0.12em 0.35em; border-radius: 6px; }
       .diff-anchors { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
       .diff-anchors a { color: var(--accent); text-decoration: none; }
       .diff-anchors a:hover { text-decoration: underline; }
@@ -231,7 +246,7 @@ function renderQuestionBlock(question: QuizQuestion, index: number, total: numbe
       (opt) => `
         <button type="button" class="choice-btn" data-question="${index}" data-key="${opt.key}" data-hash="${hashes[`${question.id}:${opt.key}`] ?? ""}">
           <span class="choice-key">${escapeHtml(opt.key)}</span>
-          <span class="choice-text">${escapeHtml(opt.text)}</span>
+          <span class="choice-text choice-markdown">${renderMarkdown(opt.text)}</span>
         </button>
       `
     )
@@ -245,10 +260,10 @@ function renderQuestionBlock(question: QuizQuestion, index: number, total: numbe
           <span class="question-label">Question ${index + 1} of ${total}</span>
         </div>
       </div>
-      <p class="question-prompt">${escapeHtml(question.prompt)}</p>
+      <div class="question-prompt markdown">${renderMarkdown(question.prompt)}</div>
       ${anchors ? `<div class="diff-anchors">Based on: ${anchors}</div>` : ""}
       <div class="answers">${options}</div>
-      <div class="explanation" id="exp${index}" data-explanation="${escapeHtml(question.explanation)}"></div>
+      <div class="explanation markdown" id="exp${index}" data-explanation="${escapeAttribute(renderMarkdown(question.explanation))}"></div>
     </div>
   `;
 }
@@ -401,11 +416,11 @@ export function renderQuizPage(session: SessionRecord, actorLogin: string): stri
       btn.classList.add('correct');
       correct++;
       exp.className = 'explanation visible good';
-      exp.textContent = exp.dataset.explanation;
+      exp.innerHTML = exp.dataset.explanation;
     } else {
       btn.classList.add('wrong');
       exp.className = 'explanation visible bad';
-      exp.textContent = exp.dataset.explanation;
+      exp.innerHTML = exp.dataset.explanation;
       var buttons = block.querySelectorAll('.choice-btn');
       for (var i = 0; i < buttons.length; i++) {
         if (buttons[i] !== btn) {
@@ -446,13 +461,15 @@ export function renderQuizPage(session: SessionRecord, actorLogin: string): stri
         <span class="brand-name">slopblock</span>
       </div>
       <h1>${escapeHtml(session.repositoryOwner)}/${escapeHtml(session.repositoryName)}#${session.pullNumber}</h1>
-      <p>${escapeHtml(session.summary ?? "Answer the questions based on the code changes in this pull request.")}</p>
+      <div class="markdown">${renderMarkdown(session.summary ?? "Answer the questions based on the code changes in this pull request.")}</div>
       <div class="meta">
         <div class="pill">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>
           ${escapeHtml(actorLogin)}
         </div>
         <div class="pill pink" id="progress-text">0 of ${total}</div>
+        ${modelBadge("Created by", session.generationModel)}
+        ${modelBadge("Validated by", session.validationModel)}
         <div class="pill"><a href="${escapeHtml(prUrl)}/files" target="_blank" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           View diff

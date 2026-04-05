@@ -1,9 +1,10 @@
 <script lang="ts">
+  import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  const { session, actor, prUrl, hashes } = data;
+  const { session, actor, prUrl } = data;
   const questions = session.questions;
   const total = questions.length;
 
@@ -26,9 +27,7 @@
     if (questionStates[qIndex].answered) return;
 
     const q = questions[qIndex];
-    const selectedHash = hashes[`${q.id}:${key}`] ?? "";
-    const correctHash = hashes[`${q.id}:correct`] ?? "";
-    const isCorrect = selectedHash === correctHash;
+    const isCorrect = q.correctOption === key;
 
     questionStates[qIndex] = { answered: true, selectedKey: key, isCorrect };
     answered++;
@@ -46,13 +45,17 @@
     const st = questionStates[qIndex];
     if (!st.answered) return "choice-btn";
     const q = questions[qIndex];
-    const correctHash = hashes[`${q.id}:correct`] ?? "";
-    const thisHash = hashes[`${q.id}:${key}`] ?? "";
     if (key === st.selectedKey) {
       return st.isCorrect ? "choice-btn correct" : "choice-btn wrong";
     }
-    if (thisHash === correctHash) return "choice-btn correct";
+    if (key === q.correctOption) return "choice-btn correct";
     return "choice-btn dimmed";
+  }
+
+  function selectedAnswers(): Record<string, string> {
+    return Object.fromEntries(
+      questions.map((question, index) => [question.id, questionStates[index].selectedKey ?? ""])
+    );
   }
 
   async function submitPass() {
@@ -63,11 +66,15 @@
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ action: "pass" })
+        body: JSON.stringify({ action: "pass", answers: selectedAnswers() })
       });
       const json = await res.json();
       if (json.ok) {
-        window.location.reload();
+        if (json.passed) {
+          window.location.reload();
+        } else {
+          submitMessage = `Recorded attempt ${json.attemptNumber}. Score: ${json.correctCount} / ${json.questionCount}.`;
+        }
       } else {
         submitMessage = json.message || "Unknown error";
       }
@@ -109,7 +116,7 @@
 </script>
 
 <svelte:head>
-  <title>slopblock - {session.status === "passed" ? "passed" : "quiz"}</title>
+  <title>SlopBlock - {session.status === "passed" ? "passed" : "quiz"}</title>
 </svelte:head>
 
 <div class="centered-layout">
@@ -117,9 +124,9 @@
     <!-- Brand header -->
     <div class="brand-strip">
       <div class="brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <SlopBlockLogo width={20} height={20} />
       </div>
-      <span class="brand-name">slopblock</span>
+      <span class="brand-name">SlopBlock</span>
     </div>
 
     {#if !actor}
@@ -170,6 +177,12 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           {answered} of {total}
         </div>
+        {#if session.generationModel}
+          <div class="pill">Created by: <code>{session.generationModel}</code></div>
+        {/if}
+        {#if session.validationModel}
+          <div class="pill">Validated by: <code>{session.validationModel}</code></div>
+        {/if}
         <div class="pill">
           <a href="{prUrl}/files" target="_blank" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -241,15 +254,25 @@
               <button class="button primary" onclick={submitPass} disabled={submitting}>
                 {submitting ? "Submitting..." : "Submit & pass PR"}
               </button>
+            {:else if session.retryMode === "maintainer_rerun"}
+              <button class="button" onclick={submitPass} disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit result"}
+              </button>
             {:else if session.retryMode === "new_quiz"}
-              <button class="button" onclick={retryNew} disabled={retrying}>
+              <button class="button primary" onclick={submitPass} disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit result"}
+              </button>
+              <button class="button" onclick={retryNew} disabled={retrying || submitting}>
                 {retrying ? "Generating new quiz..." : "Generate new quiz"}
               </button>
             {:else}
+              <button class="button primary" onclick={submitPass} disabled={submitting}>
+                {submitting ? "Submitting..." : "Submit result"}
+              </button>
               <button class="button" onclick={retrySame}>Try again (same quiz)</button>
             {/if}
             {#if submitMessage}
-              <p style="color: var(--bad); font-size: 14px; font-weight: 500;">{submitMessage}</p>
+              <p style="color: var(--gray-700); font-size: 14px; font-weight: 500;">{submitMessage}</p>
             {/if}
             <a class="button" href={prUrl}>Back to pull request</a>
           </div>
@@ -281,8 +304,6 @@
     color: #fff;
     flex: none;
   }
-
-  .brand-icon svg { width: 16px; height: 16px; }
 
   .brand-name {
     font-size: 15px;

@@ -150,6 +150,8 @@ export class OpenAICompatibleClient {
       "Do not ask trivia about unchanged code.",
       "Make distractors plausible.",
       "Use 4 options unless 5 is necessary.",
+      "Write the summary, question prompts, option text, and explanations as markdown.",
+      "Use inline code markdown for identifiers, symbols, file paths, commands, and literals when relevant.",
       "Return JSON with summary and questions.",
       "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
       "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",

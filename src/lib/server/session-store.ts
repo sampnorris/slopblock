@@ -15,6 +15,8 @@ export interface SessionRecord {
   currentQuestionIndex: number;
   questionCount: number;
   retryMode: RetryMode;
+  generationModel?: string;
+  validationModel?: string;
   summary?: string;
   skipReason?: string;
   failureMessage?: string;
@@ -36,6 +38,8 @@ function fromRow(row: PullRequestSession): SessionRecord {
     currentQuestionIndex: row.currentQuestionIndex,
     questionCount: row.questionCount,
     retryMode: row.retryMode as RetryMode,
+    generationModel: row.generationModel ?? undefined,
+    validationModel: row.validationModel ?? undefined,
     summary: row.summary ?? undefined,
     skipReason: row.skipReason ?? undefined,
     failureMessage: row.failureMessage ?? undefined,
@@ -115,6 +119,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       currentQuestionIndex: input.currentQuestionIndex,
       questionCount: input.questionCount,
       retryMode: input.retryMode,
+      generationModel: input.generationModel,
+      validationModel: input.validationModel,
       summary: input.summary,
       skipReason: input.skipReason,
       failureMessage: input.failureMessage,
@@ -130,6 +136,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       currentQuestionIndex: input.currentQuestionIndex,
       questionCount: input.questionCount,
       retryMode: input.retryMode,
+      generationModel: input.generationModel,
+      validationModel: input.validationModel,
       summary: input.summary,
       skipReason: input.skipReason,
       failureMessage: input.failureMessage,

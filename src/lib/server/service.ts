@@ -11,11 +11,19 @@ import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 import { getSettings } from "./settings-store.js";
+import { createQuizAttempt, gradeQuizAnswers } from "./attempt-store.js";
 
 export class MissingProviderError extends Error {
   constructor() {
-    super("No LLM provider configured. Connect one at /settings.");
+    super("No LLM provider configured. Connect OpenRouter or provide an API key and base URL in /settings.");
     this.name = "MissingProviderError";
+  }
+}
+
+export class MissingModelError extends Error {
+  constructor(purpose: "generation" | "validation" | "skip") {
+    super(`No ${purpose} model configured. Select one in /settings.`);
+    this.name = "MissingModelError";
   }
 }
 
@@ -64,22 +72,44 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
 }
 
 function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
-  const apiKey = (config.llm.apiKey ?? process.env.AI_GATEWAY_API_KEY ?? process.env.SLOPBLOCK_API_KEY)?.trim();
-  const baseUrl = (config.llm.baseUrl ?? process.env.AI_GATEWAY_BASE_URL ?? process.env.SLOPBLOCK_BASE_URL ?? "https://ai-gateway.vercel.sh/v1").trim();
-  const overrideModel = process.env.AI_GATEWAY_MODEL ?? process.env.SLOPBLOCK_MODEL;
+  const apiKey = (config.llm.apiKey ?? process.env.SLOPBLOCK_API_KEY)?.trim();
+  const baseUrl = (config.llm.baseUrl ?? process.env.SLOPBLOCK_BASE_URL)?.trim();
+  const overrideModel = process.env.SLOPBLOCK_MODEL;
   const model =
     overrideModel ??
     (purpose === "generation"
-      ? process.env.AI_GATEWAY_GENERATION_MODEL ?? process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel
+      ? process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel
       : purpose === "validation"
-        ? process.env.AI_GATEWAY_VALIDATION_MODEL ?? process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel
-        : process.env.AI_GATEWAY_SKIP_MODEL ?? process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel);
+        ? process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel
+        : process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel);
 
-  if (!apiKey) {
+  if (!apiKey || !baseUrl) {
     throw new MissingProviderError();
   }
 
+  if (!model?.trim()) {
+    throw new MissingModelError(purpose);
+  }
+
   return new OpenAICompatibleClient({ apiKey, baseUrl, model });
+}
+
+function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
+  const overrideModel = process.env.SLOPBLOCK_MODEL;
+  const model = (
+    overrideModel ??
+    (purpose === "generation"
+      ? process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel
+      : purpose === "validation"
+        ? process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel
+        : process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel)
+  );
+
+  if (!model?.trim()) {
+    throw new MissingModelError(purpose);
+  }
+
+  return model;
 }
 
 async function maybeSkip(client: OpenAICompatibleClient, heuristic: SkipDecision, files: ChangedFile[]) {
@@ -179,11 +209,42 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
 export async function markQuizPassed(params: {
   octokit: any;
   session: SessionRecord;
-}): Promise<{ ok: boolean; message?: string }> {
+  answers: Record<string, unknown>;
+}): Promise<{ ok: boolean; message?: string; passed?: boolean; correctCount?: number; questionCount?: number; attemptNumber?: number }> {
   const { octokit, session } = params;
 
+  const graded = gradeQuizAnswers(session, params.answers);
+  const { attemptNumber } = await createQuizAttempt(session, graded);
+
+  logInfo("session.quiz.submitted", {
+    repository: `${session.repositoryOwner}/${session.repositoryName}`,
+    pullNumber: session.pullNumber,
+    attemptNumber,
+    questionCount: graded.questionCount,
+    correctCount: graded.correctCount,
+    passed: graded.passed,
+    authorLogin: session.authorLogin
+  });
+
+  if (!graded.passed) {
+    return {
+      ok: true,
+      passed: false,
+      correctCount: graded.correctCount,
+      questionCount: graded.questionCount,
+      attemptNumber
+    };
+  }
+
   if (session.status === SessionStatus.passed) {
-    return { ok: true, message: "Already passed." };
+    return {
+      ok: true,
+      message: "Already passed.",
+      passed: true,
+      correctCount: graded.correctCount,
+      questionCount: graded.questionCount,
+      attemptNumber
+    };
   }
 
   logInfo("session.quiz.passed", {
@@ -207,7 +268,13 @@ export async function markQuizPassed(params: {
     targetUrl: sessionTargetUrl(passed)
   });
 
-  return { ok: true };
+  return {
+    ok: true,
+    passed: true,
+    correctCount: graded.correctCount,
+    questionCount: graded.questionCount,
+    attemptNumber
+  };
 }
 
 export async function requestNewQuiz(params: {
@@ -251,6 +318,8 @@ export async function requestNewQuiz(params: {
     status: SessionStatus.awaiting_answer,
     currentQuestionIndex: 0,
     questionCount: quiz.questions.length,
+    generationModel: llmModel(config, "generation"),
+    validationModel: llmModel(config, "validation"),
     summary: quiz.summary,
     failureMessage: undefined,
     quiz
@@ -349,6 +418,8 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     currentQuestionIndex: 0,
     questionCount: 0,
     retryMode: config.retryMode,
+    generationModel: undefined,
+    validationModel: undefined,
     summary: undefined,
     skipReason: undefined,
     failureMessage: undefined,
@@ -419,6 +490,8 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     ...baseSession,
     commentId: existing?.commentId,
     questionCount: quiz.questions.length,
+    generationModel: llmModel(config, "generation"),
+    validationModel: llmModel(config, "validation"),
     summary: quiz.summary,
     quiz
   });

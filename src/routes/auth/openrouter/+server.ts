@@ -2,7 +2,6 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { getSettings, upsertSettings } from "$lib/server/settings-store.js";
-import { encrypt } from "$lib/server/crypto.js";
 
 /** Exchange an OpenRouter PKCE code for an API key, then store it encrypted. */
 export const POST: RequestHandler = async ({ request }) => {
@@ -40,7 +39,7 @@ export const POST: RequestHandler = async ({ request }) => {
     installationId,
     accountLogin: existing?.accountLogin ?? actor.login,
     llmApiKey: exchangeJson.key,
-    llmBaseUrl: existing?.llmBaseUrl ?? "https://openrouter.ai/api/v1",
+    llmBaseUrl: "https://openrouter.ai/api/v1",
     llmGenerationModel: existing?.llmGenerationModel,
     llmValidationModel: existing?.llmValidationModel,
     llmSkipModel: existing?.llmSkipModel,

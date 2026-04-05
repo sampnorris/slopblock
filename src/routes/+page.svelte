@@ -1,33 +1,60 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
 
+  const publicExample = {
+    title: "PR #184: Make quiz submission reject missing answers",
+    repo: "sampnorris/slopblock-quiz",
+    summary:
+      "This example is based on a realistic server change: the answer endpoint now validates the submitted answer map and returns a 400 when a question is missing instead of silently accepting incomplete submissions.",
+    diff: [
+      "diff --git a/src/routes/api/session/[token]/answer/+server.ts b/src/routes/api/session/[token]/answer/+server.ts",
+      "@@",
+      ' if (action === "pass") {',
+      "   const answers = body?.answers;",
+      '   if (!answers || typeof answers !== "object" || Array.isArray(answers)) {',
+      '     return json({ ok: false, message: "Answers are required." }, { status: 400 });',
+      "   }",
+      "",
+      "   try {",
+      '     const result = await markQuizPassed({ octokit, session, answers });',
+      "     return json(result);",
+      "   } catch (error) {",
+      '     return json({ ok: false, message: error instanceof Error ? error.message : "Failed to grade quiz." }, { status: 400 });',
+      "   }",
+      " }",
+    ],
+  };
+
   const exampleQuestions = [
     {
-      prompt: "Which change makes the new retry flow idempotent?",
+      prompt: "What new request shape is required before the endpoint will grade the quiz?",
       options: [
-        "The handler now checks the existing session state before creating another retry record.",
-        "The retry button was renamed to be more explicit.",
-        "The CSS transition duration was reduced from 200ms to 150ms.",
+        "An `answers` object keyed by question ID must be present in the request body.",
+        "A `score` number must already be calculated on the client.",
+        "A `passed: true` flag must be sent with the answers.",
       ],
-      answer: "Correct answer: the state guard prevents duplicate retries from creating extra side effects.",
+      answer:
+        "Correct answer: the route now rejects requests that do not include an `answers` object for grading.",
     },
     {
-      prompt: "What does the diff show about how failed validation is surfaced to the user?",
+      prompt: "Why does the handler wrap `markQuizPassed(...)` in a `try/catch`?",
       options: [
-        "A structured error message is returned and rendered inline in the form.",
-        "The app silently retries the request three times.",
-        "Validation failures are only logged on the server.",
+        "So grading errors can be turned into a `400` JSON response instead of crashing the request.",
+        "So the server can retry grading up to three times.",
+        "So the handler can swallow failures and still return `ok: true`.",
       ],
-      answer: "Correct answer: the response now carries a user-facing message instead of hiding the failure in logs.",
+      answer:
+        "Correct answer: validation and grading failures are returned as explicit client-visible errors with status `400`.",
     },
     {
-      prompt: "Why would SlopBlock ask about a new helper instead of the entire file?",
+      prompt: "What behavior changed for incomplete quiz submissions after this diff?",
       options: [
-        "Because the question should stay grounded in the changed lines, not generic repo trivia.",
-        "Because larger files cannot be parsed by the app.",
-        "Because every PR is limited to one file.",
+        "They now fail fast with an error message instead of slipping through to grading.",
+        "They automatically generate default answers for the missing questions.",
+        "They are accepted, but the score is capped at 50 percent.",
       ],
-      answer: "Correct answer: the quiz is intentionally diff-grounded so authors must understand the exact change they made.",
+      answer:
+        "Correct answer: the new guard stops incomplete payloads before grading and reports the problem clearly.",
     },
   ];
 
@@ -68,7 +95,7 @@
       </div>
 
       <div class="hero-actions">
-        <a class="button primary hero-button" href="https://github.com/apps/slop-block/installations/new" target="_blank" rel="noreferrer">
+        <a class="button primary hero-button" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank" rel="noreferrer">
           Install SlopBlock
         </a>
         <a class="button hero-button" href="/settings">
@@ -124,15 +151,31 @@
 
   <section class="section-block">
     <div class="section-heading">
-      <div class="eyebrow">Example questions</div>
-      <h2>The quiz stays anchored to the diff</h2>
+      <div class="eyebrow">Public Example Quiz</div>
+      <h2>A real sample, grounded in a visible diff</h2>
       <p>
-        These are the kinds of questions SlopBlock asks. They are specific, checkable, and about
-        the actual code change rather than general repository knowledge.
+        This is the kind of quiz SlopBlock would generate for an actual pull request. The changed
+        lines are shown first, then the questions test whether the author understands what the
+        diff really did.
       </p>
     </div>
 
-    <div class="examples-grid">
+    <div class="card public-example-card">
+      <div class="example-header">
+        <div>
+          <div class="question-chip">{publicExample.repo}</div>
+          <h3 class="example-title">{publicExample.title}</h3>
+          <p>{publicExample.summary}</p>
+        </div>
+        <div class="example-tag">3 questions</div>
+      </div>
+
+      <div class="diff-card">
+        <div class="diff-label">Changed lines</div>
+        <pre class="diff-block">{publicExample.diff.join("\n")}</pre>
+      </div>
+
+      <div class="examples-grid">
       {#each exampleQuestions as question, index}
         <article class="card example-card">
           <div class="example-topline">
@@ -154,6 +197,7 @@
           <div class="notice good example-answer">{question.answer}</div>
         </article>
       {/each}
+      </div>
     </div>
   </section>
 
@@ -168,10 +212,10 @@
     </div>
 
     <div class="cta-actions">
-      <a class="button primary" href="https://github.com/apps/slop-block" target="_blank" rel="noreferrer">
+      <a class="button primary" href="https://github.com/apps/slopblock-quiz" target="_blank" rel="noreferrer">
         View GitHub App
       </a>
-      <a class="button" href="https://github.com/sampnorris/slopblock" target="_blank" rel="noreferrer">
+      <a class="button" href="https://github.com/sampnorris/slopblock-quiz" target="_blank" rel="noreferrer">
         Read Documentation
       </a>
     </div>
@@ -363,6 +407,50 @@
     gap: 18px;
   }
 
+  .public-example-card {
+    display: grid;
+    gap: 22px;
+    padding: 24px;
+  }
+
+  .example-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .example-title {
+    margin-top: 10px;
+    margin-bottom: 8px;
+    font-size: 24px;
+  }
+
+  .diff-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: var(--gray-900);
+    color: var(--gray-100);
+    overflow: hidden;
+  }
+
+  .diff-label {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font: 700 12px/1 "DM Mono", ui-monospace, monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pink-200);
+  }
+
+  .diff-block {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font: 400 13px/1.7 "DM Mono", ui-monospace, monospace;
+    white-space: pre-wrap;
+  }
+
   .example-card {
     display: grid;
     gap: 18px;
@@ -461,12 +549,15 @@
 
   @media (max-width: 980px) {
     .hero,
-    .examples-grid,
     .cta-card {
       grid-template-columns: 1fr;
       display: grid;
     }
 
+    .examples-grid {
+      grid-template-columns: 1fr;
+    }
+  
     .cta-actions {
       width: 100%;
     }
@@ -492,7 +583,8 @@
     }
 
     .signal-row,
-    .example-topline {
+    .example-topline,
+    .example-header {
       align-items: start;
       flex-direction: column;
     }

@@ -48,6 +48,8 @@ model PullRequestSession {
   currentQuestionIndex Int           @default(0)
   questionCount        Int           @default(0)
   retryMode            String
+  generationModel      String?
+  validationModel      String?
   summary              String?
   skipReason           String?
   failureMessage       String?
@@ -58,4 +60,32 @@ model PullRequestSession {
 
   @@unique([repositoryOwner, repositoryName, pullNumber])
   @@index([installationId])
+}
+
+model QuizAttempt {
+  id              String   @id @default(cuid())
+  sessionId       String?
+  installationId  String
+  repositoryId    String
+  repositoryOwner String
+  repositoryName  String
+  pullNumber      Int
+  authorLogin     String
+  headSha         String
+  attemptNumber   Int
+  retryMode       String
+  generationModel String?
+  validationModel String?
+  questionCount   Int
+  correctCount    Int
+  passed          Boolean
+  answers         Json?
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([installationId])
+  @@index([repositoryOwner, repositoryName])
+  @@index([authorLogin])
+  @@index([passed])
+  @@index([createdAt])
 }

@@ -24,13 +24,17 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Installations
       </a>
-      <a href="https://github.com/apps/slop-block" target="_blank" class="sidebar-link">
+      <a href="https://github.com/apps/slopblock-quiz" target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
         GitHub App
       </a>
-      <a href="https://github.com/sampnorris/slopblock" target="_blank" class="sidebar-link">
+      <a href="https://github.com/sampnorris/slopblock-quiz" target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         Documentation
+      </a>
+      <a href="https://buymeacoffee.com/samscript" target="_blank" class="sidebar-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v5a6 6 0 01-6 6H8a6 6 0 01-6-6V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+        Buy Me a Coffee
       </a>
     </nav>
 
@@ -51,7 +55,7 @@
       <span class="topbar-title">Installations</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <a class="topbar-btn primary" href="https://github.com/apps/slop-block/installations/new" target="_blank">
+        <a class="topbar-btn primary" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Installation
         </a>
@@ -94,7 +98,7 @@
           </div>
           <h2>No installations found</h2>
           <p>Install the SlopBlock GitHub App on a repository to get started.</p>
-          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 8px;" href="https://github.com/apps/slop-block/installations/new" target="_blank">Install SlopBlock</a>
+          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 8px;" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank">Install SlopBlock</a>
         </div>
       {:else}
         <div class="install-list">

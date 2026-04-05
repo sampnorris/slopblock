@@ -60,6 +60,19 @@ test("installation config values remain available for provider selection", () =>
   assert.equal(config.llm.generationModel, "anthropic/claude-sonnet-4.5");
 });
 
+test("loadConfig keeps explicit blank model values instead of defaulting", () => {
+  const config = loadConfigFromStringForTest([
+    "llm:",
+    "  generationModel: ''",
+    "  validationModel: ''",
+    "  skipModel: ''"
+  ].join("\n"));
+
+  assert.equal(config.llm.generationModel, "");
+  assert.equal(config.llm.validationModel, "");
+  assert.equal(config.llm.skipModel, "");
+});
+
 function loadConfigFromStringForTest(contents: string) {
   const workspace = mkdtempSync(join(tmpdir(), "slopblock-"));
   mkdirSync(join(workspace, ".github"));

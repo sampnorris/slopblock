@@ -12,9 +12,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 
   const body = await request.json();
-  const { apiKey, baseUrl } = body;
-  if (!apiKey) {
-    return json({ ok: false, message: "Missing API key." }, { status: 400 });
+  const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+  const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
+
+  if (!apiKey || !baseUrl) {
+    return json({ ok: false, message: "Manual connections require both an API key and base URL." }, { status: 400 });
   }
 
   const existing = await getSettings(params.installationId);
@@ -22,7 +24,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     installationId: params.installationId,
     accountLogin: existing?.accountLogin ?? actor.login,
     llmApiKey: apiKey,
-    llmBaseUrl: baseUrl || existing?.llmBaseUrl,
+    llmBaseUrl: baseUrl,
     llmGenerationModel: existing?.llmGenerationModel,
     llmValidationModel: existing?.llmValidationModel,
     llmSkipModel: existing?.llmSkipModel,

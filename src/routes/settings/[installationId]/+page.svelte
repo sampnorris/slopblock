@@ -13,6 +13,7 @@
   let saveOk = $state(false);
   let provider = $state<"openrouter" | "manual" | "none">(data.provider as any);
   let hasApiKey = $state(data.hasApiKey);
+  let hasBaseUrl = $state(Boolean(data.settings?.llmBaseUrl));
 
   // Manual key entry
   let showManualKey = $state(false);
@@ -53,6 +54,11 @@
   let availableModels = $state<ModelInfo[]>([]);
   let modelsLoading = $state(false);
   let modelsSource = $state<"static" | "openrouter" | "error">("static");
+
+  const providerConnected = $derived(hasApiKey && hasBaseUrl);
+  const modelsConfigured = $derived(
+    !!llmGenerationModel.trim() && !!llmValidationModel.trim() && !!llmSkipModel.trim()
+  );
 
   async function fetchModels() {
     modelsLoading = true;
@@ -135,6 +141,7 @@
       if (json.ok) {
         provider = "openrouter";
         hasApiKey = true;
+        hasBaseUrl = true;
         keyMessage = "Connected to OpenRouter.";
         saveOk = true;
         fetchModels();
@@ -152,7 +159,7 @@
 
   // Handle manual key
   async function submitManualKey() {
-    if (!manualApiKey.trim()) return;
+    if (!manualApiKey.trim() || !manualBaseUrl.trim()) return;
     settingKey = true;
     keyMessage = "";
     try {
@@ -166,9 +173,11 @@
       if (json.ok) {
         provider = "manual";
         hasApiKey = true;
+        hasBaseUrl = true;
         keyMessage = "API key saved.";
         saveOk = true;
         manualApiKey = "";
+        manualBaseUrl = "";
         showManualKey = false;
       } else {
         keyMessage = json.message || "Failed to save.";
@@ -193,6 +202,7 @@
       if (json.ok) {
         provider = "none";
         hasApiKey = false;
+        hasBaseUrl = false;
         keyMessage = "Disconnected.";
         saveOk = true;
       }
@@ -205,6 +215,18 @@
   }
 
   async function save() {
+    if (!providerConnected) {
+      saveMessage = "Connect OpenRouter or provide an API key and base URL before saving settings.";
+      saveOk = false;
+      return;
+    }
+
+    if (!modelsConfigured) {
+      saveMessage = "Select generation, validation, and skip models before saving settings.";
+      saveOk = false;
+      return;
+    }
+
     saving = true;
     saveMessage = "";
     try {
@@ -214,9 +236,9 @@
         credentials: "same-origin",
         body: JSON.stringify({
           accountLogin: actor.login,
-          llmGenerationModel: llmGenerationModel || undefined,
-          llmValidationModel: llmValidationModel || undefined,
-          llmSkipModel: llmSkipModel || undefined,
+          llmGenerationModel: llmGenerationModel.trim(),
+          llmValidationModel: llmValidationModel.trim(),
+          llmSkipModel: llmSkipModel.trim(),
           questionCountMin,
           questionCountMax,
           retryMode,
@@ -271,9 +293,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Configuration
       </a>
-      <a href="https://github.com/apps/slop-block" target="_blank" class="sidebar-link">
+      <a href="https://github.com/apps/slopblock-quiz" target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
         GitHub App
+      </a>
+      <a href="https://buymeacoffee.com/samscript" target="_blank" class="sidebar-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v5a6 6 0 01-6 6H8a6 6 0 01-6-6V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+        Buy Me a Coffee
       </a>
     </nav>
 
@@ -318,7 +344,7 @@
             </div>
             <div>
               <h2>LLM Provider</h2>
-              <p class="section-desc">Connect an LLM provider to power quiz generation. Your API key is encrypted at rest.</p>
+              <p class="section-desc">Connect OpenRouter, or provide both an API key and base URL. Your API key is encrypted at rest.</p>
             </div>
           </div>
 
@@ -362,15 +388,15 @@
           {#if showManualKey && provider !== "openrouter" && provider !== "manual"}
             <div class="manual-key">
               <div class="field">
-                <label for="manualBaseUrl">Base URL (optional)</label>
+                <label for="manualBaseUrl">Base URL</label>
                 <input id="manualBaseUrl" type="url" bind:value={manualBaseUrl} placeholder="https://api.openai.com/v1" />
-                <span class="hint">Leave blank for OpenAI-compatible default. Use for Anthropic, custom endpoints, etc.</span>
+                <span class="hint">Required for manual connections. Use the full OpenAI-compatible endpoint.</span>
               </div>
               <div class="field">
                 <label for="manualKey">API Key</label>
                 <input id="manualKey" type="password" bind:value={manualApiKey} placeholder="sk-..." />
               </div>
-              <button class="button primary" style="margin-top: 4px;" onclick={submitManualKey} disabled={settingKey || !manualApiKey.trim()}>
+              <button class="button primary" style="margin-top: 4px;" onclick={submitManualKey} disabled={settingKey || !manualApiKey.trim() || !manualBaseUrl.trim()}>
                 {settingKey ? "Saving..." : "Save API Key"}
               </button>
             </div>
@@ -391,7 +417,7 @@
                 {:else if modelsSource === "openrouter"}
                   Showing {availableModels.length} models from your OpenRouter account.
                 {:else}
-                  Override which models are used for each stage. Leave blank for defaults.
+                  Select the required models for each stage.
                 {/if}
               </p>
             </div>
@@ -401,28 +427,34 @@
             {@const modelOptions = availableModels.map((m) => ({ value: m.id, label: m.name, detail: m.id }))}
             <div class="field">
               <label for="genModel">Generation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmGenerationModel} placeholder="Search models..." emptyLabel="Default (anthropic/claude-sonnet-4.5)" id="genModel" />
+              <SearchSelect options={modelOptions} bind:value={llmGenerationModel} placeholder="Search models..." emptyLabel="No model selected" id="genModel" />
+              <span class="hint">Creates the quiz content shown to authors. Pick your strongest diff-reasoning model here.</span>
             </div>
             <div class="field">
               <label for="valModel">Validation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmValidationModel} placeholder="Search models..." emptyLabel="Default (anthropic/claude-opus-4.1)" id="valModel" />
+              <SearchSelect options={modelOptions} bind:value={llmValidationModel} placeholder="Search models..." emptyLabel="No model selected" id="valModel" />
+              <span class="hint">Reviews the generated quiz for grounding and structural issues before it reaches the PR.</span>
             </div>
             <div class="field">
               <label for="skipModel">Skip Evaluation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmSkipModel} placeholder="Search models..." emptyLabel="Default (anthropic/claude-sonnet-4.5)" id="skipModel" />
+              <SearchSelect options={modelOptions} bind:value={llmSkipModel} placeholder="Search models..." emptyLabel="No model selected" id="skipModel" />
+              <span class="hint">Only used for borderline cases to decide whether an obvious PR can skip the quiz entirely.</span>
             </div>
           {:else}
             <div class="field">
               <label for="genModel">Generation Model</label>
-              <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="anthropic/claude-sonnet-4.5" />
+              <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="Select or enter a model" />
+              <span class="hint">Creates the quiz content shown to authors. Pick your strongest diff-reasoning model here.</span>
             </div>
             <div class="field">
               <label for="valModel">Validation Model</label>
-              <input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="anthropic/claude-opus-4.1" />
+              <input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" />
+              <span class="hint">Reviews the generated quiz for grounding and structural issues before it reaches the PR.</span>
             </div>
             <div class="field">
               <label for="skipModel">Skip Evaluation Model</label>
-              <input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="anthropic/claude-sonnet-4.5" />
+              <input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" />
+              <span class="hint">Only used for borderline cases to decide whether an obvious PR can skip the quiz entirely.</span>
             </div>
             <datalist id="model-list">
               {#each defaultModels as m}

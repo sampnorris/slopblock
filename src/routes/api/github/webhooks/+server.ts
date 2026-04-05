@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 import { getInstallationOctokit, verifyWebhookSignature } from "$lib/server/github-app.js";
 import { setCommitStatus } from "$lib/server/github-service.js";
 import { logError, logInfo } from "$lib/server/log.js";
-import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingProviderError } from "$lib/server/service.js";
+import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingModelError, MissingProviderError } from "$lib/server/service.js";
 import { InsufficientCreditsError } from "$lib/server/openai.js";
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -65,13 +65,15 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (error) {
     const isPrEvent = event === "pull_request" && payload.pull_request;
     const isCommentEvent = event === "issue_comment" && payload.issue?.pull_request;
-    if ((error instanceof MissingProviderError || error instanceof InsufficientCreditsError) && (isPrEvent || isCommentEvent)) {
+    if ((error instanceof MissingProviderError || error instanceof MissingModelError || error instanceof InsufficientCreditsError) && (isPrEvent || isCommentEvent)) {
       const owner = payload.repository.owner.login;
       const repo = payload.repository.name;
       const pr = payload.pull_request ?? payload.issue;
       const description = error instanceof InsufficientCreditsError
         ? "LLM provider has insufficient credits. Add credits and re-trigger."
-        : "No LLM provider configured. Visit slopblock settings to connect one.";
+        : error instanceof MissingModelError
+          ? "LLM models are not fully configured. Select all required models in settings."
+          : "No LLM provider configured. Visit slopblock settings to connect one.";
       try {
         await setCommitStatus({
           octokit: await getInstallationOctokit(payload.installation.id),

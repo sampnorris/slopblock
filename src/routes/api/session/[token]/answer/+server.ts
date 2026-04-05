@@ -27,8 +27,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
   const octokit = await getInstallationOctokit(session.installationId);
 
   if (action === "pass") {
-    const result = await markQuizPassed({ octokit, session });
-    return json(result);
+    const answers = body?.answers;
+    if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+      return json({ ok: false, message: "Answers are required." }, { status: 400 });
+    }
+
+    try {
+      const result = await markQuizPassed({ octokit, session, answers });
+      return json(result);
+    } catch (error) {
+      return json({ ok: false, message: error instanceof Error ? error.message : "Failed to grade quiz." }, { status: 400 });
+    }
   }
 
   if (action === "retry_new") {

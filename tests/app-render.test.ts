@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { SessionStatus } from "@prisma/client";
 import { renderSessionComment } from "../src/lib/server/render.js";
 import { sessionAnswerUrl } from "../src/lib/server/github-service.js";
+import { renderQuizPage } from "../src/lib/server/ui.js";
 import type { SessionRecord } from "../src/lib/server/session-store.js";
 
 const baseSession: SessionRecord = {
@@ -18,21 +19,23 @@ const baseSession: SessionRecord = {
   currentQuestionIndex: 0,
   questionCount: 2,
   retryMode: "new_quiz",
+  generationModel: "anthropic/claude-sonnet-4.5",
+  validationModel: "anthropic/claude-opus-4.1",
   summary: "This PR changes the admin flow.",
   quiz: {
     summary: "This PR changes the admin flow.",
     questions: [
       {
         id: "q1",
-        prompt: "What changed?",
+        prompt: "What changed in `src/a.ts`?",
         options: [
-          { key: "A", text: "Option A" },
+          { key: "A", text: "Use `foo()`" },
           { key: "B", text: "Option B" },
           { key: "C", text: "Option C" },
           { key: "D", text: "Option D" }
         ],
         correctOption: "A",
-        explanation: "Because.",
+        explanation: "Because `foo()` is now called.",
         diffAnchors: ["src/a.ts"],
         focus: "behavior"
       },
@@ -61,6 +64,8 @@ test("renderSessionComment links to the quiz UI", () => {
     const output = renderSessionComment(baseSession);
     assert.match(output, /waiting for PR author/);
     assert.match(output, /Questions:\*\* 2/);
+    assert.match(output, /Created by:\*\* `anthropic\/claude-sonnet-4\.5`/);
+    assert.match(output, /Validated by:\*\* `anthropic\/claude-opus-4\.1`/);
     assert.match(output, /Take the quiz/);
     assert.match(output, /https:\/\/slopblock\.example\.com\/session\//);
   } finally {
@@ -108,6 +113,8 @@ test("renderSessionComment shows passed state", () => {
   });
   assert.match(output, /passed/);
   assert.match(output, /abcdef1/);
+   assert.match(output, /Created by:\*\* `anthropic\/claude-sonnet-4\.5`/);
+   assert.match(output, /Validated by:\*\* `anthropic\/claude-opus-4\.1`/);
 });
 
 test("renderSessionComment shows skipped state", () => {
@@ -118,4 +125,13 @@ test("renderSessionComment shows skipped state", () => {
   });
   assert.match(output, /skipped/);
   assert.match(output, /Docs-only change/);
+});
+
+test("renderQuizPage renders markdown in prompts and answers", () => {
+  const output = renderQuizPage(baseSession, "alice");
+
+  assert.match(output, /What changed in <code>src\/a\.ts<\/code>\?/);
+  assert.match(output, /Use <code>foo\(\)<\/code>/);
+  assert.match(output, /Created by: <code>anthropic\/claude-sonnet-4\.5<\/code>/);
+  assert.match(output, /Validated by: <code>anthropic\/claude-opus-4\.1<\/code>/);
 });
