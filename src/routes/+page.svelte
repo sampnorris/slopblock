@@ -156,7 +156,7 @@
     display: grid;
     place-items: center;
     border-radius: 10px;
-    background: var(--gray-900);
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
     color: #fff;
     flex: none;
   }
@@ -183,13 +183,13 @@
   }
 
   .nav-install {
-    background: var(--gray-900);
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
     color: #fff !important;
     border-radius: var(--radius-md);
   }
 
   .nav-install:hover {
-    background: var(--gray-800) !important;
+    background: linear-gradient(135deg, var(--pink-500), var(--pink-700)) !important;
     color: #fff !important;
   }
 
@@ -206,9 +206,10 @@
     display: grid;
     place-items: center;
     border-radius: 15px;
-    background: var(--gray-900);
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
     color: #fff;
     margin-bottom: 32px;
+    box-shadow: 0 12px 28px rgba(212, 80, 126, 0.2);
   }
 
   h1 {
@@ -262,14 +263,16 @@
   }
 
   .btn-primary {
-    background: var(--gray-900);
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
     color: #fff;
-    border-color: var(--gray-900);
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgba(212, 80, 126, 0.25);
   }
 
   .btn-primary:hover {
-    background: var(--gray-800);
-    border-color: var(--gray-800);
+    background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
+    border-color: transparent;
+    box-shadow: 0 4px 16px rgba(212, 80, 126, 0.35);
     color: #fff;
   }
 
@@ -319,13 +322,14 @@
   .steps li::before {
     content: counter(step);
     font: 700 12px/1 "DM Sans", sans-serif;
-    color: var(--gray-400);
+    color: var(--pink-600);
     width: 32px;
     height: 32px;
     display: grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid var(--line);
+    border: 1px solid var(--pink-200);
+    background: var(--pink-50);
     flex: none;
   }
 
@@ -369,7 +373,9 @@
   /* Demo CTA */
 
   .demo-inner {
-    background: var(--surface);
+    background:
+      radial-gradient(ellipse at top right, rgba(212, 80, 126, 0.06), transparent 60%),
+      var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-xl);
     padding: 32px;
