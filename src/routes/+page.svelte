@@ -1,798 +1,478 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-  import { publicDemoQuiz } from "$lib/demo-quiz";
-
-  const steps = [
-    "SlopBlock watches a pull request when it opens, updates, or becomes ready for review.",
-    "It decides whether the diff is trivial enough to skip or worth turning into a quiz.",
-    "The PR author answers multiple-choice questions tied directly to the changed code.",
-    "Passing the quiz updates the required status check so the PR can merge.",
-  ];
 </script>
 
 <svelte:head>
   <title>SlopBlock</title>
 </svelte:head>
 
-<!-- Mobile top bar (hidden on desktop where sidebar is visible) -->
-<header class="mobile-topbar">
-  <div class="mobile-brand">
-    <div class="mobile-logo">
-      <SlopBlockLogo width={20} height={20} />
+<div class="page">
+  <nav class="nav">
+    <a href="/" class="nav-brand" aria-label="Home">
+      <div class="nav-logo"><SlopBlockLogo width={18} height={18} /></div>
+      <span>SlopBlock</span>
+    </a>
+    <div class="nav-links">
+      <a href="/demo">Demo</a>
+      <a href="/settings">Settings</a>
+      <a
+        href="https://github.com/apps/slopblock-quiz/installations/new"
+        target="_blank"
+        rel="noreferrer"
+        class="nav-install"
+      >Install</a>
     </div>
-    <span class="mobile-brand-name">SlopBlock</span>
-  </div>
-  <nav class="mobile-nav">
-    <a href="/demo" class="mobile-nav-link">Demo</a>
-    <a href="/settings" class="mobile-nav-link">Settings</a>
   </nav>
-</header>
 
-<div class="landing-shell">
-  <!-- ── Hero ────────────────────────── -->
-  <section class="hero card">
-    <div class="hero-copy">
-      <div class="hero-brand">
-        <div class="hero-logo">
-          <SlopBlockLogo width={28} height={28} />
-        </div>
-        <span class="hero-name">SlopBlock</span>
-      </div>
-
-      <div class="eyebrow">Diff-grounded PR gatekeeping</div>
-      <h1>Make authors prove they understand their pull request.</h1>
-      <p class="hero-text">
-        SlopBlock is a GitHub App that blocks merges behind a short quiz built from the diff.
-        It skips obvious changes, asks focused questions for risky ones, and keeps the status
-        check tied to actual code comprehension instead of vibes.
-      </p>
-
-      <div class="meta hero-meta">
-        <div class="pill pink">GitHub App</div>
-        <div class="pill">PR author only</div>
-        <div class="pill">Required status check</div>
-      </div>
-
-      <div class="hero-actions">
-        <a class="button primary hero-button" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank" rel="noreferrer">
-          Install SlopBlock
-        </a>
-        <a class="button hero-button" href="/demo">
-          Try Public Demo
-        </a>
-        <a class="button hero-button" href="/settings">
-          Open Settings
-        </a>
-      </div>
+  <header class="hero">
+    <div class="hero-logo"><SlopBlockLogo width={32} height={32} /></div>
+    <h1>Block the merge until the author can explain the diff.</h1>
+    <p class="lede">
+      SlopBlock is a GitHub App. When a pull request opens, it reads the changed
+      code and generates a short quiz. The author has to pass before the status
+      check goes green.
+    </p>
+    <div class="hero-actions">
+      <a
+        class="btn btn-primary"
+        href="https://github.com/apps/slopblock-quiz/installations/new"
+        target="_blank"
+        rel="noreferrer"
+      >Install on GitHub</a>
+      <a class="btn" href="/demo">Try the demo</a>
     </div>
+  </header>
 
-    <div class="hero-panel">
-      <div class="signal-card">
-        <div class="signal-row">
-          <span class="signal-label">Status check</span>
-          <span class="signal-badge">Awaiting author quiz</span>
-        </div>
+  <section class="how">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li>
+        <strong>PR opens.</strong> SlopBlock picks it up automatically when the
+        pull request is opened or marked ready for review.
+      </li>
+      <li>
+        <strong>Diff gets read.</strong> If the changes are trivial (typos,
+        formatting, lockfiles), it skips the quiz entirely. Otherwise it builds
+        questions from the actual code that changed.
+      </li>
+      <li>
+        <strong>Author takes the quiz.</strong> A few multiple-choice questions
+        about what the code does and why. No trick questions.
+      </li>
+      <li>
+        <strong>Status check updates.</strong> Pass and the PR can merge. Fail
+        and you get another attempt with fresh questions.
+      </li>
+    </ol>
+  </section>
+
+  <section class="why">
+    <h2>Why bother</h2>
+    <div class="reasons">
+      <div class="reason">
+        <h3>Catch vibe-coded PRs</h3>
         <p>
-          Instead of approving a merge because the author opened the PR, SlopBlock asks them to
-          explain the changed code in context.
+          If the author can't explain what their code does, that's useful
+          information for the reviewer. SlopBlock surfaces it before anyone
+          has to read the diff.
         </p>
       </div>
-
-      <div class="signal-list">
-        <div class="signal-item">
-          <span class="signal-index">01</span>
-          <span>Reads the diff</span>
-        </div>
-        <div class="signal-item">
-          <span class="signal-index">02</span>
-          <span>Generates targeted questions</span>
-        </div>
-        <div class="signal-item">
-          <span class="signal-index">03</span>
-          <span>Passes only on fully correct answers</span>
-        </div>
+      <div class="reason">
+        <h3>Lightweight by default</h3>
+        <p>
+          Small diffs get skipped. Config changes get skipped. The quiz only
+          fires when the changes are complex enough to warrant it. You can tune
+          the thresholds.
+        </p>
+      </div>
+      <div class="reason">
+        <h3>Works with your flow</h3>
+        <p>
+          It runs as a required status check. No new tabs, no separate
+          dashboards. The author clicks a link in the PR, answers the
+          questions, and they're done.
+        </p>
       </div>
     </div>
   </section>
 
-  <!-- ── How it works ─────────────────── -->
-  <section class="section-block">
-    <div class="section-heading">
-      <div class="eyebrow">How it works</div>
-      <h2>One short flow from PR open to merge</h2>
-    </div>
-
-    <div class="card-grid steps-grid">
-      {#each steps as step, index}
-        <article class="card step-card">
-          <div class="step-number">0{index + 1}</div>
-          <p>{step}</p>
-        </article>
-      {/each}
+  <section class="demo-section">
+    <div class="demo-inner">
+      <div>
+        <h2>See it in action</h2>
+        <p>
+          The public demo walks through a realistic quiz generated from a real
+          diff. No account needed.
+        </p>
+      </div>
+      <a class="btn btn-primary" href="/demo">Open the demo</a>
     </div>
   </section>
 
-  <!-- ── Public Example Quiz ──────────── -->
-  <section class="section-block">
-    <div class="section-heading">
-      <div class="eyebrow">Public Example Quiz</div>
-      <h2>Try the quiz flow without installing anything</h2>
-      <p>
-        The public demo uses a realistic diff and the same interaction pattern as the real app:
-        answer each question, get graded immediately, then submit the result.
-      </p>
-    </div>
-
-    <div class="card public-example-card">
-      <div class="example-header">
-        <div class="example-header-text">
-          <div class="question-chip">{publicDemoQuiz.repo}</div>
-          <h3 class="example-title">{publicDemoQuiz.title}</h3>
-          <p>{publicDemoQuiz.summary}</p>
-        </div>
-        <a class="button demo-link" href="/demo">Launch demo</a>
-      </div>
-
-      <div class="diff-card">
-        <div class="diff-label">Changed lines</div>
-        <pre class="diff-block">{publicDemoQuiz.diff.join("\n")}</pre>
-      </div>
-
-      <div class="examples-grid">
-      {#each publicDemoQuiz.questions as question, index}
-        <article class="card example-card">
-          <div class="example-topline">
-            <span class="question-chip">Question {index + 1}</span>
-            <span class="example-tag">Multiple choice</span>
-          </div>
-
-          <h3>{question.prompt}</h3>
-
-          <div class="option-list">
-            {#each question.options as option, optionIndex}
-              <div class:correct-option={optionIndex === 0} class="option-row">
-                <span class="option-key">{option.key}</span>
-                <span>{option.text}</span>
-              </div>
-            {/each}
-          </div>
-
-          <div class="notice good example-answer">Correct answer: {question.explanation}</div>
-        </article>
-      {/each}
-      </div>
-
-      <div class="demo-cta-row">
-        <a class="button primary" href="/demo">Open interactive demo</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ── CTA ──────────────────────────── -->
-  <section class="card cta-card">
-    <div class="cta-copy">
-      <div class="eyebrow">Why teams use it</div>
-      <h2>Catch cargo-culted changes before they merge</h2>
-      <p>
-        SlopBlock gives maintainers a lightweight gate when they want authors to demonstrate real
-        understanding of risky diffs, generated code, or LLM-assisted changes.
-      </p>
-    </div>
-
-    <div class="cta-actions">
-      <a class="button primary" href="https://github.com/apps/slopblock-quiz" target="_blank" rel="noreferrer">
-        View GitHub App
-      </a>
-      <a class="button" href="https://github.com/sampnorris/slopblock-quiz" target="_blank" rel="noreferrer">
-        Read Documentation
-      </a>
-    </div>
-  </section>
+  <footer class="foot">
+    <a
+      href="https://github.com/sampnorris/slopblock"
+      target="_blank"
+      rel="noreferrer"
+    >Source on GitHub</a>
+  </footer>
 </div>
 
 <style>
-  /* ── Mobile Top Bar ───────────────────────── */
-
-  .mobile-topbar {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    height: 52px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    position: sticky;
-    top: 0;
-    z-index: 30;
+  .page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
   }
 
-  .mobile-brand {
+  /* Nav */
+
+  .nav {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    padding: 20px 0;
+    margin-bottom: 24px;
   }
 
-  .mobile-logo {
-    width: 32px;
-    height: 32px;
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--gray-800);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-brand:hover {
+    color: var(--gray-900);
+  }
+
+  .nav-logo {
+    width: 34px;
+    height: 34px;
     display: grid;
     place-items: center;
     border-radius: 10px;
-    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
+    background: var(--gray-900);
     color: #fff;
     flex: none;
   }
 
-  .mobile-brand-name {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--gray-800);
-  }
-
-  .mobile-nav {
+  .nav-links {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
 
-  .mobile-nav-link {
-    padding: 6px 12px;
+  .nav-links a {
+    padding: 7px 14px;
     border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 600;
-    color: var(--gray-600);
+    color: var(--gray-500);
     text-decoration: none;
-    transition: all 150ms ease;
+    transition: color 120ms ease, background 120ms ease;
   }
 
-  .mobile-nav-link:hover {
-    background: var(--pink-50);
-    color: var(--accent);
+  .nav-links a:hover {
+    color: var(--gray-800);
+    background: var(--gray-100);
   }
 
-  @media (max-width: 860px) {
-    .mobile-topbar {
-      display: flex;
-    }
+  .nav-install {
+    background: var(--gray-900);
+    color: #fff !important;
+    border-radius: var(--radius-md);
   }
 
-  /* ── Landing Shell ────────────────────────── */
-
-  .landing-shell {
-    width: min(1180px, calc(100% - 48px));
-    margin: 0 auto;
-    padding: 36px 0 56px;
-    display: grid;
-    gap: 32px;
+  .nav-install:hover {
+    background: var(--gray-800) !important;
+    color: #fff !important;
   }
 
-  /* ── Hero ─────────────────────────────────── */
+  /* Hero */
 
   .hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
-    gap: 32px;
-    padding: 40px;
-    overflow: hidden;
-    position: relative;
-    background:
-      radial-gradient(circle at top right, rgba(212, 80, 126, 0.14), transparent 34%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(253, 242, 246, 0.92));
-  }
-
-  .hero::after {
-    content: "";
-    position: absolute;
-    inset: 14px;
-    border: 1px solid rgba(212, 80, 126, 0.08);
-    border-radius: calc(var(--radius-xl) - 6px);
-    pointer-events: none;
-  }
-
-  .hero-copy,
-  .hero-panel {
-    position: relative;
-    z-index: 1;
-  }
-
-  .hero-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 22px;
+    padding: 48px 0 0;
+    margin-bottom: 64px;
   }
 
   .hero-logo {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
     display: grid;
     place-items: center;
-    border-radius: 16px;
-    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
+    border-radius: 15px;
+    background: var(--gray-900);
     color: #fff;
-    box-shadow: 0 18px 32px rgba(212, 80, 126, 0.2);
-    flex: none;
+    margin-bottom: 32px;
   }
 
-  .hero-name {
-    font-size: 18px;
+  h1 {
+    font-family: "Playfair Display", serif;
+    font-size: clamp(28px, 5vw, 40px);
     font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--gray-800);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    color: var(--gray-900);
+    margin: 0 0 20px;
+    max-width: 18ch;
   }
 
-  .hero-text {
-    max-width: 62ch;
+  .lede {
     font-size: 17px;
     line-height: 1.65;
-  }
-
-  .hero-meta {
-    margin-top: 22px;
+    color: var(--gray-500);
+    margin: 0 0 32px;
+    max-width: 52ch;
   }
 
   .hero-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 28px;
-  }
-
-  .hero-button {
-    width: auto;
-    min-width: 160px;
-  }
-
-  .hero-panel {
-    display: grid;
-    gap: 14px;
-    align-content: start;
-  }
-
-  /* ── Signal Card ──────────────────────────── */
-
-  .signal-card {
-    padding: 22px;
-    border-radius: var(--radius-xl);
-    background: rgba(255, 255, 255, 0.84);
-    border: 1px solid rgba(212, 80, 126, 0.14);
-    box-shadow: var(--shadow-card);
-    backdrop-filter: blur(12px);
-  }
-
-  .signal-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 10px;
     flex-wrap: wrap;
   }
 
-  .signal-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--gray-600);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
+  /* Buttons */
 
-  .signal-badge {
+  .btn {
     display: inline-flex;
     align-items: center;
-    border-radius: var(--radius-pill);
-    padding: 6px 12px;
-    background: var(--pink-100);
-    color: var(--pink-700);
-    font-size: 12px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .signal-list {
-    display: grid;
-    gap: 10px;
-  }
-
-  .signal-item {
-    display: grid;
-    grid-template-columns: 44px 1fr;
-    gap: 12px;
-    align-items: center;
-    padding: 14px 16px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
+    justify-content: center;
+    padding: 12px 22px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--line);
-    box-shadow: var(--shadow-sm);
+    background: var(--surface);
+    color: var(--gray-700);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 120ms ease;
   }
 
-  .signal-index {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--pink-50), var(--pink-100));
-    color: var(--pink-700);
-    font: 700 13px/1 "DM Mono", ui-monospace, monospace;
-    flex: none;
+  .btn:hover {
+    border-color: var(--gray-300);
+    background: var(--gray-50);
+    color: var(--gray-900);
   }
 
-  /* ── Section ──────────────────────────────── */
-
-  .section-block {
-    display: grid;
-    gap: 20px;
+  .btn-primary {
+    background: var(--gray-900);
+    color: #fff;
+    border-color: var(--gray-900);
   }
 
-  .section-heading {
-    display: grid;
-    gap: 8px;
-    max-width: 72ch;
+  .btn-primary:hover {
+    background: var(--gray-800);
+    border-color: var(--gray-800);
+    color: #fff;
   }
 
-  /* ── Steps ────────────────────────────────── */
+  /* Sections */
 
-  .steps-grid {
-    align-items: stretch;
+  .how, .why, .demo-section {
+    margin-bottom: 64px;
   }
 
-  .step-card {
-    min-height: 160px;
-    display: grid;
-    gap: 14px;
-    align-content: start;
-  }
-
-  .step-number {
-    font: 700 14px/1 "DM Mono", ui-monospace, monospace;
-    color: var(--pink-600);
-  }
-
-  /* ── Public Example Card ──────────────────── */
-
-  .public-example-card {
-    display: grid;
-    gap: 24px;
-    padding: 28px;
-  }
-
-  .example-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-  }
-
-  .example-header-text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .example-title {
-    margin-top: 10px;
-    margin-bottom: 8px;
-    font-size: 22px;
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-900);
+    letter-spacing: -0.02em;
+    margin: 0 0 24px;
     line-height: 1.3;
   }
 
-  .demo-link {
-    width: auto;
-    min-width: 140px;
-    flex: none;
-  }
+  /* Steps */
 
-  /* ── Diff Card ────────────────────────────── */
-
-  .diff-card {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-xl);
-    background: var(--gray-900);
-    color: var(--gray-100);
-    overflow: hidden;
-  }
-
-  .diff-label {
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    font: 700 11px/1 "DM Mono", ui-monospace, monospace;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--pink-200);
-  }
-
-  .diff-block {
+  .steps {
+    list-style: none;
+    padding: 0;
     margin: 0;
-    padding: 16px;
-    overflow-x: auto;
-    font: 400 13px/1.7 "DM Mono", ui-monospace, monospace;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  /* ── Example Questions Grid ───────────────── */
-
-  .examples-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    gap: 0;
+    counter-reset: step;
   }
 
-  .example-card {
-    display: grid;
-    gap: 18px;
-    align-content: start;
-  }
-
-  .example-topline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .question-chip,
-  .example-tag {
-    display: inline-flex;
-    align-items: center;
-    border-radius: var(--radius-pill);
-    padding: 5px 11px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .question-chip {
-    background: var(--pink-100);
-    color: var(--pink-700);
-  }
-
-  .example-tag {
-    background: var(--gray-100);
+  .steps li {
+    counter-increment: step;
+    padding: 20px 0;
+    border-top: 1px solid var(--line);
+    font-size: 15px;
+    line-height: 1.6;
     color: var(--gray-600);
-  }
-
-  h3 {
-    margin: 0;
-    font-size: 18px;
-    line-height: 1.35;
-    color: var(--gray-900);
-    letter-spacing: -0.01em;
-  }
-
-  .option-list {
-    display: grid;
-    gap: 10px;
-  }
-
-  .option-row {
     display: grid;
     grid-template-columns: 32px 1fr;
-    gap: 12px;
-    align-items: start;
-    padding: 11px 14px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
-    background: var(--gray-50);
-    color: var(--gray-700);
-    font-size: 14px;
+    gap: 16px;
+    align-items: baseline;
   }
 
-  .correct-option {
-    border-color: rgba(22, 163, 74, 0.22);
-    background: var(--good-light);
+  .steps li:last-child {
+    border-bottom: 1px solid var(--line);
   }
 
-  .option-key {
+  .steps li::before {
+    content: counter(step);
+    font: 700 12px/1 "DM Sans", sans-serif;
+    color: var(--gray-400);
     width: 32px;
     height: 32px;
     display: grid;
     place-items: center;
-    border-radius: 10px;
-    background: var(--surface);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    color: var(--gray-700);
-    font: 700 13px/1 "DM Mono", ui-monospace, monospace;
+    border-radius: 50%;
+    border: 1px solid var(--line);
     flex: none;
   }
 
-  .example-answer {
-    margin-top: auto;
-    font-size: 13px;
+  .steps li strong {
+    color: var(--gray-800);
+    font-weight: 600;
   }
 
-  /* ── Demo CTA ─────────────────────────────── */
+  /* Reasons */
 
-  .demo-cta-row {
-    display: flex;
-    justify-content: flex-start;
+  .reasons {
+    display: grid;
+    gap: 0;
   }
 
-  .demo-cta-row :global(.button) {
-    width: auto;
-    min-width: 220px;
+  .reason {
+    padding: 24px 0;
+    border-top: 1px solid var(--line);
   }
 
-  /* ── Bottom CTA Card ──────────────────────── */
+  .reason:last-child {
+    border-bottom: 1px solid var(--line);
+  }
 
-  .cta-card {
+  .reason h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .reason p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--gray-500);
+    margin: 0;
+    max-width: 55ch;
+  }
+
+  /* Demo CTA */
+
+  .demo-inner {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 28px;
-    padding: 36px 40px;
+    gap: 24px;
   }
 
-  .cta-copy {
-    flex: 1;
-    min-width: 0;
+  .demo-inner h2 {
+    margin-bottom: 8px;
   }
 
-  .cta-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+  .demo-inner p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--gray-500);
+    margin: 0;
+    max-width: 38ch;
+  }
+
+  .demo-inner .btn {
     flex: none;
+    white-space: nowrap;
   }
 
-  .cta-actions :global(.button) {
-    width: auto;
-    min-width: 180px;
+  /* Footer */
+
+  .foot {
+    padding-top: 40px;
+    border-top: 1px solid var(--line);
   }
 
-  /* ── Responsive: Tablet (≤ 980px) ────────── */
+  .foot a {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-400);
+    text-decoration: none;
+  }
 
-  @media (max-width: 980px) {
-    .landing-shell {
-      gap: 24px;
+  .foot a:hover {
+    color: var(--gray-600);
+  }
+
+  /* Responsive */
+
+  @media (max-width: 600px) {
+    .page {
+      padding: 0 16px 60px;
+    }
+
+    .nav {
+      padding: 16px 0;
+      margin-bottom: 8px;
     }
 
     .hero {
-      grid-template-columns: 1fr;
-      gap: 28px;
-    }
-
-    .examples-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .cta-card {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 28px;
-    }
-
-    .cta-actions {
-      width: 100%;
-    }
-
-    .cta-actions :global(.button) {
-      flex: 1;
-      min-width: 140px;
-    }
-  }
-
-  /* ── Responsive: Mobile (≤ 640px) ────────── */
-
-  @media (max-width: 640px) {
-    .landing-shell {
-      width: calc(100% - 24px);
-      padding-top: 20px;
-      padding-bottom: 40px;
-      gap: 20px;
-    }
-
-    .hero {
-      padding: 24px 20px;
-      gap: 24px;
-    }
-
-    .hero-brand {
-      margin-bottom: 16px;
+      padding-top: 32px;
+      margin-bottom: 48px;
     }
 
     .hero-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 13px;
+      width: 48px;
+      height: 48px;
+      margin-bottom: 24px;
     }
 
-    .hero-name {
+    .lede {
       font-size: 16px;
-    }
-
-    .hero-text {
-      font-size: 15px;
-    }
-
-    .hero-meta {
-      margin-top: 16px;
     }
 
     .hero-actions {
       flex-direction: column;
-      gap: 10px;
-      margin-top: 22px;
     }
 
-    .hero-button {
+    .hero-actions .btn {
       width: 100%;
-      min-width: unset;
     }
 
-    /* Signal panel on mobile */
-    .signal-card {
-      padding: 16px;
+    .how, .why, .demo-section {
+      margin-bottom: 48px;
     }
 
-    .signal-item {
-      padding: 12px 14px;
-    }
-
-    /* Section blocks */
-    .section-block {
-      gap: 16px;
-    }
-
-    /* Steps become 1 column */
-    .card-grid {
+    .steps li {
       grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 16px 0;
     }
 
-    .step-card {
-      min-height: unset;
+    .steps li::before {
+      width: 28px;
+      height: 28px;
+      font-size: 11px;
     }
 
-    /* Example card */
-    .public-example-card {
-      padding: 20px 16px;
-      gap: 20px;
-    }
-
-    .example-header {
+    .demo-inner {
       flex-direction: column;
-      gap: 16px;
+      align-items: flex-start;
+      padding: 24px;
     }
 
-    .demo-link {
+    .demo-inner .btn {
       width: 100%;
-      min-width: unset;
-    }
-
-    /* Examples always 1 col on mobile */
-    .examples-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .demo-cta-row :global(.button) {
-      width: 100%;
-      min-width: unset;
-    }
-
-    /* CTA card */
-    .cta-card {
-      padding: 22px 20px;
-    }
-
-    .cta-actions :global(.button) {
-      width: 100%;
-    }
-  }
-
-  /* ── Responsive: Very small (≤ 380px) ────── */
-
-  @media (max-width: 380px) {
-    .landing-shell {
-      width: calc(100% - 16px);
-    }
-
-    .hero {
-      padding: 20px 16px;
-    }
-
-    .public-example-card {
-      padding: 16px 12px;
     }
   }
 </style>
