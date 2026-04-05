@@ -1,62 +1,6 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-
-  const publicExample = {
-    title: "PR #184: Make quiz submission reject missing answers",
-    repo: "sampnorris/slopblock-quiz",
-    summary:
-      "This example is based on a realistic server change: the answer endpoint now validates the submitted answer map and returns a 400 when a question is missing instead of silently accepting incomplete submissions.",
-    diff: [
-      "diff --git a/src/routes/api/session/[token]/answer/+server.ts b/src/routes/api/session/[token]/answer/+server.ts",
-      "@@",
-      ' if (action === "pass") {',
-      "   const answers = body?.answers;",
-      '   if (!answers || typeof answers !== "object" || Array.isArray(answers)) {',
-      '     return json({ ok: false, message: "Answers are required." }, { status: 400 });',
-      "   }",
-      "",
-      "   try {",
-      '     const result = await markQuizPassed({ octokit, session, answers });',
-      "     return json(result);",
-      "   } catch (error) {",
-      '     return json({ ok: false, message: error instanceof Error ? error.message : "Failed to grade quiz." }, { status: 400 });',
-      "   }",
-      " }",
-    ],
-  };
-
-  const exampleQuestions = [
-    {
-      prompt: "What new request shape is required before the endpoint will grade the quiz?",
-      options: [
-        "An `answers` object keyed by question ID must be present in the request body.",
-        "A `score` number must already be calculated on the client.",
-        "A `passed: true` flag must be sent with the answers.",
-      ],
-      answer:
-        "Correct answer: the route now rejects requests that do not include an `answers` object for grading.",
-    },
-    {
-      prompt: "Why does the handler wrap `markQuizPassed(...)` in a `try/catch`?",
-      options: [
-        "So grading errors can be turned into a `400` JSON response instead of crashing the request.",
-        "So the server can retry grading up to three times.",
-        "So the handler can swallow failures and still return `ok: true`.",
-      ],
-      answer:
-        "Correct answer: validation and grading failures are returned as explicit client-visible errors with status `400`.",
-    },
-    {
-      prompt: "What behavior changed for incomplete quiz submissions after this diff?",
-      options: [
-        "They now fail fast with an error message instead of slipping through to grading.",
-        "They automatically generate default answers for the missing questions.",
-        "They are accepted, but the score is capped at 50 percent.",
-      ],
-      answer:
-        "Correct answer: the new guard stops incomplete payloads before grading and reports the problem clearly.",
-    },
-  ];
+  import { publicDemoQuiz } from "$lib/demo-quiz";
 
   const steps = [
     "SlopBlock watches a pull request when it opens, updates, or becomes ready for review.",
@@ -70,7 +14,22 @@
   <title>SlopBlock</title>
 </svelte:head>
 
+<!-- Mobile top bar (hidden on desktop where sidebar is visible) -->
+<header class="mobile-topbar">
+  <div class="mobile-brand">
+    <div class="mobile-logo">
+      <SlopBlockLogo width={20} height={20} />
+    </div>
+    <span class="mobile-brand-name">SlopBlock</span>
+  </div>
+  <nav class="mobile-nav">
+    <a href="/demo" class="mobile-nav-link">Demo</a>
+    <a href="/settings" class="mobile-nav-link">Settings</a>
+  </nav>
+</header>
+
 <div class="landing-shell">
+  <!-- ── Hero ────────────────────────── -->
   <section class="hero card">
     <div class="hero-copy">
       <div class="hero-brand">
@@ -97,6 +56,9 @@
       <div class="hero-actions">
         <a class="button primary hero-button" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank" rel="noreferrer">
           Install SlopBlock
+        </a>
+        <a class="button hero-button" href="/demo">
+          Try Public Demo
         </a>
         <a class="button hero-button" href="/settings">
           Open Settings
@@ -133,6 +95,7 @@
     </div>
   </section>
 
+  <!-- ── How it works ─────────────────── -->
   <section class="section-block">
     <div class="section-heading">
       <div class="eyebrow">How it works</div>
@@ -149,34 +112,34 @@
     </div>
   </section>
 
+  <!-- ── Public Example Quiz ──────────── -->
   <section class="section-block">
     <div class="section-heading">
       <div class="eyebrow">Public Example Quiz</div>
-      <h2>A real sample, grounded in a visible diff</h2>
+      <h2>Try the quiz flow without installing anything</h2>
       <p>
-        This is the kind of quiz SlopBlock would generate for an actual pull request. The changed
-        lines are shown first, then the questions test whether the author understands what the
-        diff really did.
+        The public demo uses a realistic diff and the same interaction pattern as the real app:
+        answer each question, get graded immediately, then submit the result.
       </p>
     </div>
 
     <div class="card public-example-card">
       <div class="example-header">
-        <div>
-          <div class="question-chip">{publicExample.repo}</div>
-          <h3 class="example-title">{publicExample.title}</h3>
-          <p>{publicExample.summary}</p>
+        <div class="example-header-text">
+          <div class="question-chip">{publicDemoQuiz.repo}</div>
+          <h3 class="example-title">{publicDemoQuiz.title}</h3>
+          <p>{publicDemoQuiz.summary}</p>
         </div>
-        <div class="example-tag">3 questions</div>
+        <a class="button demo-link" href="/demo">Launch demo</a>
       </div>
 
       <div class="diff-card">
         <div class="diff-label">Changed lines</div>
-        <pre class="diff-block">{publicExample.diff.join("\n")}</pre>
+        <pre class="diff-block">{publicDemoQuiz.diff.join("\n")}</pre>
       </div>
 
       <div class="examples-grid">
-      {#each exampleQuestions as question, index}
+      {#each publicDemoQuiz.questions as question, index}
         <article class="card example-card">
           <div class="example-topline">
             <span class="question-chip">Question {index + 1}</span>
@@ -188,21 +151,26 @@
           <div class="option-list">
             {#each question.options as option, optionIndex}
               <div class:correct-option={optionIndex === 0} class="option-row">
-                <span class="option-key">{String.fromCharCode(65 + optionIndex)}</span>
-                <span>{option}</span>
+                <span class="option-key">{option.key}</span>
+                <span>{option.text}</span>
               </div>
             {/each}
           </div>
 
-          <div class="notice good example-answer">{question.answer}</div>
+          <div class="notice good example-answer">Correct answer: {question.explanation}</div>
         </article>
       {/each}
+      </div>
+
+      <div class="demo-cta-row">
+        <a class="button primary" href="/demo">Open interactive demo</a>
       </div>
     </div>
   </section>
 
+  <!-- ── CTA ──────────────────────────── -->
   <section class="card cta-card">
-    <div>
+    <div class="cta-copy">
       <div class="eyebrow">Why teams use it</div>
       <h2>Catch cargo-culted changes before they merge</h2>
       <p>
@@ -223,19 +191,89 @@
 </div>
 
 <style>
-  .landing-shell {
-    width: min(1180px, calc(100% - 32px));
-    margin: 0 auto;
-    padding: 32px 0 48px;
-    display: grid;
-    gap: 28px;
+  /* ── Mobile Top Bar ───────────────────────── */
+
+  .mobile-topbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 30;
   }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-logo {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
+    color: #fff;
+    flex: none;
+  }
+
+  .mobile-brand-name {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--gray-800);
+  }
+
+  .mobile-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-nav-link {
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-decoration: none;
+    transition: all 150ms ease;
+  }
+
+  .mobile-nav-link:hover {
+    background: var(--pink-50);
+    color: var(--accent);
+  }
+
+  @media (max-width: 860px) {
+    .mobile-topbar {
+      display: flex;
+    }
+  }
+
+  /* ── Landing Shell ────────────────────────── */
+
+  .landing-shell {
+    width: min(1180px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 36px 0 56px;
+    display: grid;
+    gap: 32px;
+  }
+
+  /* ── Hero ─────────────────────────────────── */
 
   .hero {
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
-    gap: 28px;
-    padding: 32px;
+    gap: 32px;
+    padding: 40px;
     overflow: hidden;
     position: relative;
     background:
@@ -262,7 +300,7 @@
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
   }
 
   .hero-logo {
@@ -274,6 +312,7 @@
     background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
     color: #fff;
     box-shadow: 0 18px 32px rgba(212, 80, 126, 0.2);
+    flex: none;
   }
 
   .hero-name {
@@ -286,6 +325,7 @@
   .hero-text {
     max-width: 62ch;
     font-size: 17px;
+    line-height: 1.65;
   }
 
   .hero-meta {
@@ -301,7 +341,7 @@
 
   .hero-button {
     width: auto;
-    min-width: 170px;
+    min-width: 160px;
   }
 
   .hero-panel {
@@ -310,8 +350,10 @@
     align-content: start;
   }
 
+  /* ── Signal Card ──────────────────────────── */
+
   .signal-card {
-    padding: 20px;
+    padding: 22px;
     border-radius: var(--radius-xl);
     background: rgba(255, 255, 255, 0.84);
     border: 1px solid rgba(212, 80, 126, 0.14);
@@ -325,6 +367,7 @@
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
+    flex-wrap: wrap;
   }
 
   .signal-label {
@@ -344,11 +387,12 @@
     color: var(--pink-700);
     font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
   }
 
   .signal-list {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
 
   .signal-item {
@@ -372,11 +416,14 @@
     background: linear-gradient(135deg, var(--pink-50), var(--pink-100));
     color: var(--pink-700);
     font: 700 13px/1 "DM Mono", ui-monospace, monospace;
+    flex: none;
   }
+
+  /* ── Section ──────────────────────────────── */
 
   .section-block {
     display: grid;
-    gap: 18px;
+    gap: 20px;
   }
 
   .section-heading {
@@ -385,12 +432,14 @@
     max-width: 72ch;
   }
 
+  /* ── Steps ────────────────────────────────── */
+
   .steps-grid {
     align-items: stretch;
   }
 
   .step-card {
-    min-height: 180px;
+    min-height: 160px;
     display: grid;
     gap: 14px;
     align-content: start;
@@ -401,30 +450,40 @@
     color: var(--pink-600);
   }
 
-  .examples-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
-  }
+  /* ── Public Example Card ──────────────────── */
 
   .public-example-card {
     display: grid;
-    gap: 22px;
-    padding: 24px;
+    gap: 24px;
+    padding: 28px;
   }
 
   .example-header {
     display: flex;
-    align-items: start;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
+    gap: 20px;
+  }
+
+  .example-header-text {
+    flex: 1;
+    min-width: 0;
   }
 
   .example-title {
     margin-top: 10px;
     margin-bottom: 8px;
-    font-size: 24px;
+    font-size: 22px;
+    line-height: 1.3;
   }
+
+  .demo-link {
+    width: auto;
+    min-width: 140px;
+    flex: none;
+  }
+
+  /* ── Diff Card ────────────────────────────── */
 
   .diff-card {
     border: 1px solid var(--line);
@@ -437,8 +496,8 @@
   .diff-label {
     padding: 12px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    font: 700 12px/1 "DM Mono", ui-monospace, monospace;
-    letter-spacing: 0.08em;
+    font: 700 11px/1 "DM Mono", ui-monospace, monospace;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--pink-200);
   }
@@ -449,6 +508,15 @@
     overflow-x: auto;
     font: 400 13px/1.7 "DM Mono", ui-monospace, monospace;
     white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Example Questions Grid ───────────────── */
+
+  .examples-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
   }
 
   .example-card {
@@ -462,6 +530,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   .question-chip,
@@ -469,7 +538,7 @@
     display: inline-flex;
     align-items: center;
     border-radius: var(--radius-pill);
-    padding: 6px 11px;
+    padding: 5px 11px;
     font-size: 12px;
     font-weight: 700;
   }
@@ -486,9 +555,10 @@
 
   h3 {
     margin: 0;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1.35;
     color: var(--gray-900);
+    letter-spacing: -0.01em;
   }
 
   .option-list {
@@ -501,11 +571,12 @@
     grid-template-columns: 32px 1fr;
     gap: 12px;
     align-items: start;
-    padding: 12px 14px;
+    padding: 11px 14px;
     border-radius: var(--radius-lg);
     border: 1px solid var(--line);
     background: var(--gray-50);
     color: var(--gray-700);
+    font-size: 14px;
   }
 
   .correct-option {
@@ -523,23 +594,46 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
     color: var(--gray-700);
     font: 700 13px/1 "DM Mono", ui-monospace, monospace;
+    flex: none;
   }
 
   .example-answer {
     margin-top: auto;
+    font-size: 13px;
   }
+
+  /* ── Demo CTA ─────────────────────────────── */
+
+  .demo-cta-row {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .demo-cta-row :global(.button) {
+    width: auto;
+    min-width: 220px;
+  }
+
+  /* ── Bottom CTA Card ──────────────────────── */
 
   .cta-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    gap: 28px;
+    padding: 36px 40px;
+  }
+
+  .cta-copy {
+    flex: 1;
+    min-width: 0;
   }
 
   .cta-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+    flex: none;
   }
 
   .cta-actions :global(.button) {
@@ -547,19 +641,138 @@
     min-width: 180px;
   }
 
+  /* ── Responsive: Tablet (≤ 980px) ────────── */
+
   @media (max-width: 980px) {
-    .hero,
-    .cta-card {
+    .landing-shell {
+      gap: 24px;
+    }
+
+    .hero {
       grid-template-columns: 1fr;
-      display: grid;
+      gap: 28px;
     }
 
     .examples-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-  
+
+    .cta-card {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 28px;
+    }
+
     .cta-actions {
       width: 100%;
+    }
+
+    .cta-actions :global(.button) {
+      flex: 1;
+      min-width: 140px;
+    }
+  }
+
+  /* ── Responsive: Mobile (≤ 640px) ────────── */
+
+  @media (max-width: 640px) {
+    .landing-shell {
+      width: calc(100% - 24px);
+      padding-top: 20px;
+      padding-bottom: 40px;
+      gap: 20px;
+    }
+
+    .hero {
+      padding: 24px 20px;
+      gap: 24px;
+    }
+
+    .hero-brand {
+      margin-bottom: 16px;
+    }
+
+    .hero-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+    }
+
+    .hero-name {
+      font-size: 16px;
+    }
+
+    .hero-text {
+      font-size: 15px;
+    }
+
+    .hero-meta {
+      margin-top: 16px;
+    }
+
+    .hero-actions {
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .hero-button {
+      width: 100%;
+      min-width: unset;
+    }
+
+    /* Signal panel on mobile */
+    .signal-card {
+      padding: 16px;
+    }
+
+    .signal-item {
+      padding: 12px 14px;
+    }
+
+    /* Section blocks */
+    .section-block {
+      gap: 16px;
+    }
+
+    /* Steps become 1 column */
+    .card-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .step-card {
+      min-height: unset;
+    }
+
+    /* Example card */
+    .public-example-card {
+      padding: 20px 16px;
+      gap: 20px;
+    }
+
+    .example-header {
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .demo-link {
+      width: 100%;
+      min-width: unset;
+    }
+
+    /* Examples always 1 col on mobile */
+    .examples-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .demo-cta-row :global(.button) {
+      width: 100%;
+      min-width: unset;
+    }
+
+    /* CTA card */
+    .cta-card {
+      padding: 22px 20px;
     }
 
     .cta-actions :global(.button) {
@@ -567,26 +780,19 @@
     }
   }
 
-  @media (max-width: 720px) {
+  /* ── Responsive: Very small (≤ 380px) ────── */
+
+  @media (max-width: 380px) {
     .landing-shell {
-      width: min(100% - 24px, 1180px);
-      padding-top: 16px;
+      width: calc(100% - 16px);
     }
 
     .hero {
-      padding: 22px;
+      padding: 20px 16px;
     }
 
-    .hero-actions,
-    .hero-button {
-      width: 100%;
-    }
-
-    .signal-row,
-    .example-topline,
-    .example-header {
-      align-items: start;
-      flex-direction: column;
+    .public-example-card {
+      padding: 16px 12px;
     }
   }
 </style>
