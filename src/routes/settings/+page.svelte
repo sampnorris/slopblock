@@ -1,110 +1,75 @@
 <script lang="ts">
-  import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-  import { GITHUB_APP_URL, GITHUB_REPO_URL, GITHUB_APP_INSTALL_URL, BUY_ME_A_COFFEE_URL, BUY_ME_A_COFFEE_IMG } from "$lib/constants";
-  import type { PageData } from "./$types";
+  import { GITHUB_APP_INSTALL_URL } from "$lib/constants";
+  import { page } from "$app/state";
 
-  let { data }: { data: PageData } = $props();
+  // Installations come from the layout's data
+  const installations = $derived(page.data.installations);
 </script>
 
 <svelte:head>
-  <title>SlopBlock - settings</title>
+  <title>SlopBlock - installations</title>
 </svelte:head>
 
-<div class="app-layout">
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-logo">
-        <SlopBlockLogo />
-      </div>
-      <span class="sidebar-title">SlopBlock</span>
+<div class="main-area">
+  <header class="topbar">
+    <span class="topbar-title">Installations</span>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-actions">
+      <a class="topbar-btn" href={GITHUB_APP_INSTALL_URL} target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add
+      </a>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <p class="eyebrow">Overview</p>
+      <h1>Installations</h1>
+      <p class="page-desc">Choose an installation to configure quiz behavior and LLM provider.</p>
     </div>
 
-    <nav class="sidebar-nav">
-      <a href="/settings" class="sidebar-link active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Installations
-      </a>
-      <a href={GITHUB_APP_URL} target="_blank" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
-        GitHub App
-        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      </a>
-      <a href={GITHUB_REPO_URL} target="_blank" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        Documentation
-      </a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <a href={BUY_ME_A_COFFEE_URL} target="_blank" class="bmc-link">
-        <img src={BUY_ME_A_COFFEE_IMG} alt="Buy Me A Coffee" />
-      </a>
-      <div class="sidebar-user">
-        <div class="sidebar-user-avatar">{data.actor.login[0].toUpperCase()}</div>
-        <div class="sidebar-user-info">
-          <span class="sidebar-user-name">{data.actor.login}</span>
-          <span class="sidebar-user-role">Authenticated</span>
-        </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-num">{installations.length}</span>
+        <span class="stat-label">Installations</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num active-dot">Active</span>
+        <span class="stat-label">Status</span>
       </div>
     </div>
-  </aside>
 
-  <div class="main-area">
-    <header class="topbar">
-      <span class="topbar-title">Installations</span>
-      <div class="topbar-spacer"></div>
-      <div class="topbar-actions">
-        <a class="topbar-btn" href={GITHUB_APP_INSTALL_URL} target="_blank">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add
-        </a>
+    {#if installations.length === 0}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <h2>No installations found</h2>
+        <p>Install the SlopBlock GitHub App on an organization or personal account to get started.</p>
+        <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 12px;" href={GITHUB_APP_INSTALL_URL} target="_blank">Install SlopBlock</a>
       </div>
-    </header>
-
-    <div class="content">
-      <div class="page-header">
-        <h1>Installations</h1>
-        <p>Choose an installation to configure quiz behavior and LLM provider.</p>
+    {:else}
+      <div class="install-list">
+        {#each installations as inst, i}
+          <a
+            class="install-card"
+            href="/settings/{inst.id}"
+            style="animation-delay: {i * 50}ms"
+          >
+            <img class="avatar" src={inst.account.avatar_url} alt={inst.account.login} width="40" height="40" />
+            <div class="install-info">
+              <span class="install-name">{inst.account.login}</span>
+              <span class="install-type">{inst.account.type} &middot; ID {inst.id}</span>
+            </div>
+            <div class="install-action">
+              <span class="configure-label">Configure</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </a>
+        {/each}
       </div>
-
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="stat-num">{data.installations.length}</span>
-          <span class="stat-label">Installations</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num active-dot">Active</span>
-          <span class="stat-label">Status</span>
-        </div>
-      </div>
-
-      {#if data.installations.length === 0}
-        <div class="empty-state">
-          <div class="empty-icon">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          </div>
-          <h2>No installations found</h2>
-          <p>Install the SlopBlock GitHub App on an organization or personal account to get started.</p>
-          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 12px;" href={GITHUB_APP_INSTALL_URL} target="_blank">Install SlopBlock</a>
-        </div>
-      {:else}
-        <div class="install-list">
-          {#each data.installations as inst}
-            <a class="install-card" href="/settings/{inst.id}">
-              <img class="avatar" src={inst.account.avatar_url} alt={inst.account.login} width="40" height="40" />
-              <div class="install-info">
-                <span class="install-name">{inst.account.login}</span>
-                <span class="install-type">{inst.account.type} &middot; ID {inst.id}</span>
-              </div>
-              <div class="install-action">
-                <span class="configure-label">Configure</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-              </div>
-            </a>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    {/if}
   </div>
 </div>
 
@@ -113,8 +78,8 @@
     margin-bottom: 24px;
   }
 
-  .page-header p {
-    margin-top: 4px;
+  .page-desc {
+    margin-top: 6px;
     font-size: 14px;
   }
 
@@ -195,6 +160,12 @@
     text-decoration: none;
     color: var(--text);
     transition: all 160ms ease;
+    animation: card-in 400ms ease both;
+  }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .install-card:hover {
@@ -245,64 +216,6 @@
 
   .install-card:hover .configure-label {
     opacity: 1;
-  }
-
-  /* Sidebar user */
-  .sidebar-user {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-  }
-
-  .sidebar-user-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(232, 112, 154, 0.15);
-    color: var(--accent);
-    display: grid;
-    place-items: center;
-    font: 700 13px/1 "DM Mono", monospace;
-    flex: none;
-  }
-
-  .sidebar-user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .sidebar-user-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--gray-800);
-  }
-
-  .sidebar-user-role {
-    font: 400 11px/1 "DM Mono", monospace;
-    color: var(--muted);
-  }
-
-  /* Buy Me a Coffee */
-  .bmc-link {
-    display: block;
-    padding: 8px 12px;
-    margin-top: 4px;
-  }
-
-  .bmc-link img {
-    display: block;
-    width: 100%;
-    max-width: 180px;
-    height: auto;
-    border-radius: 8px;
-    transition: opacity 160ms ease, transform 160ms ease;
-  }
-
-  .bmc-link:hover img {
-    opacity: 0.9;
-    transform: translateY(-1px);
   }
 
   /* Topbar btn */

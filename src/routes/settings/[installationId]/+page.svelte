@@ -1,23 +1,25 @@
 <script lang="ts">
-  import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-  import { GITHUB_APP_URL, GITHUB_MARKETPLACE_URL, BUY_ME_A_COFFEE_URL, BUY_ME_A_COFFEE_IMG } from "$lib/constants";
+  import { GITHUB_MARKETPLACE_URL } from "$lib/constants";
   import type { PageData } from "./$types";
   import SearchSelect from "$lib/components/SearchSelect.svelte";
+  import { page } from "$app/state";
 
   let { data }: { data: PageData } = $props();
-  const initial = data as any;
-
-  const installationId = data.installationId;
-  const actor = data.actor;
-  const isPaid = initial.marketplacePlan === "paid";
-  const isOrg = initial.accountType === "Organization";
+  /* Snapshot initial values for form state — intentionally non-reactive */
+  /* eslint-disable svelte/valid-compile */
+  // svelte-ignore state_referenced_locally
+  const _init = data as any;
+  const installationId = $derived(data.installationId);
+  const actor = $derived(page.data.actor);
+  const isPaid = $derived((data as any).marketplacePlan === "paid");
+  const isOrg = $derived((data as any).accountType === "Organization");
 
   let saving = $state(false);
   let saveMessage = $state("");
   let saveOk = $state(false);
-  let provider = $state<"openrouter" | "manual" | "none">(initial.provider as any);
-  let hasApiKey = $state(data.hasApiKey);
-  let hasBaseUrl = $state(Boolean(data.settings?.llmBaseUrl));
+  let provider = $state<"openrouter" | "manual" | "none">(_init.provider as any);
+  let hasApiKey = $state(_init.hasApiKey);
+  let hasBaseUrl = $state(Boolean(_init.settings?.llmBaseUrl));
 
   let showManualKey = $state(false);
   let manualApiKey = $state("");
@@ -25,21 +27,21 @@
   let settingKey = $state(false);
   let keyMessage = $state("");
 
-  let llmGenerationModel = $state(initial.settings?.llmGenerationModel ?? "");
-  let llmValidationModel = $state(initial.settings?.llmValidationModel ?? "");
-  let llmSkipModel = $state(initial.settings?.llmSkipModel ?? "");
-  let questionCountMin = $state(initial.settings?.questionCountMin ?? 2);
-  let questionCountMax = $state(initial.settings?.questionCountMax ?? 5);
-  let quizGenerationMaxAttempts = $state(initial.settings?.quizGenerationMaxAttempts ?? 3);
-  let allowBestEffortFallback = $state(initial.settings?.allowBestEffortFallback ?? true);
-  let retryMode = $state(initial.settings?.retryMode ?? "same_quiz");
-  let allowedWrongAnswers = $state(initial.settings?.allowedWrongAnswers ?? 0);
-  let skipBots = $state(initial.settings?.skipBots ?? true);
-  let skipForks = $state(initial.settings?.skipForks ?? true);
-  let customSystemPrompt = $state(initial.settings?.customSystemPrompt ?? "");
-  let customQuizInstructions = $state(initial.settings?.customQuizInstructions ?? "");
-  let maxTokenBudget = $state<number | undefined>(initial.settings?.maxTokenBudget ?? undefined);
-  let tokenBudgetFallback = $state<"pass" | "fail">(initial.settings?.tokenBudgetFallback === "fail" ? "fail" : "pass");
+  let llmGenerationModel = $state(_init.settings?.llmGenerationModel ?? "");
+  let llmValidationModel = $state(_init.settings?.llmValidationModel ?? "");
+  let llmSkipModel = $state(_init.settings?.llmSkipModel ?? "");
+  let questionCountMin = $state(_init.settings?.questionCountMin ?? 2);
+  let questionCountMax = $state(_init.settings?.questionCountMax ?? 5);
+  let quizGenerationMaxAttempts = $state(_init.settings?.quizGenerationMaxAttempts ?? 3);
+  let allowBestEffortFallback = $state(_init.settings?.allowBestEffortFallback ?? true);
+  let retryMode = $state(_init.settings?.retryMode ?? "same_quiz");
+  let allowedWrongAnswers = $state(_init.settings?.allowedWrongAnswers ?? 0);
+  let skipBots = $state(_init.settings?.skipBots ?? true);
+  let skipForks = $state(_init.settings?.skipForks ?? true);
+  let customSystemPrompt = $state(_init.settings?.customSystemPrompt ?? "");
+  let customQuizInstructions = $state(_init.settings?.customQuizInstructions ?? "");
+  let maxTokenBudget = $state<number | undefined>(_init.settings?.maxTokenBudget ?? undefined);
+  let tokenBudgetFallback = $state<"pass" | "fail">(_init.settings?.tokenBudgetFallback === "fail" ? "fail" : "pass");
 
   const defaultModels = [
     "anthropic/claude-sonnet-4.5",
@@ -78,7 +80,7 @@
     finally { modelsLoading = false; }
   }
 
-  if (typeof window !== "undefined" && initial.provider === "openrouter") { fetchModels(); }
+  if (typeof window !== "undefined" && _init.provider === "openrouter") { fetchModels(); }
 
   async function connectOpenRouter() {
     const codeVerifier = generateCodeVerifier();
@@ -164,46 +166,7 @@
   <title>SlopBlock - settings</title>
 </svelte:head>
 
-<div class="app-layout">
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-logo"><SlopBlockLogo /></div>
-      <span class="sidebar-title">SlopBlock</span>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="/settings" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Installations
-      </a>
-      <a href="/settings/{installationId}" class="sidebar-link active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-        Configuration
-      </a>
-      <a href="/settings/{installationId}/activity" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Activity
-      </a>
-      <a href={GITHUB_APP_URL} target="_blank" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
-        GitHub App
-        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <a href={BUY_ME_A_COFFEE_URL} target="_blank" class="bmc-link">
-        <img src={BUY_ME_A_COFFEE_IMG} alt="Buy Me A Coffee" />
-      </a>
-      <div class="sidebar-user">
-        <div class="sidebar-user-avatar">{actor.login[0].toUpperCase()}</div>
-        <div class="sidebar-user-info">
-          <span class="sidebar-user-name">{actor.login}</span>
-          <span class="sidebar-user-role">Authenticated</span>
-        </div>
-      </div>
-    </div>
-  </aside>
-
-  <div class="main-area">
+<div class="main-area">
     <header class="topbar">
       <a href="/settings" class="topbar-back" aria-label="Back to installations">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -381,12 +344,12 @@
                   <span class="mitigation-desc">Docs-only, test-only, dependency-only, tiny copy, and formatting-only PRs are skipped with zero LLM calls.</span>
                 </li>
                 <li>
-                  <span class="mitigation-label">Diff-focused context</span>
-                  <span class="mitigation-desc">Only changed hunks and surrounding lines are sent instead of full file contents, reducing input tokens by 30-70% for large files.</span>
+                  <span class="mitigation-label">Diff-focused</span>
+                  <span class="mitigation-desc">Only changed hunks and surrounding lines are sent, reducing input tokens by 30-70% for large files.</span>
                 </li>
                 <li>
                   <span class="mitigation-label">Prompt caching</span>
-                  <span class="mitigation-desc">System prompts are cached across LLM calls within a generation cycle, saving ~50% of system prompt tokens on repeated calls (Anthropic models).</span>
+                  <span class="mitigation-desc">System prompts are cached across LLM calls within a generation cycle, saving ~50% on repeated calls.</span>
                 </li>
                 <li>
                   <span class="mitigation-label">Quiz caching</span>
@@ -394,15 +357,15 @@
                 </li>
                 <li>
                   <span class="mitigation-label">Context caching</span>
-                  <span class="mitigation-desc">Repository context is cached in-memory for 10 minutes, avoiding redundant GitHub API fetches and re-serialization.</span>
+                  <span class="mitigation-desc">Repository context is cached in-memory for 10 minutes, avoiding redundant GitHub API fetches.</span>
                 </li>
                 <li>
                   <span class="mitigation-label">Context budgets</span>
-                  <span class="mitigation-desc">Repo map limited to 120 paths, related snippets capped at 12 files / 12K chars, diffs truncated per-call type.</span>
+                  <span class="mitigation-desc">Repo map limited to 120 paths, snippets capped at 12 files / 12K chars, diffs truncated per-call type.</span>
                 </li>
                 <li>
-                  <span class="mitigation-label">Generation attempt limit</span>
-                  <span class="mitigation-desc">The generate-and-validate loop runs at most {quizGenerationMaxAttempts} attempts (configurable above), with best-effort fallback to avoid wasted retries.</span>
+                  <span class="mitigation-label">Attempt limit</span>
+                  <span class="mitigation-desc">Generate-and-validate loop runs at most {quizGenerationMaxAttempts} attempts, with best-effort fallback.</span>
                 </li>
               </ul>
             </div>
@@ -540,7 +503,6 @@
         {#if saveMessage}
           <p class="save-msg" class:good={saveOk} class:bad={!saveOk}>{saveMessage}</p>
         {/if}
-      </div>
     </div>
   </div>
 </div>
@@ -668,21 +630,23 @@
   .mitigations-header {
     display: flex; align-items: center; gap: 8px;
     font: 600 13px/1 "DM Sans", sans-serif;
-    color: var(--good); margin-bottom: 12px;
+    color: var(--good); margin-bottom: 14px;
   }
   .mitigations-header svg { flex: none; }
   .mitigations-list {
-    list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
+    list-style: none; margin: 0; padding: 0; display: grid; gap: 12px;
   }
   .mitigations-list li {
-    display: grid; grid-template-columns: 140px 1fr; gap: 8px;
+    display: flex; flex-direction: column; gap: 2px;
     font-size: 13px; line-height: 1.5;
+    padding-left: 14px;
+    border-left: 2px solid rgba(74, 222, 128, 0.15);
   }
   .mitigation-label {
-    font: 600 12px/1.5 "DM Mono", monospace;
-    color: var(--gray-600); white-space: nowrap;
+    font: 600 11px/1 "DM Mono", monospace;
+    color: var(--gray-600); letter-spacing: 0.02em;
   }
-  .mitigation-desc { color: var(--muted); }
+  .mitigation-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
   .budget-fallback-notice {
     display: flex; align-items: flex-start; gap: 8px;
@@ -692,7 +656,6 @@
     font-size: 12px; line-height: 1.55; color: var(--muted);
   }
   .budget-fallback-notice svg { flex: none; margin-top: 1px; color: var(--good); }
-  .budget-fallback-notice strong { color: var(--gray-700); }
 
   .budget-fail-warning {
     display: flex; align-items: flex-start; gap: 8px;
@@ -759,27 +722,6 @@
 
   .bottom-actions { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 
-  /* Buy Me a Coffee */
-  .bmc-link {
-    display: block;
-    padding: 8px 12px;
-    margin-top: 4px;
-  }
-
-  .bmc-link img {
-    display: block;
-    width: 100%;
-    max-width: 180px;
-    height: auto;
-    border-radius: 8px;
-    transition: opacity 160ms ease, transform 160ms ease;
-  }
-
-  .bmc-link:hover img {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-
   /* Topbar */
   .topbar-back {
     display: grid; place-items: center; width: 32px; height: 32px;
@@ -796,11 +738,4 @@
   }
   .topbar-btn:hover { box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 20px rgba(232, 112, 154, 0.3); transform: translateY(-1px); }
   .topbar-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  /* Sidebar user */
-  .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 8px; }
-  .sidebar-user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(232, 112, 154, 0.15); color: var(--accent); display: grid; place-items: center; font: 700 13px/1 "DM Mono", monospace; flex: none; }
-  .sidebar-user-info { display: flex; flex-direction: column; gap: 1px; }
-  .sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
-  .sidebar-user-role { font: 400 11px/1 "DM Mono", monospace; color: var(--muted); }
 </style>

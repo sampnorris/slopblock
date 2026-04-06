@@ -5,17 +5,20 @@
 
   let { data }: { data: PageData } = $props();
 
-  const { session, actor, prUrl } = data;
-  const diffAnchorHashes = (data as any).diffAnchorHashes as Record<string, string>;
-  const questions = session.questions;
-  const total = questions.length;
-  const allowedWrongAnswers = Math.max(0, (session as any).allowedWrongAnswers ?? 0);
-  const requiredCorrect = Math.max(0, total - allowedWrongAnswers);
+  const session = $derived((data as any).session);
+  const actor = $derived((data as any).actor);
+  const prUrl = $derived((data as any).prUrl);
+  const diffAnchorHashes = $derived((data as any).diffAnchorHashes as Record<string, string>);
+  const questions = $derived(session.questions);
+  const total = $derived(questions.length);
+  const allowedWrongAnswers = $derived(Math.max(0, (session as any).allowedWrongAnswers ?? 0));
+  const requiredCorrect = $derived(Math.max(0, total - allowedWrongAnswers));
 
   let answered = $state(0);
   let correct = $state(0);
+  // svelte-ignore state_referenced_locally
   let questionStates = $state<Array<{ answered: boolean; selectedKey: string | null; isCorrect: boolean | null }>>(
-    questions.map(() => ({ answered: false, selectedKey: null, isCorrect: null }))
+    (data as any).session.questions.map(() => ({ answered: false, selectedKey: null, isCorrect: null }))
   );
   let submitting = $state(false);
   let submitMessage = $state("");
@@ -55,7 +58,7 @@
   }
 
   function selectedAnswers(): Record<string, string> {
-    return Object.fromEntries(questions.map((question, index) => [question.id, questionStates[index].selectedKey ?? ""]));
+    return Object.fromEntries(questions.map((question: any, index: number) => [question.id, questionStates[index].selectedKey ?? ""]));
   }
 
   function clearIncorrectAnswers() {

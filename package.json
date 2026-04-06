@@ -26,7 +26,7 @@
     "llm",
     "quiz"
   ],
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "dependencies": {
     "@octokit/app": "^16.1.0",
     "@prisma/client": "^6.6.0",
