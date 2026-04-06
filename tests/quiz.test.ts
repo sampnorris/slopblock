@@ -57,7 +57,7 @@ test("normalizeQuizPayload converts string options into keyed options", () => {
     questions: [
       {
         prompt: "What changed?",
-        options: ["first", "second", "third", "fourth"],
+        options: ["first", "second", "third"],
         correctOption: "second",
         explanation: "because",
         diffAnchors: ["src/file.ts"]
@@ -68,9 +68,59 @@ test("normalizeQuizPayload converts string options into keyed options", () => {
   assert.equal(quiz.questions.length, 1);
   assert.deepEqual(
     quiz.questions[0].options.map((option) => option.key),
-    ["A", "B", "C", "D"]
+    ["A", "B", "C"]
   );
   assert.equal(quiz.questions[0].correctOption, "B");
+});
+
+test("validateQuizPayload rejects questions with more than 3 options", () => {
+  const issues = validateQuizPayload({
+    summary: "summary",
+    questions: [
+      {
+        id: "q1",
+        prompt: "What changed?",
+        options: [
+          { key: "A", text: "first" },
+          { key: "B", text: "second" },
+          { key: "C", text: "third" },
+          { key: "D", text: "fourth" }
+        ],
+        correctOption: "A",
+        explanation: "because",
+        diffAnchors: [],
+        focus: "behavior"
+      }
+    ]
+  });
+
+  assert.ok(issues.some((issue) => issue.includes("exactly 3 options")));
+});
+
+test("validateQuizPayload rejects the wrong question count", () => {
+  const issues = validateQuizPayload(
+    {
+      summary: "summary",
+      questions: [
+        {
+          id: "q1",
+          prompt: "What changed?",
+          options: [
+            { key: "A", text: "first" },
+            { key: "B", text: "second" },
+            { key: "C", text: "third" }
+          ],
+          correctOption: "A",
+          explanation: "because",
+          diffAnchors: [],
+          focus: "behavior"
+        }
+      ]
+    },
+    2
+  );
+
+  assert.ok(issues.some((issue) => issue.includes("exactly 2 questions")));
 });
 
 test("validateQuizPayload rejects empty or malformed questions", () => {

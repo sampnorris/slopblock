@@ -13,12 +13,16 @@ enum SessionStatus {
   passed
   skipped
   failed
+  quota_exceeded
 }
 
 model InstallationSettings {
   id               String   @id @default(cuid())
   installationId   String   @unique
   accountLogin     String
+  accountType      String   @default("User")
+  marketplacePlan  String?
+  marketplacePlanId Int?
   llmApiKeyEncrypted String?
   llmBaseUrl       String?
   llmGenerationModel String?
@@ -26,6 +30,9 @@ model InstallationSettings {
   llmSkipModel     String?
   questionCountMin Int?
   questionCountMax Int?
+  quizGenerationMaxAttempts Int?
+  llmMaxJsonAttempts Int?
+  allowBestEffortFallback Boolean?
   retryMode        String?
   skipBots         Boolean?
   skipForks        Boolean?
@@ -55,6 +62,7 @@ model PullRequestSession {
   failureMessage       String?
   commentId            String?
   quiz                 Json?
+  traceId              String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

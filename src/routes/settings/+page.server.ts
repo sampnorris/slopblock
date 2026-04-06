@@ -1,6 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
+import { devMocksEnabled, mockActor, mockInstallations } from "$lib/server/dev-mocks.js";
 import { getGitHubApp } from "$lib/server/github-app.js";
 
 interface Installation {
@@ -11,6 +12,13 @@ interface Installation {
 export const load: PageServerLoad = async ({ request, url }) => {
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
+
+  if (devMocksEnabled()) {
+    return {
+      actor: mockActor(),
+      installations: mockInstallations()
+    };
+  }
 
   if (!actor) {
     redirect(302, `/auth/start?session=settings&return=${encodeURIComponent(url.pathname)}`);

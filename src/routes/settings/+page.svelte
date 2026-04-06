@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
+  import { GITHUB_APP_URL, GITHUB_REPO_URL, GITHUB_APP_INSTALL_URL, BUY_ME_A_COFFEE_URL, BUY_ME_A_COFFEE_IMG } from "$lib/constants";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -10,7 +11,6 @@
 </svelte:head>
 
 <div class="app-layout">
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-logo">
@@ -24,21 +24,21 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Installations
       </a>
-      <a href="https://github.com/apps/slopblock-quiz" target="_blank" class="sidebar-link">
+      <a href={GITHUB_APP_URL} target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
         GitHub App
+        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
-      <a href="https://github.com/sampnorris/slopblock-quiz" target="_blank" class="sidebar-link">
+      <a href={GITHUB_REPO_URL} target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
         Documentation
-      </a>
-      <a href="https://buymeacoffee.com/samscript" target="_blank" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v5a6 6 0 01-6 6H8a6 6 0 01-6-6V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
-        Buy Me a Coffee
       </a>
     </nav>
 
     <div class="sidebar-footer">
+      <a href={BUY_ME_A_COFFEE_URL} target="_blank" class="bmc-link">
+        <img src={BUY_ME_A_COFFEE_IMG} alt="Buy Me A Coffee" />
+      </a>
       <div class="sidebar-user">
         <div class="sidebar-user-avatar">{data.actor.login[0].toUpperCase()}</div>
         <div class="sidebar-user-info">
@@ -49,69 +49,56 @@
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main-area">
     <header class="topbar">
       <span class="topbar-title">Installations</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <a class="topbar-btn primary" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Installation
+        <a class="topbar-btn" href={GITHUB_APP_INSTALL_URL} target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add
         </a>
       </div>
     </header>
 
     <div class="content">
       <div class="page-header">
-        <h1>Settings</h1>
-        <p>Choose an installation to configure SlopBlock's quiz behavior and LLM provider.</p>
+        <h1>Installations</h1>
+        <p>Choose an installation to configure quiz behavior and LLM provider.</p>
       </div>
 
-      <!-- Stats cards (like the reference) -->
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">Installations</span>
-            <span class="stat-value">{data.installations.length}</span>
-          </div>
+          <span class="stat-num">{data.installations.length}</span>
+          <span class="stat-label">Installations</span>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <div class="stat-info">
-            <span class="stat-label">Status</span>
-            <span class="stat-value">Active</span>
-          </div>
+          <span class="stat-num active-dot">Active</span>
+          <span class="stat-label">Status</span>
         </div>
       </div>
 
-      <!-- Installations list -->
       {#if data.installations.length === 0}
         <div class="empty-state">
           <div class="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           </div>
           <h2>No installations found</h2>
-          <p>Install the SlopBlock GitHub App on a repository to get started.</p>
-          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 8px;" href="https://github.com/apps/slopblock-quiz/installations/new" target="_blank">Install SlopBlock</a>
+          <p>Install the SlopBlock GitHub App on an organization or personal account to get started.</p>
+          <a class="button primary" style="width: auto; padding: 12px 24px; margin-top: 12px;" href={GITHUB_APP_INSTALL_URL} target="_blank">Install SlopBlock</a>
         </div>
       {:else}
         <div class="install-list">
           {#each data.installations as inst}
             <a class="install-card" href="/settings/{inst.id}">
-              <img class="avatar" src={inst.account.avatar_url} alt={inst.account.login} width="44" height="44" />
+              <img class="avatar" src={inst.account.avatar_url} alt={inst.account.login} width="40" height="40" />
               <div class="install-info">
                 <span class="install-name">{inst.account.login}</span>
                 <span class="install-type">{inst.account.type} &middot; ID {inst.id}</span>
               </div>
               <div class="install-action">
                 <span class="configure-label">Configure</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
               </div>
             </a>
           {/each}
@@ -127,112 +114,97 @@
   }
 
   .page-header p {
-    margin-top: 6px;
-    font-size: 15px;
+    margin-top: 4px;
+    font-size: 14px;
   }
 
-  /* Stats row */
+  /* Stats */
   .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
+    display: flex;
+    gap: 12px;
     margin-bottom: 24px;
   }
 
   .stat-card {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 20px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 20px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
   }
 
-  .stat-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: var(--pink-50);
-    display: grid;
-    place-items: center;
-    flex: none;
+  .stat-num {
+    font: 700 22px/1 "Playfair Display", serif;
+    color: #fff;
   }
 
-  .stat-icon svg {
-    width: 22px;
-    height: 22px;
-    color: var(--pink-500);
-  }
-
-  .stat-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  .stat-num.active-dot::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+    margin-right: 8px;
+    vertical-align: middle;
   }
 
   .stat-label {
-    font-size: 13px;
+    font: 500 11px/1 "DM Mono", monospace;
     color: var(--muted);
-    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  .stat-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--gray-900);
-    letter-spacing: -0.02em;
-  }
-
-  /* Empty state */
+  /* Empty */
   .empty-state {
     text-align: center;
-    padding: 60px 20px;
-    background: var(--surface);
+    padding: 56px 20px;
     border: 1px solid var(--line);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-card);
+    background: var(--surface);
   }
 
   .empty-icon {
-    color: var(--gray-300);
+    color: var(--gray-400);
     margin-bottom: 16px;
   }
 
   .empty-state h2 {
-    color: var(--gray-700);
+    color: #fff;
     margin-bottom: 8px;
   }
 
   /* Install list */
   .install-list {
     display: grid;
-    gap: 10px;
+    gap: 8px;
   }
 
   .install-card {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 18px 20px;
+    gap: 14px;
+    padding: 14px 18px;
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     background: var(--surface);
     text-decoration: none;
     color: var(--text);
-    transition: all 150ms ease;
-    box-shadow: var(--shadow-card);
+    transition: all 160ms ease;
   }
 
   .install-card:hover {
-    border-color: var(--pink-200);
-    box-shadow: 0 4px 20px rgba(212, 80, 126, 0.08);
+    border-color: rgba(232, 112, 154, 0.2);
+    box-shadow: 0 0 30px rgba(232, 112, 154, 0.06);
     transform: translateY(-1px);
   }
 
   .avatar {
-    border-radius: 12px;
+    border-radius: 10px;
     flex: none;
     border: 1px solid var(--line);
   }
@@ -246,12 +218,12 @@
 
   .install-name {
     font-weight: 600;
-    font-size: 16px;
-    color: var(--gray-800);
+    font-size: 15px;
+    color: #fff;
   }
 
   .install-type {
-    font-size: 13px;
+    font: 400 12px/1 "DM Mono", monospace;
     color: var(--muted);
   }
 
@@ -261,13 +233,14 @@
     gap: 6px;
     color: var(--accent);
     flex: none;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
   }
 
   .configure-label {
     opacity: 0;
     transition: opacity 150ms ease;
+    font: 500 12px/1 "DM Mono", monospace;
   }
 
   .install-card:hover .configure-label {
@@ -283,15 +256,14 @@
   }
 
   .sidebar-user-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: var(--pink-100);
-    color: var(--pink-600);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(232, 112, 154, 0.15);
+    color: var(--accent);
     display: grid;
     place-items: center;
-    font-weight: 700;
-    font-size: 14px;
+    font: 700 13px/1 "DM Mono", monospace;
     flex: none;
   }
 
@@ -302,37 +274,54 @@
   }
 
   .sidebar-user-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--gray-800);
   }
 
   .sidebar-user-role {
-    font-size: 12px;
+    font: 400 11px/1 "DM Mono", monospace;
     color: var(--muted);
   }
 
-  /* Topbar action buttons */
+  /* Buy Me a Coffee */
+  .bmc-link {
+    display: block;
+    padding: 8px 12px;
+    margin-top: 4px;
+  }
+
+  .bmc-link img {
+    display: block;
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+    border-radius: 8px;
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .bmc-link:hover img {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  /* Topbar btn */
   .topbar-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 16px;
+    padding: 7px 14px;
     border-radius: var(--radius-md);
-    font-size: 13px;
-    font-weight: 600;
+    font: 600 12px/1 "DM Mono", monospace;
     text-decoration: none;
-    transition: all 150ms ease;
-  }
-
-  .topbar-btn.primary {
+    transition: all 160ms ease;
     background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
     color: #fff;
-    box-shadow: 0 2px 8px rgba(212, 80, 126, 0.25);
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.3), 0 2px 12px rgba(232, 112, 154, 0.2);
   }
 
-  .topbar-btn.primary:hover {
-    box-shadow: 0 4px 16px rgba(212, 80, 126, 0.35);
+  .topbar-btn:hover {
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 20px rgba(232, 112, 154, 0.3);
     transform: translateY(-1px);
     color: #fff;
   }

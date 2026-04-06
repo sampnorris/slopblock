@@ -6,6 +6,10 @@ export interface SlopblockConfig {
     min: number;
     max: number;
   };
+  quizGeneration: {
+    maxAttempts: number;
+    allowBestEffortFallback: boolean;
+  };
   passRule: {
     requireAllCorrect: boolean;
   };
@@ -31,6 +35,7 @@ export interface SlopblockConfig {
     generationModel: string;
     validationModel: string;
     skipModel: string;
+    maxJsonAttempts: number;
     baseUrl?: string;
     apiKey?: string;
   };

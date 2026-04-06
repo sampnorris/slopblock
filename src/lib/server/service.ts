@@ -11,7 +11,10 @@ import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 import { getSettings } from "./settings-store.js";
+import { countQuizGenerationsToday, FREE_PLAN_DAILY_QUIZ_LIMIT, isPaidPlan } from "./marketplace-store.js";
 import { createQuizAttempt, gradeQuizAnswers } from "./attempt-store.js";
+import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
+import { createTrace, type TraceContext } from "./langfuse.js";
 
 export class MissingProviderError extends Error {
   constructor() {
@@ -24,6 +27,13 @@ export class MissingModelError extends Error {
   constructor(purpose: "generation" | "validation" | "skip") {
     super(`No ${purpose} model configured. Select one in /settings.`);
     this.name = "MissingModelError";
+  }
+}
+
+export class PlanError extends Error {
+  constructor(feature: string) {
+    super(`${feature} requires a paid Slopblock plan. Upgrade at ${GITHUB_MARKETPLACE_URL}`);
+    this.name = "PlanError";
   }
 }
 
@@ -46,11 +56,21 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
   const settings = await getSettings(String(installationId));
   if (!settings) return config;
 
+  const paid = settings.marketplacePlan === "paid";
+
+  // Custom prompts are a paid feature — silently ignore them on free plan
+  const customSystemPrompt = paid ? (settings.customSystemPrompt ?? config.customSystemPrompt) : config.customSystemPrompt;
+  const customQuizInstructions = paid ? (settings.customQuizInstructions ?? config.customQuizInstructions) : config.customQuizInstructions;
+
   return {
     ...config,
     questionCount: {
       min: settings.questionCountMin ?? config.questionCount.min,
       max: settings.questionCountMax ?? config.questionCount.max
+    },
+    quizGeneration: {
+      maxAttempts: settings.quizGenerationMaxAttempts ?? config.quizGeneration.maxAttempts,
+      allowBestEffortFallback: settings.allowBestEffortFallback ?? config.quizGeneration.allowBestEffortFallback
     },
     retryMode: (settings.retryMode as SlopblockConfig["retryMode"]) ?? config.retryMode,
     heuristics: {
@@ -64,14 +84,15 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
       baseUrl: settings.llmBaseUrl ?? config.llm.baseUrl,
       generationModel: settings.llmGenerationModel ?? config.llm.generationModel,
       validationModel: settings.llmValidationModel ?? config.llm.validationModel,
-      skipModel: settings.llmSkipModel ?? config.llm.skipModel
+      skipModel: settings.llmSkipModel ?? config.llm.skipModel,
+      maxJsonAttempts: settings.llmMaxJsonAttempts ?? config.llm.maxJsonAttempts
     },
-    customSystemPrompt: settings.customSystemPrompt ?? config.customSystemPrompt,
-    customQuizInstructions: settings.customQuizInstructions ?? config.customQuizInstructions
+    customSystemPrompt,
+    customQuizInstructions
   };
 }
 
-function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
+function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip", trace?: TraceContext) {
   const apiKey = (config.llm.apiKey ?? process.env.SLOPBLOCK_API_KEY)?.trim();
   const baseUrl = (config.llm.baseUrl ?? process.env.SLOPBLOCK_BASE_URL)?.trim();
   const overrideModel = process.env.SLOPBLOCK_MODEL;
@@ -91,7 +112,7 @@ function llmClient(config: SlopblockConfig, purpose: "generation" | "validation"
     throw new MissingModelError(purpose);
   }
 
-  return new OpenAICompatibleClient({ apiKey, baseUrl, model });
+  return new OpenAICompatibleClient({ apiKey, baseUrl, model, maxAttempts: config.llm.maxJsonAttempts, trace });
 }
 
 function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
@@ -129,13 +150,15 @@ async function generateValidQuiz(params: {
   repoContext: Awaited<ReturnType<typeof buildRemoteRepoContext>>;
   diffSummary: string;
   questionCount: number;
+  maxAttempts: number;
+  allowBestEffortFallback: boolean;
   customSystemPrompt?: string;
   customQuizInstructions?: string;
 }): Promise<QuizPayload> {
   let feedback: string[] = [];
   let bestQuiz: QuizPayload | undefined;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < params.maxAttempts; attempt += 1) {
     const quiz = await params.generationClient.generateQuiz({
       repoContext: params.repoContext,
       diffSummary: params.diffSummary,
@@ -144,7 +167,7 @@ async function generateValidQuiz(params: {
       customSystemPrompt: params.customSystemPrompt,
       customQuizInstructions: params.customQuizInstructions
     });
-    const localIssues = validateQuizPayload(quiz);
+    const localIssues = validateQuizPayload(quiz, params.questionCount);
     if (localIssues.length > 0) {
       feedback = localIssues;
       continue;
@@ -155,7 +178,8 @@ async function generateValidQuiz(params: {
     const validation = await params.validationClient.validateQuiz({
       quiz,
       repoContext: params.repoContext,
-      diffSummary: params.diffSummary
+      diffSummary: params.diffSummary,
+      expectedQuestionCount: params.questionCount
     });
     if (validation.valid) {
       return quiz;
@@ -164,7 +188,7 @@ async function generateValidQuiz(params: {
     feedback = validation.issues;
   }
 
-  if (bestQuiz) {
+  if (bestQuiz && params.allowBestEffortFallback) {
     logInfo("quiz.generation.using_best_attempt", {
       feedbackIssues: feedback.length,
       questionCount: bestQuiz.questions.length
@@ -172,7 +196,7 @@ async function generateValidQuiz(params: {
     return bestQuiz;
   }
 
-  throw new Error(`Quiz generation failed after 3 attempts: ${feedback.join("; ")}`);
+  throw new Error(`Quiz generation failed after ${params.maxAttempts} attempts: ${feedback.join("; ")}`);
 }
 
 async function renderAndPersistComment(octokit: any, session: SessionRecord) {
@@ -299,19 +323,35 @@ export async function requestNewQuiz(params: {
     description: "Generating new quiz..."
   });
 
+  const trace = createTrace({
+    name: "quiz-retry",
+    metadata: {
+      repository: `${owner}/${repo}`,
+      pullNumber: session.pullNumber,
+      headSha: session.headSha,
+      installationId: session.installationId
+    },
+    sessionId: `${owner}/${repo}#${session.pullNumber}`,
+    userId: session.authorLogin
+  });
+
   const repoConfig = await loadRemoteConfig(octokit, owner, repo, session.headSha);
   const config = await applyInstallationSettings(repoConfig, session.installationId);
   const files = await listChangedFiles(octokit, owner, repo, session.pullNumber);
   const repoContext = await buildRemoteRepoContext(octokit, owner, repo, session.headSha, files, config);
   const quiz = await generateValidQuiz({
-    generationClient: llmClient(config, "generation"),
-    validationClient: llmClient(config, "validation"),
+    generationClient: llmClient(config, "generation", trace),
+    validationClient: llmClient(config, "validation", trace),
     repoContext,
     diffSummary: diffSummary(files),
     questionCount: computeQuestionCount(files, config),
+    maxAttempts: config.quizGeneration.maxAttempts,
+    allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
     customSystemPrompt: config.customSystemPrompt,
     customQuizInstructions: config.customQuizInstructions
   });
+
+  trace.end({ outcome: "quiz_generated", questionCount: quiz.questions.length });
 
   const updated = await renderAndPersistComment(octokit, {
     ...session,
@@ -322,7 +362,8 @@ export async function requestNewQuiz(params: {
     validationModel: llmModel(config, "validation"),
     summary: quiz.summary,
     failureMessage: undefined,
-    quiz
+    quiz,
+    traceId: trace.traceId || undefined
   });
 
   await setCommitStatus({
@@ -370,6 +411,56 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
+  // Org accounts require a paid plan
+  const ownerType = payload.repository?.owner?.type;
+  if (ownerType === "Organization") {
+    const paid = await isPaidPlan(String(payload.installation.id));
+    if (!paid) {
+      throw new PlanError("Organization repositories");
+    }
+  }
+
+  // Free plan: enforce daily quiz generation quota
+  if (!isManualTrigger) {
+    const paid = await isPaidPlan(String(payload.installation.id));
+    if (!paid) {
+      const generationsToday = await countQuizGenerationsToday(String(payload.installation.id));
+      if (generationsToday >= FREE_PLAN_DAILY_QUIZ_LIMIT) {
+        logInfo("pull_request.quota_exceeded", {
+          repository: `${owner}/${repo}`,
+          pullNumber: pr.number,
+          generationsToday,
+          limit: FREE_PLAN_DAILY_QUIZ_LIMIT
+        });
+        const existing = await getSession(owner, repo, pr.number);
+        const session = await renderAndPersistComment(octokit, {
+          installationId: payload.installation.id,
+          repositoryId: payload.repository.id,
+          repositoryOwner: owner,
+          repositoryName: repo,
+          pullNumber: pr.number,
+          authorLogin: pr.user.login,
+          headSha,
+          status: SessionStatus.quota_exceeded,
+          currentQuestionIndex: 0,
+          questionCount: 0,
+          retryMode: config.retryMode,
+          commentId: existing?.commentId
+        });
+        await setCommitStatus({
+          octokit,
+          owner,
+          repo,
+          sha: headSha,
+          state: "success",
+          description: `Free plan limit reached (${FREE_PLAN_DAILY_QUIZ_LIMIT}/day). Upgrade for unlimited quizzes.`,
+          targetUrl: sessionTargetUrl(session)
+        });
+        return;
+      }
+    }
+  }
+
   if (config.heuristics.skipBots && pr.user?.type === "Bot") {
     await setCommitStatus({
       octokit,
@@ -394,10 +485,23 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
+  // Create a LangFuse trace for the entire quiz lifecycle
+  const trace = createTrace({
+    name: "quiz-pipeline",
+    metadata: {
+      repository: `${owner}/${repo}`,
+      pullNumber: pr.number,
+      headSha,
+      installationId: payload.installation.id
+    },
+    sessionId: `${owner}/${repo}#${pr.number}`,
+    userId: pr.user.login
+  });
+
   logInfo("pull_request.files.list_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
   logInfo("pull_request.files.list_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number, fileCount: files.length });
-  const skipClient = llmClient(config, "skip");
+  const skipClient = llmClient(config, "skip", trace);
   const skipDecision = await maybeSkip(skipClient, initialSkipDecision(files, config), files);
   logInfo("pull_request.skip.decision", {
     repository: `${owner}/${repo}`,
@@ -424,10 +528,12 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     skipReason: undefined,
     failureMessage: undefined,
     quiz: undefined,
-    commentId: undefined
+    commentId: undefined,
+    traceId: trace.traceId || undefined
   };
 
   if (skipDecision.outcome === "skip") {
+    trace.end({ outcome: "skipped", reason: skipDecision.reason });
     const session = await renderAndPersistComment(octokit, {
       ...baseSession,
       status: SessionStatus.skipped,
@@ -465,11 +571,13 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   });
   logInfo("pull_request.quiz.generate_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const quiz = await generateValidQuiz({
-    generationClient: llmClient(config, "generation"),
-    validationClient: llmClient(config, "validation"),
+    generationClient: llmClient(config, "generation", trace),
+    validationClient: llmClient(config, "validation", trace),
     repoContext,
     diffSummary: diffSummary(files),
     questionCount: computeQuestionCount(files, config),
+    maxAttempts: config.quizGeneration.maxAttempts,
+    allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
     customSystemPrompt: config.customSystemPrompt,
     customQuizInstructions: config.customQuizInstructions
   });
@@ -478,6 +586,8 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     pullNumber: pr.number,
     questionCount: quiz.questions.length
   });
+
+  trace.end({ outcome: "quiz_generated", questionCount: quiz.questions.length });
 
   logInfo("pull_request.session.lookup_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const existing = await getSession(owner, repo, pr.number);

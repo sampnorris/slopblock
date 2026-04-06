@@ -53,7 +53,6 @@
   }
 
   function onBlur() {
-    // Delay to allow click on option
     setTimeout(() => { open = false; query = ""; }, 150);
   }
 
@@ -80,7 +79,7 @@
 
   function scrollToFocused() {
     if (listEl && focusedIndex >= 0) {
-      const el = listEl.children[focusedIndex + 1] as HTMLElement; // +1 for the "default" option
+      const el = listEl.children[focusedIndex + 1] as HTMLElement;
       el?.scrollIntoView({ block: "nearest" });
     }
   }
@@ -88,7 +87,7 @@
 
 <div class="search-select" {id}>
   <div class="input-wrapper">
-    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input
       bind:this={inputEl}
       type="text"
@@ -102,7 +101,7 @@
       autocomplete="off"
     />
     {#if value}
-      <button type="button" class="clear-btn" onmousedown={(e) => { e.preventDefault(); select(null); }}>
+      <button type="button" class="clear-btn" aria-label="Clear selection" onmousedown={(e) => { e.preventDefault(); select(null); }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     {/if}
@@ -162,24 +161,24 @@
     padding: 10px 14px 10px 36px;
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    background: var(--surface);
+    background: var(--bg);
     color: var(--text);
     font: inherit;
-    font-size: 14px;
+    font-size: 13px;
     outline: none;
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
 
   .search-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(212, 80, 126, 0.1);
+    box-shadow: 0 0 0 3px var(--pink-glow, rgba(232, 112, 154, 0.15));
   }
 
   .clear-btn {
     position: absolute;
     right: 8px;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 6px;
     border: none;
     background: transparent;
@@ -191,8 +190,8 @@
   }
 
   .clear-btn:hover {
-    background: var(--gray-100);
-    color: var(--gray-600);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
   }
 
   .dropdown {
@@ -200,7 +199,7 @@
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    max-height: 280px;
+    max-height: 260px;
     overflow-y: auto;
     background: var(--surface);
     border: 1px solid var(--line);
@@ -214,7 +213,7 @@
     align-items: baseline;
     gap: 8px;
     width: 100%;
-    padding: 9px 14px;
+    padding: 8px 14px;
     border: none;
     background: transparent;
     color: var(--text);
@@ -227,7 +226,7 @@
 
   .option:hover,
   .option.focused {
-    background: var(--pink-50);
+    background: rgba(232, 112, 154, 0.08);
   }
 
   .option.selected {
@@ -244,7 +243,7 @@
   }
 
   .option-detail {
-    font-size: 11px;
+    font: 400 11px/1 "DM Mono", monospace;
     color: var(--muted);
     flex: none;
   }
@@ -256,20 +255,7 @@
     text-align: center;
   }
 
-  .dropdown::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .dropdown::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .dropdown::-webkit-scrollbar-thumb {
-    background: var(--gray-200);
-    border-radius: 3px;
-  }
-
-  .dropdown::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-300);
-  }
+  .dropdown::-webkit-scrollbar { width: 5px; }
+  .dropdown::-webkit-scrollbar-track { background: transparent; }
+  .dropdown::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
 </style>

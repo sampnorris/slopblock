@@ -3,8 +3,10 @@ import type { RequestHandler } from "./$types";
 import { getInstallationOctokit, verifyWebhookSignature } from "$lib/server/github-app.js";
 import { setCommitStatus } from "$lib/server/github-service.js";
 import { logError, logInfo } from "$lib/server/log.js";
-import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingModelError, MissingProviderError } from "$lib/server/service.js";
+import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingModelError, MissingProviderError, PlanError } from "$lib/server/service.js";
 import { InsufficientCreditsError } from "$lib/server/openai.js";
+import { handleMarketplacePurchase } from "$lib/server/marketplace-service.js";
+import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const rawBody = await request.text();
@@ -32,6 +34,16 @@ export const POST: RequestHandler = async ({ request }) => {
 
   if (event === "ping") {
     logInfo("webhook.ping", { deliveryId });
+    return json({ ok: true });
+  }
+
+  if (event === "marketplace_purchase") {
+    try {
+      await handleMarketplacePurchase(payload);
+      logInfo("webhook.marketplace_purchase.completed", { action: payload.action, deliveryId });
+    } catch (error) {
+      logError("webhook.marketplace_purchase.failed", error, { action: payload.action, deliveryId });
+    }
     return json({ ok: true });
   }
 
@@ -65,15 +77,17 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (error) {
     const isPrEvent = event === "pull_request" && payload.pull_request;
     const isCommentEvent = event === "issue_comment" && payload.issue?.pull_request;
-    if ((error instanceof MissingProviderError || error instanceof MissingModelError || error instanceof InsufficientCreditsError) && (isPrEvent || isCommentEvent)) {
+    if ((error instanceof MissingProviderError || error instanceof MissingModelError || error instanceof InsufficientCreditsError || error instanceof PlanError) && (isPrEvent || isCommentEvent)) {
       const owner = payload.repository.owner.login;
       const repo = payload.repository.name;
       const pr = payload.pull_request ?? payload.issue;
-      const description = error instanceof InsufficientCreditsError
-        ? "LLM provider has insufficient credits. Add credits and re-trigger."
-        : error instanceof MissingModelError
-          ? "LLM models are not fully configured. Select all required models in settings."
-          : "No LLM provider configured. Visit slopblock settings to connect one.";
+      const description = error instanceof PlanError
+        ? `Organization repositories require a paid Slopblock plan. Upgrade at ${GITHUB_MARKETPLACE_URL}`
+        : error instanceof InsufficientCreditsError
+          ? "LLM provider has insufficient credits. Add credits and re-trigger."
+          : error instanceof MissingModelError
+            ? "LLM models are not fully configured. Select all required models in settings."
+            : "No LLM provider configured. Visit slopblock settings to connect one.";
       try {
         await setCommitStatus({
           octokit: await getInstallationOctokit(payload.installation.id),

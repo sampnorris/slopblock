@@ -22,6 +22,7 @@ export interface SessionRecord {
   failureMessage?: string;
   commentId?: number;
   quiz?: QuizPayload;
+  traceId?: string;
 }
 
 function fromRow(row: PullRequestSession): SessionRecord {
@@ -44,7 +45,8 @@ function fromRow(row: PullRequestSession): SessionRecord {
     skipReason: row.skipReason ?? undefined,
     failureMessage: row.failureMessage ?? undefined,
     commentId: row.commentId ? Number(row.commentId) : undefined,
-    quiz: (row.quiz as QuizPayload | null) ?? undefined
+    quiz: (row.quiz as QuizPayload | null) ?? undefined,
+    traceId: row.traceId ?? undefined
   };
 }
 
@@ -125,7 +127,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       skipReason: input.skipReason,
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : undefined,
-      quiz: input.quiz as unknown as object | undefined
+      quiz: input.quiz as unknown as object | undefined,
+      traceId: input.traceId
     },
     update: {
       installationId: String(input.installationId),
@@ -142,7 +145,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       skipReason: input.skipReason,
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : null,
-      quiz: input.quiz as unknown as object | undefined
+      quiz: input.quiz as unknown as object | undefined,
+      traceId: input.traceId ?? null
     }
   });
 

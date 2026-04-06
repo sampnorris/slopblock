@@ -1,6 +1,8 @@
 import { SessionStatus } from "@prisma/client";
 import type { SessionRecord } from "./session-store.js";
 import { sessionAnswerUrl, sessionTargetUrl } from "./github-service.js";
+import { FREE_PLAN_DAILY_QUIZ_LIMIT } from "./marketplace-store.js";
+import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 
 export function renderSessionComment(session: SessionRecord): string {
   const lines: string[] = ["## slopblock", ""];
@@ -8,6 +10,17 @@ export function renderSessionComment(session: SessionRecord): string {
     session.generationModel ? `**Created by:** \`${session.generationModel}\`` : undefined,
     session.validationModel ? `**Validated by:** \`${session.validationModel}\`` : undefined
   ].filter(Boolean) as string[];
+
+  if (session.status === SessionStatus.quota_exceeded) {
+    lines.push(
+      `**Status:** passed :white_check_mark:`,
+      "",
+      `This repository has reached the free plan limit of **${FREE_PLAN_DAILY_QUIZ_LIMIT} quiz generations per day**. No quiz was generated for this pull request.`,
+      "",
+      `[Upgrade to a paid plan](${GITHUB_MARKETPLACE_URL}) for unlimited daily quiz generations.`
+    );
+    return lines.join("\n");
+  }
 
   if (session.status === SessionStatus.skipped) {
     lines.push(`**Status:** skipped`, "", session.skipReason ?? "This pull request matched skip rules.");

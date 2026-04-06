@@ -1,16 +1,17 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
+import { devMocksEnabled, mockActor, mockSession } from "$lib/server/dev-mocks.js";
 import { getSessionById } from "$lib/server/session-store.js";
 
 export const load: PageServerLoad = async ({ params, request }) => {
-  const session = await getSessionById(params.token);
+  const session = devMocksEnabled() ? mockSession(params.token) : await getSessionById(params.token);
   if (!session) {
     error(404, "This quiz link is no longer valid.");
   }
 
   const cookieHeader = request.headers.get("cookie") ?? undefined;
-  const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
+  const actor = devMocksEnabled() ? mockActor() : getSessionActor({ headers: { cookie: cookieHeader } } as any);
 
   const prUrl = `https://github.com/${session.repositoryOwner}/${session.repositoryName}/pull/${session.pullNumber}`;
   const questions = session.quiz?.questions ?? [];
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
       generationModel: session.generationModel,
       validationModel: session.validationModel,
       summary: session.summary,
+      traceId: session.traceId,
       questions: actor ? questions.map((q) => ({
         id: q.id,
         prompt: q.prompt,

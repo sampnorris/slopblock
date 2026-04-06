@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
+  import { GITHUB_APP_URL, GITHUB_MARKETPLACE_URL, BUY_ME_A_COFFEE_URL, BUY_ME_A_COFFEE_IMG } from "$lib/constants";
   import type { PageData } from "./$types";
   import SearchSelect from "$lib/components/SearchSelect.svelte";
 
@@ -7,6 +8,8 @@
 
   const installationId = data.installationId;
   const actor = data.actor;
+  const isPaid = data.marketplacePlan === "paid";
+  const isOrg = data.accountType === "Organization";
 
   let saving = $state(false);
   let saveMessage = $state("");
@@ -15,20 +18,21 @@
   let hasApiKey = $state(data.hasApiKey);
   let hasBaseUrl = $state(Boolean(data.settings?.llmBaseUrl));
 
-  // Manual key entry
   let showManualKey = $state(false);
   let manualApiKey = $state("");
   let manualBaseUrl = $state("");
   let settingKey = $state(false);
   let keyMessage = $state("");
 
-  // Settings fields
   let llmGenerationModel = $state(data.settings?.llmGenerationModel ?? "");
   let llmValidationModel = $state(data.settings?.llmValidationModel ?? "");
   let llmSkipModel = $state(data.settings?.llmSkipModel ?? "");
   let questionCountMin = $state(data.settings?.questionCountMin ?? 2);
   let questionCountMax = $state(data.settings?.questionCountMax ?? 5);
-  let retryMode = $state(data.settings?.retryMode ?? "new_quiz");
+  let quizGenerationMaxAttempts = $state(data.settings?.quizGenerationMaxAttempts ?? 3);
+  let llmMaxJsonAttempts = $state(data.settings?.llmMaxJsonAttempts ?? 2);
+  let allowBestEffortFallback = $state(data.settings?.allowBestEffortFallback ?? true);
+  let retryMode = $state(data.settings?.retryMode ?? "same_quiz");
   let skipBots = $state(data.settings?.skipBots ?? true);
   let skipForks = $state(data.settings?.skipForks ?? true);
   let customSystemPrompt = $state(data.settings?.customSystemPrompt ?? "");
@@ -66,30 +70,18 @@
       const res = await fetch(`/api/settings/${installationId}/models`, { credentials: "same-origin" });
       const json = await res.json();
       modelsSource = json.source;
-      if (json.models?.length) {
-        availableModels = json.models;
-      }
-    } catch {
-      modelsSource = "error";
-    } finally {
-      modelsLoading = false;
-    }
+      if (json.models?.length) { availableModels = json.models; }
+    } catch { modelsSource = "error"; }
+    finally { modelsLoading = false; }
   }
 
-  // Fetch models on mount if connected via OpenRouter
-  if (typeof window !== "undefined" && data.provider === "openrouter") {
-    fetchModels();
-  }
+  if (typeof window !== "undefined" && data.provider === "openrouter") { fetchModels(); }
 
-  // -- OpenRouter OAuth PKCE --
   async function connectOpenRouter() {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await sha256Base64Url(codeVerifier);
-
-    // Store verifier in sessionStorage for the callback
     sessionStorage.setItem("or_code_verifier", codeVerifier);
     sessionStorage.setItem("or_installation_id", installationId);
-
     const callbackUrl = `${window.location.origin}/settings/${installationId}`;
     const url = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(callbackUrl)}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`;
     window.location.href = url;
@@ -98,176 +90,71 @@
   function generateCodeVerifier(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return btoa(String.fromCharCode(...array))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return btoa(String.fromCharCode(...array)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
   async function sha256Base64Url(input: string): Promise<string> {
     const encoded = new TextEncoder().encode(input);
     const hash = await crypto.subtle.digest("SHA-256", encoded);
-    return btoa(String.fromCharCode(...new Uint8Array(hash)))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
-  // Handle OpenRouter callback (code in URL)
   async function handleOpenRouterCallback() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     if (!code) return;
-
     const codeVerifier = sessionStorage.getItem("or_code_verifier");
     const storedInstallationId = sessionStorage.getItem("or_installation_id");
     sessionStorage.removeItem("or_code_verifier");
     sessionStorage.removeItem("or_installation_id");
-
-    if (!codeVerifier || storedInstallationId !== installationId) {
-      keyMessage = "OAuth state mismatch. Please try again.";
-      return;
-    }
-
-    // Clean URL
+    if (!codeVerifier || storedInstallationId !== installationId) { keyMessage = "OAuth state mismatch. Please try again."; return; }
     window.history.replaceState({}, "", window.location.pathname);
-
-    settingKey = true;
-    keyMessage = "";
+    settingKey = true; keyMessage = "";
     try {
-      const res = await fetch("/auth/openrouter", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ code, codeVerifier, installationId })
-      });
+      const res = await fetch("/auth/openrouter", { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ code, codeVerifier, installationId }) });
       const json = await res.json();
-      if (json.ok) {
-        provider = "openrouter";
-        hasApiKey = true;
-        hasBaseUrl = true;
-        keyMessage = "Connected to OpenRouter.";
-        saveOk = true;
-        fetchModels();
-      } else {
-        keyMessage = json.message || "Failed to connect.";
-        saveOk = false;
-      }
-    } catch {
-      keyMessage = "Network error.";
-      saveOk = false;
-    } finally {
-      settingKey = false;
-    }
+      if (json.ok) { provider = "openrouter"; hasApiKey = true; hasBaseUrl = true; keyMessage = "Connected to OpenRouter."; saveOk = true; fetchModels(); }
+      else { keyMessage = json.message || "Failed to connect."; saveOk = false; }
+    } catch { keyMessage = "Network error."; saveOk = false; }
+    finally { settingKey = false; }
   }
 
-  // Handle manual key
   async function submitManualKey() {
     if (!manualApiKey.trim() || !manualBaseUrl.trim()) return;
-    settingKey = true;
-    keyMessage = "";
+    settingKey = true; keyMessage = "";
     try {
-      const res = await fetch(`/api/settings/${installationId}/key`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ apiKey: manualApiKey, baseUrl: manualBaseUrl || undefined })
-      });
+      const res = await fetch(`/api/settings/${installationId}/key`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ apiKey: manualApiKey, baseUrl: manualBaseUrl || undefined }) });
       const json = await res.json();
-      if (json.ok) {
-        provider = "manual";
-        hasApiKey = true;
-        hasBaseUrl = true;
-        keyMessage = "API key saved.";
-        saveOk = true;
-        manualApiKey = "";
-        manualBaseUrl = "";
-        showManualKey = false;
-      } else {
-        keyMessage = json.message || "Failed to save.";
-        saveOk = false;
-      }
-    } catch {
-      keyMessage = "Network error.";
-      saveOk = false;
-    } finally {
-      settingKey = false;
-    }
+      if (json.ok) { provider = "manual"; hasApiKey = true; hasBaseUrl = true; keyMessage = "API key saved."; saveOk = true; manualApiKey = ""; manualBaseUrl = ""; showManualKey = false; }
+      else { keyMessage = json.message || "Failed to save."; saveOk = false; }
+    } catch { keyMessage = "Network error."; saveOk = false; }
+    finally { settingKey = false; }
   }
 
   async function disconnect() {
     settingKey = true;
     try {
-      const res = await fetch(`/api/settings/${installationId}`, {
-        method: "DELETE",
-        credentials: "same-origin"
-      });
+      const res = await fetch(`/api/settings/${installationId}`, { method: "DELETE", credentials: "same-origin" });
       const json = await res.json();
-      if (json.ok) {
-        provider = "none";
-        hasApiKey = false;
-        hasBaseUrl = false;
-        keyMessage = "Disconnected.";
-        saveOk = true;
-      }
-    } catch {
-      keyMessage = "Network error.";
-      saveOk = false;
-    } finally {
-      settingKey = false;
-    }
+      if (json.ok) { provider = "none"; hasApiKey = false; hasBaseUrl = false; keyMessage = "Disconnected."; saveOk = true; }
+    } catch { keyMessage = "Network error."; saveOk = false; }
+    finally { settingKey = false; }
   }
 
   async function save() {
-    if (!providerConnected) {
-      saveMessage = "Connect OpenRouter or provide an API key and base URL before saving settings.";
-      saveOk = false;
-      return;
-    }
-
-    if (!modelsConfigured) {
-      saveMessage = "Select generation, validation, and skip models before saving settings.";
-      saveOk = false;
-      return;
-    }
-
-    saving = true;
-    saveMessage = "";
+    if (!providerConnected) { saveMessage = "Connect OpenRouter or provide an API key and base URL before saving."; saveOk = false; return; }
+    if (!modelsConfigured) { saveMessage = "Select generation, validation, and skip models before saving."; saveOk = false; return; }
+    saving = true; saveMessage = "";
     try {
-      const res = await fetch(`/api/settings/${installationId}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          accountLogin: actor.login,
-          llmGenerationModel: llmGenerationModel.trim(),
-          llmValidationModel: llmValidationModel.trim(),
-          llmSkipModel: llmSkipModel.trim(),
-          questionCountMin,
-          questionCountMax,
-          retryMode,
-          skipBots,
-          skipForks,
-          customSystemPrompt: customSystemPrompt || undefined,
-          customQuizInstructions: customQuizInstructions || undefined
-        })
-      });
+      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, llmMaxJsonAttempts, allowBestEffortFallback, retryMode, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined }) });
       const json = await res.json();
-      if (json.ok) {
-        saveMessage = "Settings saved.";
-        saveOk = true;
-      } else {
-        saveMessage = json.error || "Failed to save.";
-        saveOk = false;
-      }
-    } catch {
-      saveMessage = "Network error.";
-      saveOk = false;
-    } finally {
-      saving = false;
-    }
+      if (json.ok) { saveMessage = "Settings saved."; saveOk = true; }
+      else { saveMessage = json.error || "Failed to save."; saveOk = false; }
+    } catch { saveMessage = "Network error."; saveOk = false; }
+    finally { saving = false; }
   }
 
-  // Check for OpenRouter callback on mount
-  if (typeof window !== "undefined") {
-    handleOpenRouterCallback();
-  }
+  if (typeof window !== "undefined") { handleOpenRouterCallback(); }
 </script>
 
 <svelte:head>
@@ -275,15 +162,11 @@
 </svelte:head>
 
 <div class="app-layout">
-  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-logo">
-        <SlopBlockLogo />
-      </div>
+      <div class="sidebar-logo"><SlopBlockLogo /></div>
       <span class="sidebar-title">SlopBlock</span>
     </div>
-
     <nav class="sidebar-nav">
       <a href="/settings" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -293,17 +176,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Configuration
       </a>
-      <a href="https://github.com/apps/slopblock-quiz" target="_blank" class="sidebar-link">
+      <a href={GITHUB_APP_URL} target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
         GitHub App
-      </a>
-      <a href="https://buymeacoffee.com/samscript" target="_blank" class="sidebar-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v5a6 6 0 01-6 6H8a6 6 0 01-6-6V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
-        Buy Me a Coffee
+        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
     </nav>
-
     <div class="sidebar-footer">
+      <a href={BUY_ME_A_COFFEE_URL} target="_blank" class="bmc-link">
+        <img src={BUY_ME_A_COFFEE_IMG} alt="Buy Me A Coffee" />
+      </a>
       <div class="sidebar-user">
         <div class="sidebar-user-avatar">{actor.login[0].toUpperCase()}</div>
         <div class="sidebar-user-info">
@@ -314,55 +196,61 @@
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main-area">
     <header class="topbar">
-      <a href="/settings" class="topbar-back">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <a href="/settings" class="topbar-back" aria-label="Back to installations">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
       </a>
-      <span class="topbar-title">Installation Settings</span>
+      <span class="topbar-title">Configuration</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <button class="topbar-btn primary" onclick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save Settings"}
+        <button class="topbar-btn" onclick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
         </button>
       </div>
     </header>
 
     <div class="content">
       <div class="page-header">
-        <h1>Configuration</h1>
-        <p>Configure LLM provider and quiz behavior for installation <strong>{installationId}</strong>.</p>
+        <div class="page-header-row">
+          <h1>Installation <span class="mono">{installationId}</span></h1>
+          <div class="plan-badges">
+            <span class="badge" class:badge-paid={isPaid} class:badge-free={!isPaid}>
+              {isPaid ? "Paid" : "Free"}
+            </span>
+            {#if isOrg}
+              <span class="badge badge-org">Organization</span>
+            {/if}
+          </div>
+        </div>
+        <p>Configure LLM provider and quiz behavior.</p>
+        {#if !isPaid && isOrg}
+          <div class="plan-warning">
+            Organization repositories require a paid plan. Quiz generation is blocked.
+            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade</a>
+          </div>
+        {:else if !isPaid}
+          <div class="plan-notice">
+            Free plan: up to 10 quiz generations per day, personal repositories only.
+            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade for unlimited</a>
+          </div>
+        {/if}
       </div>
 
       <div class="settings-grid">
-        <!-- LLM Provider Connection -->
-        <div class="settings-card">
-          <div class="settings-card-header">
-            <div class="settings-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            </div>
-            <div>
-              <h2>LLM Provider</h2>
-              <p class="section-desc">Connect OpenRouter, or provide both an API key and base URL. Your API key is encrypted at rest.</p>
-            </div>
+        <!-- LLM Provider -->
+        <section class="sc">
+          <div class="sc-head">
+            <h2>LLM Provider</h2>
+            <p class="sc-desc">Connect OpenRouter or provide an API key and base URL.</p>
           </div>
 
           {#if provider === "openrouter"}
-            <div class="provider-status connected">
-              <span class="status-dot"></span>
-              <span>Connected via OpenRouter</span>
-            </div>
+            <div class="provider-status connected"><span class="status-dot"></span><span>Connected via OpenRouter</span></div>
           {:else if provider === "manual"}
-            <div class="provider-status connected">
-              <span class="status-dot"></span>
-              <span>Connected via API key</span>
-            </div>
+            <div class="provider-status connected"><span class="status-dot"></span><span>Connected via API key</span></div>
           {:else}
-            <div class="provider-status">
-              <span class="status-dot"></span>
-              <span>No provider configured</span>
-            </div>
+            <div class="provider-status"><span class="status-dot"></span><span>No provider configured</span></div>
           {/if}
 
           {#if keyMessage}
@@ -375,11 +263,8 @@
                 {provider === "openrouter" ? "Disconnect OpenRouter" : "Remove API key"}
               </button>
             {:else}
-              <button class="button primary" onclick={connectOpenRouter} disabled={settingKey}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                Connect with OpenRouter
-              </button>
-              <button class="button secondary" onclick={() => showManualKey = !showManualKey}>
+              <button class="button primary" onclick={connectOpenRouter} disabled={settingKey}>Connect with OpenRouter</button>
+              <button class="button" onclick={() => showManualKey = !showManualKey}>
                 {showManualKey ? "Cancel" : "Use API key instead"}
               </button>
             {/if}
@@ -390,7 +275,7 @@
               <div class="field">
                 <label for="manualBaseUrl">Base URL</label>
                 <input id="manualBaseUrl" type="url" bind:value={manualBaseUrl} placeholder="https://api.openai.com/v1" />
-                <span class="hint">Required for manual connections. Use the full OpenAI-compatible endpoint.</span>
+                <span class="hint">Required. Use the full OpenAI-compatible endpoint.</span>
               </div>
               <div class="field">
                 <label for="manualKey">API Key</label>
@@ -401,143 +286,94 @@
               </button>
             </div>
           {/if}
-        </div>
+        </section>
 
         <!-- Models -->
-        <div class="settings-card">
-          <div class="settings-card-header">
-            <div class="settings-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            </div>
-            <div>
-              <h2>Models</h2>
-              <p class="section-desc">
-                {#if modelsLoading}
-                  Loading available models...
-                {:else if modelsSource === "openrouter"}
-                  Showing {availableModels.length} models from your OpenRouter account.
-                {:else}
-                  Select the required models for each stage.
-                {/if}
-              </p>
-            </div>
+        <section class="sc">
+          <div class="sc-head">
+            <h2>Models</h2>
+            <p class="sc-desc">
+              {#if modelsLoading}Loading available models...
+              {:else if modelsSource === "openrouter"}Showing {availableModels.length} models from OpenRouter.
+              {:else}Select the required models for each stage.{/if}
+            </p>
           </div>
 
           {#if availableModels.length > 0}
             {@const modelOptions = availableModels.map((m) => ({ value: m.id, label: m.name, detail: m.id }))}
-            <div class="field">
-              <label for="genModel">Generation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmGenerationModel} placeholder="Search models..." emptyLabel="No model selected" id="genModel" />
-              <span class="hint">Creates the quiz content shown to authors. Pick your strongest diff-reasoning model here.</span>
-            </div>
-            <div class="field">
-              <label for="valModel">Validation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmValidationModel} placeholder="Search models..." emptyLabel="No model selected" id="valModel" />
-              <span class="hint">Reviews the generated quiz for grounding and structural issues before it reaches the PR.</span>
-            </div>
-            <div class="field">
-              <label for="skipModel">Skip Evaluation Model</label>
-              <SearchSelect options={modelOptions} bind:value={llmSkipModel} placeholder="Search models..." emptyLabel="No model selected" id="skipModel" />
-              <span class="hint">Only used for borderline cases to decide whether an obvious PR can skip the quiz entirely.</span>
-            </div>
+            <div class="field"><label for="genModel">Generation Model</label><SearchSelect options={modelOptions} bind:value={llmGenerationModel} placeholder="Search models..." emptyLabel="No model selected" id="genModel" /><span class="hint">Creates the quiz content. Pick your strongest diff-reasoning model.</span></div>
+            <div class="field"><label for="valModel">Validation Model</label><SearchSelect options={modelOptions} bind:value={llmValidationModel} placeholder="Search models..." emptyLabel="No model selected" id="valModel" /><span class="hint">Reviews the generated quiz for grounding and structural issues.</span></div>
+            <div class="field"><label for="skipModel">Skip Evaluation Model</label><SearchSelect options={modelOptions} bind:value={llmSkipModel} placeholder="Search models..." emptyLabel="No model selected" id="skipModel" /><span class="hint">Decides whether an obvious PR can skip the quiz entirely.</span></div>
           {:else}
-            <div class="field">
-              <label for="genModel">Generation Model</label>
-              <input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="Select or enter a model" />
-              <span class="hint">Creates the quiz content shown to authors. Pick your strongest diff-reasoning model here.</span>
-            </div>
-            <div class="field">
-              <label for="valModel">Validation Model</label>
-              <input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" />
-              <span class="hint">Reviews the generated quiz for grounding and structural issues before it reaches the PR.</span>
-            </div>
-            <div class="field">
-              <label for="skipModel">Skip Evaluation Model</label>
-              <input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" />
-              <span class="hint">Only used for borderline cases to decide whether an obvious PR can skip the quiz entirely.</span>
-            </div>
-            <datalist id="model-list">
-              {#each defaultModels as m}
-                <option value={m}></option>
-              {/each}
-            </datalist>
+            <div class="field"><label for="genModel">Generation Model</label><input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="Select or enter a model" /><span class="hint">Creates the quiz content. Pick your strongest diff-reasoning model.</span></div>
+            <div class="field"><label for="valModel">Validation Model</label><input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" /><span class="hint">Reviews the generated quiz for grounding and structural issues.</span></div>
+            <div class="field"><label for="skipModel">Skip Evaluation Model</label><input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" /><span class="hint">Decides whether an obvious PR can skip the quiz entirely.</span></div>
+            <datalist id="model-list">{#each defaultModels as m}<option value={m}></option>{/each}</datalist>
           {/if}
-        </div>
+        </section>
 
         <!-- Quiz Behavior -->
-        <div class="settings-card">
-          <div class="settings-card-header">
-            <div class="settings-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-            </div>
-            <div>
-              <h2>Quiz Behavior</h2>
-              <p class="section-desc">Control how quizzes are generated and presented.</p>
-            </div>
+        <section class="sc">
+          <div class="sc-head">
+            <h2>Quiz Behavior</h2>
+            <p class="sc-desc">Control how quizzes are generated and presented.</p>
           </div>
 
           <div class="field-row">
-            <div class="field">
-              <label for="qmin">Min Questions</label>
-              <input id="qmin" type="number" min="1" max="10" bind:value={questionCountMin} />
-            </div>
-            <div class="field">
-              <label for="qmax">Max Questions</label>
-              <input id="qmax" type="number" min="1" max="10" bind:value={questionCountMax} />
-            </div>
+            <div class="field"><label for="qmin">Min Questions</label><input id="qmin" type="number" min="1" max="10" bind:value={questionCountMin} /></div>
+            <div class="field"><label for="qmax">Max Questions</label><input id="qmax" type="number" min="1" max="10" bind:value={questionCountMax} /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="generationAttempts">Generation Attempts</label><input id="generationAttempts" type="number" min="1" max="10" bind:value={quizGenerationMaxAttempts} /><span class="hint">Full generate-and-validate passes before giving up.</span></div>
+            <div class="field"><label for="jsonAttempts">LLM JSON Attempts</label><input id="jsonAttempts" type="number" min="1" max="10" bind:value={llmMaxJsonAttempts} /><span class="hint">Retries when a model sends malformed JSON.</span></div>
           </div>
 
           <div class="field">
-            <label for="retry">Retry Mode</label>
+            <label for="retry">Answer Mode</label>
             <select id="retry" bind:value={retryMode}>
-              <option value="new_quiz">Generate new quiz</option>
-              <option value="same_quiz">Retry same quiz</option>
+              <option value="same_quiz">Explain mistakes and retry same quiz</option>
+              <option value="new_quiz">Generate a new quiz after mistakes</option>
               <option value="maintainer_rerun">Maintainer re-run only</option>
             </select>
           </div>
 
           <div class="toggle-row">
-            <label class="toggle">
-              <input type="checkbox" bind:checked={skipBots} />
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Skip bot PRs</span>
-            </label>
-            <label class="toggle">
-              <input type="checkbox" bind:checked={skipForks} />
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Skip fork PRs</span>
-            </label>
+            <label class="toggle"><input type="checkbox" bind:checked={allowBestEffortFallback} /><span class="toggle-slider"></span><span class="toggle-label">Allow best-effort fallback quiz</span></label>
           </div>
-        </div>
+          <p class="sc-desc" style="margin-top: -4px;">Keep the best structurally valid quiz even if the validator never fully approves one.</p>
+
+          <div class="toggle-row">
+            <label class="toggle"><input type="checkbox" bind:checked={skipBots} /><span class="toggle-slider"></span><span class="toggle-label">Skip bot PRs</span></label>
+            <label class="toggle"><input type="checkbox" bind:checked={skipForks} /><span class="toggle-slider"></span><span class="toggle-label">Skip fork PRs</span></label>
+          </div>
+        </section>
 
         <!-- Custom Prompts -->
-        <div class="settings-card">
-          <div class="settings-card-header">
-            <div class="settings-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </div>
-            <div>
+        <section class="sc" class:sc-locked={!isPaid}>
+          <div class="sc-head">
+            <div class="sc-head-row">
               <h2>Custom Prompts</h2>
-              <p class="section-desc">Customize how quizzes are generated. These are appended to the default prompts.</p>
+              {#if !isPaid}
+                <span class="paid-badge">Paid</span>
+              {/if}
             </div>
+            <p class="sc-desc">Appended to the default prompts.</p>
           </div>
-
-          <div class="field">
-            <label for="systemPrompt">System Prompt (appended to default)</label>
-            <textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications. Ask about error handling. Use formal language."></textarea>
-            <span class="hint">Added to the LLM system prompt. Use this to steer the overall tone, focus areas, or domain-specific context.</span>
-          </div>
-          <div class="field">
-            <label for="quizInstructions">Quiz Instructions (appended to default)</label>
-            <textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage. Avoid questions about import ordering."></textarea>
-            <span class="hint">Added to the quiz generation instructions. Use this for specific question requirements or exclusions.</span>
-          </div>
-        </div>
+          {#if isPaid}
+            <div class="field"><label for="systemPrompt">System Prompt</label><textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications..."></textarea><span class="hint">Steers the overall tone, focus areas, or domain-specific context.</span></div>
+            <div class="field"><label for="quizInstructions">Quiz Instructions</label><textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage..."></textarea><span class="hint">Specific question requirements or exclusions.</span></div>
+          {:else}
+            <div class="upgrade-gate">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Custom prompts are available on the paid plan.
+              <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade on GitHub Marketplace</a>
+            </div>
+          {/if}
+        </section>
       </div>
 
-      <!-- Bottom save -->
       <div class="bottom-actions">
-        <button class="button primary" style="width: auto; padding: 14px 32px;" onclick={save} disabled={saving}>
+        <button class="button primary" style="width: auto; padding: 12px 28px;" onclick={save} disabled={saving}>
           {saving ? "Saving..." : "Save Settings"}
         </button>
         {#if saveMessage}
@@ -549,351 +385,159 @@
 </div>
 
 <style>
-  .page-header {
-    margin-bottom: 24px;
+  .page-header { margin-bottom: 24px; }
+  .page-header p { margin-top: 4px; font-size: 14px; }
+  .mono { font: 500 inherit "DM Mono", monospace; color: var(--accent); }
+
+  .page-header-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  .plan-badges { display: flex; gap: 6px; }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px; border-radius: 999px;
+    font: 600 11px/1 "DM Mono", monospace; letter-spacing: 0.04em;
+  }
+  .badge-paid { background: rgba(232, 112, 154, 0.12); color: var(--accent); border: 1px solid rgba(232, 112, 154, 0.3); }
+  .badge-free { background: var(--gray-50); color: var(--muted); border: 1px solid var(--line); }
+  .badge-org { background: rgba(124, 58, 237, 0.08); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.25); }
+
+  .plan-notice, .plan-warning {
+    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-md);
+    font-size: 13px; line-height: 1.5;
+  }
+  .plan-notice { background: var(--gray-50); border: 1px solid var(--line); color: var(--muted); }
+  .plan-warning { background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: #dc2626; }
+  .plan-notice a, .plan-warning a { font-weight: 600; text-decoration: underline; }
+
+  .sc-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .sc-head-row h2 { margin-bottom: 0; }
+
+  .paid-badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 999px;
+    font: 700 10px/1 "DM Mono", monospace; letter-spacing: 0.05em; text-transform: uppercase;
+    background: rgba(232, 112, 154, 0.12); color: var(--accent); border: 1px solid rgba(232, 112, 154, 0.3);
   }
 
-  .page-header p {
-    margin-top: 6px;
-    font-size: 15px;
-  }
+  .sc-locked { opacity: 0.75; }
 
-  .page-header p strong {
-    color: var(--gray-800);
+  .upgrade-gate {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-radius: var(--radius-md);
+    border: 1px dashed var(--line); background: var(--gray-50);
+    font-size: 13px; color: var(--muted);
   }
+  .upgrade-gate a { font-weight: 600; color: var(--accent); white-space: nowrap; }
 
-  /* Settings grid */
-  .settings-grid {
-    display: grid;
-    gap: 20px;
-  }
+  .settings-grid { display: grid; gap: 16px; }
 
-  .settings-card {
+  .sc {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius-xl);
-    padding: 28px;
-    box-shadow: var(--shadow-card);
+    padding: 24px;
   }
 
-  .settings-card-header {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  .settings-card-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: var(--pink-50);
-    display: grid;
-    place-items: center;
-    flex: none;
-  }
-
-  .settings-card-icon svg {
-    width: 22px;
-    height: 22px;
-    color: var(--pink-500);
-  }
-
-  .settings-card-header h2 {
-    margin-bottom: 2px;
-  }
-
-  .section-desc {
-    font-size: 14px;
-    margin-top: 2px;
-    line-height: 1.5;
-  }
+  .sc-head { margin-bottom: 18px; }
+  .sc-head h2 { margin-bottom: 4px; }
+  .sc-desc { font-size: 13px; margin-top: 2px; line-height: 1.55; color: var(--muted); }
 
   /* Provider status */
   .provider-status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 18px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--muted);
-    background: var(--gray-50);
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--radius-md);
+    font-size: 13px; font-weight: 500; color: var(--muted); background: var(--gray-50);
   }
-
-  .provider-status.connected {
-    border-color: rgba(22, 163, 74, 0.25);
-    color: var(--good);
-    background: var(--good-light);
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--gray-400);
-    flex: none;
-  }
-
-  .provider-status.connected .status-dot {
-    background: var(--good);
-    box-shadow: 0 0 6px rgba(22, 163, 74, 0.4);
-  }
-
-  .provider-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 16px;
-  }
-
-  .button.secondary {
-    background: transparent;
-    border-color: var(--line);
-    color: var(--muted);
-  }
-
-  .button.secondary:hover {
-    border-color: var(--gray-300);
-    color: var(--text);
-    background: var(--gray-50);
-  }
+  .provider-status.connected { border-color: rgba(74, 222, 128, 0.2); color: var(--good); background: var(--good-light); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray-400); flex: none; }
+  .provider-status.connected .status-dot { background: var(--good); box-shadow: 0 0 8px rgba(74, 222, 128, 0.4); }
+  .provider-actions { display: flex; gap: 10px; margin-top: 14px; }
 
   .manual-key {
-    margin-top: 16px;
-    padding: 20px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    background: var(--gray-50);
-    display: grid;
-    gap: 12px;
+    margin-top: 14px; padding: 18px; border: 1px solid var(--line);
+    border-radius: var(--radius-lg); background: var(--gray-50); display: grid; gap: 12px;
   }
 
   /* Fields */
-  .field {
-    margin-top: 16px;
-  }
-
-  .field label {
-    display: block;
-    font-size: 13px;
-    color: var(--gray-600);
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-
-  .field textarea,
-  .field input,
-  .field select {
-    width: 100%;
-    padding: 10px 14px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    color: var(--text);
-    font: inherit;
-    font-size: 14px;
-    outline: none;
+  .field { margin-top: 14px; }
+  .field label { display: block; font: 600 12px/1 "DM Mono", monospace; color: var(--gray-600); margin-bottom: 6px; letter-spacing: 0.02em; }
+  .field textarea, .field input, .field select {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); font: inherit; font-size: 13px; outline: none;
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
+  .field textarea { resize: vertical; min-height: 68px; }
+  .field textarea:focus, .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--pink-glow); }
+  .field select { appearance: auto; cursor: pointer; }
+  .hint { display: block; font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-row .field { margin-top: 0; }
 
-  .field textarea {
-    resize: vertical;
-    min-height: 72px;
-  }
-
-  .field textarea:focus,
-  .field input:focus,
-  .field select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(212, 80, 126, 0.1);
-  }
-
-  .field select {
-    appearance: auto;
-    cursor: pointer;
-  }
-
-  .hint {
-    display: block;
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 6px;
-    line-height: 1.5;
-  }
-
-  .field-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-
-  .field-row .field {
-    margin-top: 0;
-  }
-
-  /* Toggle switches */
-  .toggle-row {
-    display: flex;
-    gap: 24px;
-    margin-top: 18px;
-    flex-wrap: wrap;
-  }
-
-  .toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    user-select: none;
-  }
-
-  .toggle input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
+  /* Toggles */
+  .toggle-row { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+  .toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; user-select: none; }
+  .toggle input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
   .toggle-slider {
-    width: 40px;
-    height: 22px;
-    border-radius: 11px;
-    background: var(--gray-300);
-    position: relative;
-    transition: background 200ms ease;
-    flex: none;
+    width: 36px; height: 20px; border-radius: 10px; background: var(--gray-300);
+    position: relative; transition: background 200ms ease; flex: none;
   }
-
   .toggle-slider::after {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-    transition: transform 200ms ease;
+    content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 200ms ease;
   }
-
-  .toggle input:checked + .toggle-slider {
-    background: var(--pink-500);
-  }
-
-  .toggle input:checked + .toggle-slider::after {
-    transform: translateX(18px);
-  }
-
-  .toggle-label {
-    color: var(--gray-700);
-    font-weight: 500;
-  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::after { transform: translateX(16px); }
+  .toggle-label { color: var(--gray-700); font-weight: 500; }
 
   /* Messages */
-  .save-msg, .key-msg {
-    font-size: 14px;
-    font-weight: 500;
-    margin-top: 8px;
-  }
-
+  .save-msg, .key-msg { font-size: 13px; font-weight: 500; margin-top: 8px; }
   .save-msg.good, .key-msg.good { color: var(--good); }
   .save-msg.bad, .key-msg.bad { color: var(--bad); }
 
-  /* Bottom actions */
-  .bottom-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
+  .bottom-actions { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+  /* Buy Me a Coffee */
+  .bmc-link {
+    display: block;
+    padding: 8px 12px;
+    margin-top: 4px;
+  }
+
+  .bmc-link img {
+    display: block;
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+    border-radius: 8px;
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .bmc-link:hover img {
+    opacity: 0.9;
+    transform: translateY(-1px);
   }
 
   /* Topbar */
   .topbar-back {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-sm);
-    color: var(--gray-600);
-    transition: all 150ms ease;
+    display: grid; place-items: center; width: 32px; height: 32px;
+    border-radius: var(--radius-sm); color: var(--muted); transition: all 150ms ease;
   }
-
-  .topbar-back:hover {
-    background: var(--gray-100);
-    color: var(--gray-800);
-  }
+  .topbar-back:hover { background: rgba(255, 255, 255, 0.04); color: var(--text); }
 
   .topbar-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 150ms ease;
-    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px;
+    border-radius: var(--radius-md); font: 600 12px/1 "DM Mono", monospace;
+    cursor: pointer; border: none; transition: all 160ms ease; font-family: inherit;
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600)); color: #fff;
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.3), 0 2px 12px rgba(232, 112, 154, 0.2);
   }
-
-  .topbar-btn.primary {
-    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(212, 80, 126, 0.25);
-  }
-
-  .topbar-btn.primary:hover {
-    box-shadow: 0 4px 16px rgba(212, 80, 126, 0.35);
-    transform: translateY(-1px);
-  }
-
-  .topbar-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
+  .topbar-btn:hover { box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 20px rgba(232, 112, 154, 0.3); transform: translateY(-1px); }
+  .topbar-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
   /* Sidebar user */
-  .sidebar-user {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-  }
-
-  .sidebar-user-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: var(--pink-100);
-    color: var(--pink-600);
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 14px;
-    flex: none;
-  }
-
-  .sidebar-user-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .sidebar-user-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--gray-800);
-  }
-
-  .sidebar-user-role {
-    font-size: 12px;
-    color: var(--muted);
-  }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 8px; }
+  .sidebar-user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(232, 112, 154, 0.15); color: var(--accent); display: grid; place-items: center; font: 700 13px/1 "DM Mono", monospace; flex: none; }
+  .sidebar-user-info { display: flex; flex-direction: column; gap: 1px; }
+  .sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+  .sidebar-user-role { font: 400 11px/1 "DM Mono", monospace; color: var(--muted); }
 </style>

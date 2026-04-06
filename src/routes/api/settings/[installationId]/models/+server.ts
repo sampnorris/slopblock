@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
+import { devMocksEnabled, mockModels } from "$lib/server/dev-mocks.js";
 import { getSettings } from "$lib/server/settings-store.js";
 
 interface OpenRouterModel {
@@ -11,6 +12,10 @@ interface OpenRouterModel {
 }
 
 export const GET: RequestHandler = async ({ params, request }) => {
+  if (devMocksEnabled()) {
+    return json({ models: mockModels(), source: "openrouter" });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {

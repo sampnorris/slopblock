@@ -5,3 +5,4 @@ dist/
 build/
 coverage/
 .env*.local
+.vercel

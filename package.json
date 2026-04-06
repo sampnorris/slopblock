@@ -29,6 +29,7 @@
   "dependencies": {
     "@octokit/app": "^16.1.0",
     "@prisma/client": "^6.6.0",
+    "langfuse": "^3.38.20",
     "octokit": "^4.0.2",
     "yaml": "^2.8.1"
   },
@@ -39,6 +40,7 @@
     "@types/node": "^24.5.2",
     "dotenv-cli": "^8.0.0",
     "esbuild": "^0.25.10",
+    "mdsvex": "^0.12.7",
     "prisma": "^6.6.0",
     "svelte": "^5.55.1",
     "svelte-check": "^4.4.6",

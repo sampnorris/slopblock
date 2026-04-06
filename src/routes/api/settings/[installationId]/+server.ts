@@ -1,10 +1,17 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
+import { devMocksEnabled, mockActor, mockSettings } from "$lib/server/dev-mocks.js";
 import { getSettings, upsertSettings, clearApiKey } from "$lib/server/settings-store.js";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function maskSettings(settings: any) {
@@ -16,6 +23,10 @@ function maskSettings(settings: any) {
 }
 
 export const GET: RequestHandler = async ({ params, request }) => {
+  if (devMocksEnabled()) {
+    return json({ settings: { ...mockSettings(params.installationId), llmApiKey: undefined }, hasApiKey: true });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
@@ -31,6 +42,20 @@ export const GET: RequestHandler = async ({ params, request }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
+  if (devMocksEnabled()) {
+    const body = await request.json();
+    return json({
+      ok: true,
+      settings: {
+        ...mockSettings(params.installationId),
+        ...body,
+        accountLogin: body.accountLogin ?? mockActor().login,
+        llmApiKey: undefined,
+        hasApiKey: true
+      }
+    });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
@@ -44,6 +69,30 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   const llmGenerationModel = isNonEmptyString(body.llmGenerationModel) ? body.llmGenerationModel.trim() : undefined;
   const llmValidationModel = isNonEmptyString(body.llmValidationModel) ? body.llmValidationModel.trim() : undefined;
   const llmSkipModel = isNonEmptyString(body.llmSkipModel) ? body.llmSkipModel.trim() : undefined;
+  const questionCountMin = asOptionalNumber(body.questionCountMin);
+  const questionCountMax = asOptionalNumber(body.questionCountMax);
+  const quizGenerationMaxAttempts = asOptionalNumber(body.quizGenerationMaxAttempts);
+  const llmMaxJsonAttempts = asOptionalNumber(body.llmMaxJsonAttempts);
+
+  if (questionCountMin != null && questionCountMin < 1) {
+    return json({ ok: false, error: "Minimum question count must be at least 1." }, { status: 400 });
+  }
+
+  if (questionCountMax != null && questionCountMax < 1) {
+    return json({ ok: false, error: "Maximum question count must be at least 1." }, { status: 400 });
+  }
+
+  if (questionCountMin != null && questionCountMax != null && questionCountMin > questionCountMax) {
+    return json({ ok: false, error: "Minimum question count cannot exceed the maximum." }, { status: 400 });
+  }
+
+  if (quizGenerationMaxAttempts != null && quizGenerationMaxAttempts < 1) {
+    return json({ ok: false, error: "Generation attempts must be at least 1." }, { status: 400 });
+  }
+
+  if (llmMaxJsonAttempts != null && llmMaxJsonAttempts < 1) {
+    return json({ ok: false, error: "LLM JSON attempts must be at least 1." }, { status: 400 });
+  }
 
   if (!existing?.llmApiKey || !llmBaseUrl) {
     return json(
@@ -67,8 +116,11 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     llmGenerationModel,
     llmValidationModel,
     llmSkipModel,
-    questionCountMin: body.questionCountMin != null ? Number(body.questionCountMin) : undefined,
-    questionCountMax: body.questionCountMax != null ? Number(body.questionCountMax) : undefined,
+    questionCountMin,
+    questionCountMax,
+    quizGenerationMaxAttempts,
+    llmMaxJsonAttempts,
+    allowBestEffortFallback: body.allowBestEffortFallback != null ? Boolean(body.allowBestEffortFallback) : undefined,
     retryMode: body.retryMode || undefined,
     skipBots: body.skipBots != null ? Boolean(body.skipBots) : undefined,
     skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
@@ -80,6 +132,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, request }) => {
+  if (devMocksEnabled()) {
+    return json({ ok: true });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {

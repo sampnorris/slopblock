@@ -6,6 +6,9 @@ export interface SettingsRecord {
   id?: string;
   installationId: string;
   accountLogin: string;
+  accountType?: string;
+  marketplacePlan?: string;
+  marketplacePlanId?: number;
   llmApiKey?: string;
   llmBaseUrl?: string;
   llmGenerationModel?: string;
@@ -13,6 +16,9 @@ export interface SettingsRecord {
   llmSkipModel?: string;
   questionCountMin?: number;
   questionCountMax?: number;
+  quizGenerationMaxAttempts?: number;
+  llmMaxJsonAttempts?: number;
+  allowBestEffortFallback?: boolean;
   retryMode?: string;
   skipBots?: boolean;
   skipForks?: boolean;
@@ -34,6 +40,9 @@ function fromRow(row: InstallationSettings): SettingsRecord {
     id: row.id,
     installationId: row.installationId,
     accountLogin: row.accountLogin,
+    accountType: row.accountType,
+    marketplacePlan: row.marketplacePlan ?? undefined,
+    marketplacePlanId: row.marketplacePlanId ?? undefined,
     llmApiKey: decryptApiKey(row.llmApiKeyEncrypted),
     llmBaseUrl: row.llmBaseUrl ?? undefined,
     llmGenerationModel: row.llmGenerationModel ?? undefined,
@@ -41,6 +50,9 @@ function fromRow(row: InstallationSettings): SettingsRecord {
     llmSkipModel: row.llmSkipModel ?? undefined,
     questionCountMin: row.questionCountMin ?? undefined,
     questionCountMax: row.questionCountMax ?? undefined,
+    quizGenerationMaxAttempts: row.quizGenerationMaxAttempts ?? undefined,
+    llmMaxJsonAttempts: row.llmMaxJsonAttempts ?? undefined,
+    allowBestEffortFallback: row.allowBestEffortFallback ?? undefined,
     retryMode: row.retryMode ?? undefined,
     skipBots: row.skipBots ?? undefined,
     skipForks: row.skipForks ?? undefined,
@@ -79,6 +91,9 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
     create: {
       installationId: input.installationId,
       accountLogin: input.accountLogin,
+      accountType: input.accountType ?? "User",
+      marketplacePlan: input.marketplacePlan,
+      marketplacePlanId: input.marketplacePlanId,
       llmApiKeyEncrypted: encryptedKey ?? null,
       llmBaseUrl: input.llmBaseUrl,
       llmGenerationModel: input.llmGenerationModel,
@@ -86,6 +101,9 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       llmSkipModel: input.llmSkipModel,
       questionCountMin: input.questionCountMin,
       questionCountMax: input.questionCountMax,
+      quizGenerationMaxAttempts: input.quizGenerationMaxAttempts,
+      llmMaxJsonAttempts: input.llmMaxJsonAttempts,
+      allowBestEffortFallback: input.allowBestEffortFallback,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
       skipForks: input.skipForks,
@@ -94,6 +112,10 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
     },
     update: {
       accountLogin: input.accountLogin,
+      accountType: input.accountType,
+      // Only update plan fields if explicitly provided
+      ...(input.marketplacePlan !== undefined ? { marketplacePlan: input.marketplacePlan } : {}),
+      ...(input.marketplacePlanId !== undefined ? { marketplacePlanId: input.marketplacePlanId } : {}),
       // Only update key if explicitly provided (undefined means keep existing)
       ...(encryptedKey !== undefined ? { llmApiKeyEncrypted: encryptedKey } : {}),
       llmBaseUrl: input.llmBaseUrl,
@@ -102,6 +124,9 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       llmSkipModel: input.llmSkipModel,
       questionCountMin: input.questionCountMin,
       questionCountMax: input.questionCountMax,
+      quizGenerationMaxAttempts: input.quizGenerationMaxAttempts,
+      llmMaxJsonAttempts: input.llmMaxJsonAttempts,
+      allowBestEffortFallback: input.allowBestEffortFallback,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
       skipForks: input.skipForks,

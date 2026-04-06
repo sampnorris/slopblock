@@ -9,10 +9,14 @@ const DEFAULT_CONFIG: SlopblockConfig = {
     min: 2,
     max: 5
   },
+  quizGeneration: {
+    maxAttempts: 3,
+    allowBestEffortFallback: true
+  },
   passRule: {
     requireAllCorrect: true
   },
-  retryMode: "new_quiz",
+  retryMode: "same_quiz",
   contextBudget: {
     maxRepoFiles: 250,
     maxRepoMapEntries: 120,
@@ -51,7 +55,8 @@ const DEFAULT_CONFIG: SlopblockConfig = {
   llm: {
     generationModel: "anthropic/claude-sonnet-4.5",
     validationModel: "anthropic/claude-opus-4.1",
-    skipModel: "anthropic/claude-sonnet-4.5"
+    skipModel: "anthropic/claude-sonnet-4.5",
+    maxJsonAttempts: 2
   }
 };
 
@@ -66,6 +71,7 @@ function asObject(value: unknown): Record<string, unknown> {
 export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig {
   const raw = rawValue;
   const questionCount = asObject(raw.questionCount);
+  const quizGeneration = asObject(raw.quizGeneration);
   const passRule = asObject(raw.passRule);
   const contextBudget = asObject(raw.contextBudget);
   const heuristics = asObject(raw.heuristics);
@@ -76,6 +82,16 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
     questionCount: {
       min: typeof questionCount.min === "number" ? questionCount.min : DEFAULT_CONFIG.questionCount.min,
       max: typeof questionCount.max === "number" ? questionCount.max : DEFAULT_CONFIG.questionCount.max
+    },
+    quizGeneration: {
+      maxAttempts:
+        typeof quizGeneration.maxAttempts === "number"
+          ? quizGeneration.maxAttempts
+          : DEFAULT_CONFIG.quizGeneration.maxAttempts,
+      allowBestEffortFallback:
+        typeof quizGeneration.allowBestEffortFallback === "boolean"
+          ? quizGeneration.allowBestEffortFallback
+          : DEFAULT_CONFIG.quizGeneration.allowBestEffortFallback
     },
     passRule: {
       requireAllCorrect:
@@ -142,6 +158,10 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
           : typeof llm.model === "string"
             ? llm.model
             : DEFAULT_CONFIG.llm.skipModel,
+      maxJsonAttempts:
+        typeof llm.maxJsonAttempts === "number"
+          ? llm.maxJsonAttempts
+          : DEFAULT_CONFIG.llm.maxJsonAttempts,
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : undefined,
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined
     }

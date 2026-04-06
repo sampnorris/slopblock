@@ -135,10 +135,14 @@ export function normalizeQuizPayload(value: unknown): QuizPayload {
   };
 }
 
-export function validateQuizPayload(quiz: QuizPayload): string[] {
+export function validateQuizPayload(quiz: QuizPayload, expectedQuestionCount?: number): string[] {
   const issues: string[] = [];
   if (!quiz.summary.trim()) {
     issues.push("Quiz summary is empty.");
+  }
+
+  if (typeof expectedQuestionCount === "number" && quiz.questions.length !== expectedQuestionCount) {
+    issues.push(`Quiz must contain exactly ${expectedQuestionCount} questions.`);
   }
 
   if (quiz.questions.length === 0) {
@@ -149,8 +153,8 @@ export function validateQuizPayload(quiz: QuizPayload): string[] {
     if (!question.prompt.trim()) {
       issues.push(`Question ${index + 1} is missing a prompt.`);
     }
-    if (question.options.length < 3 || question.options.length > 5) {
-      issues.push(`Question ${index + 1} must have between 3 and 5 options.`);
+    if (question.options.length !== 3) {
+      issues.push(`Question ${index + 1} must have exactly 3 options.`);
     }
     const optionKeys = new Set(question.options.map((option) => option.key));
     if (optionKeys.size !== question.options.length) {

@@ -1,484 +1,759 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
+  import { GITHUB_APP_INSTALL_URL, GITHUB_APP_URL, GITHUB_REPO_URL } from "$lib/constants";
+
+  let activeTab: "solo" | "team" = $state("solo");
 </script>
 
 <svelte:head>
   <title>SlopBlock</title>
 </svelte:head>
 
-<div class="page">
-  <nav class="nav">
-    <a href="/" class="nav-brand" aria-label="Home">
-      <div class="nav-logo"><SlopBlockLogo width={18} height={18} /></div>
-      <span>SlopBlock</span>
-    </a>
-    <div class="nav-links">
-      <a href="/demo">Demo</a>
-      <a href="/settings">Settings</a>
-      <a
-        href="https://github.com/apps/slopblock-quiz/installations/new"
-        target="_blank"
-        rel="noreferrer"
-        class="nav-install"
-      >Install</a>
-    </div>
-  </nav>
+<div class="lp">
+  <!-- ── HERO ──────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-grain"></div>
 
-  <header class="hero">
-    <div class="hero-logo"><SlopBlockLogo width={32} height={32} /></div>
-    <h1>Block the merge until the author can explain the diff.</h1>
-    <p class="lede">
-      SlopBlock is a GitHub App. When a pull request opens, it reads the changed
-      code and generates a short quiz. The author has to pass before the status
-      check goes green.
-    </p>
-    <div class="hero-actions">
-      <a
-        class="btn btn-primary"
-        href="https://github.com/apps/slopblock-quiz/installations/new"
-        target="_blank"
-        rel="noreferrer"
-      >Install on GitHub</a>
-      <a class="btn" href="/demo">Try the demo</a>
-    </div>
-  </header>
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <div class="hero-logo">
+          <SlopBlockLogo width={22} height={22} />
+        </div>
+        <span class="hero-badge-text">SlopBlock</span>
+        <span class="hero-badge-sep"></span>
+        <span class="hero-badge-label">GitHub App</span>
+      </div>
 
+      <h1>
+        <span class="h1-line">Know the code</span>
+        <span class="h1-line h1-line-accent">before it ships.</span>
+      </h1>
+
+      <p class="hero-sub">
+        A diff-grounded quiz that runs on every pull request.
+        Whether you're building solo or shipping as a team, nothing merges
+        until the author proves they understand the change.
+      </p>
+
+      <div class="hero-cta">
+        <a
+          class="btn btn-primary"
+          href={GITHUB_APP_INSTALL_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Install on GitHub
+        </a>
+        <a class="btn btn-ghost" href="/settings">
+          Open Settings
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── USE-CASE TABS ─────────────────────────── -->
+  <section class="use-cases">
+    <div class="uc-inner">
+      <div class="uc-tabs" role="tablist">
+        <button
+          class="uc-tab"
+          class:active={activeTab === "solo"}
+          role="tab"
+          aria-selected={activeTab === "solo"}
+          onclick={() => (activeTab = "solo")}
+        >
+          <span class="uc-tab-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0113 0"/></svg>
+          </span>
+          For Solo Devs
+        </button>
+        <button
+          class="uc-tab"
+          class:active={activeTab === "team"}
+          role="tab"
+          aria-selected={activeTab === "team"}
+          onclick={() => (activeTab = "team")}
+        >
+          <span class="uc-tab-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          </span>
+          For Teams
+        </button>
+      </div>
+
+      <!-- Solo panel -->
+      <div class="uc-panel" class:visible={activeTab === "solo"}>
+        <div class="uc-content">
+          <p class="uc-kicker">Your second pair of eyes</p>
+          <h2 class="uc-heading">Catch what speed<br />makes you miss.</h2>
+          <p class="uc-body">
+            Moving fast is the point. But when you're deep in a feature, it's easy to
+            merge changes you haven't fully thought through &mdash; especially with AI-assisted code.
+            SlopBlock makes you pause for 30&nbsp;seconds and prove you understand
+            what's actually going in.
+          </p>
+          <div class="uc-points">
+            <div class="uc-point">
+              <span class="uc-point-num">01</span>
+              <div>
+                <strong>Review your own blind spots</strong>
+                <p>Questions are built from the diff, not generic best-practice trivia. They surface the parts you're most likely to gloss over.</p>
+              </div>
+            </div>
+            <div class="uc-point">
+              <span class="uc-point-num">02</span>
+              <div>
+                <strong>Understand AI-generated code</strong>
+                <p>If a copilot wrote half the PR, you should be able to explain what it did. The quiz makes sure you can.</p>
+              </div>
+            </div>
+            <div class="uc-point">
+              <span class="uc-point-num">03</span>
+              <div>
+                <strong>Skip the obvious, quiz the risky</strong>
+                <p>Docs, renames, and trivial changes pass through automatically. The gate only fires when it matters.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="uc-visual">
+          <div class="term">
+            <div class="term-bar">
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-title">solo workflow</span>
+            </div>
+            <div class="term-body">
+              <span class="term-line"><span class="term-muted">$</span> git push origin feat/auth-refactor</span>
+              <span class="term-line term-indent"><span class="term-ok">&#10003;</span> Lint passed</span>
+              <span class="term-line term-indent"><span class="term-ok">&#10003;</span> Tests passed</span>
+              <span class="term-line term-indent"><span class="term-wait">&#9679;</span> SlopBlock &mdash; <span class="term-highlight">3 questions about your changes</span></span>
+              <span class="term-line">&nbsp;</span>
+              <span class="term-line"><span class="term-muted">#</span> What does the new <span class="term-accent">refreshToken()</span> fallback do?</span>
+              <span class="term-line"><span class="term-muted">#</span> <span class="term-dim">A) Returns null and logs out</span></span>
+              <span class="term-line"><span class="term-muted">#</span> <span class="term-ok">B) Retries once, then returns the cached token</span> <span class="term-ok">&#10003;</span></span>
+              <span class="term-line"><span class="term-muted">#</span> <span class="term-dim">C) Throws an AuthError</span></span>
+              <span class="term-line">&nbsp;</span>
+              <span class="term-line"><span class="term-ok">&#10003;</span> <span class="term-ok">Correct.</span> <span class="term-muted">The retry-then-cache strategy avoids forcing a re-login on transient failures.</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Team panel -->
+      <div class="uc-panel" class:visible={activeTab === "team"}>
+        <div class="uc-content">
+          <p class="uc-kicker">Enforce understanding at merge</p>
+          <h2 class="uc-heading">No one merges what<br />they can't explain.</h2>
+          <p class="uc-body">
+            Code review catches bugs. SlopBlock catches comprehension gaps.
+            Before a PR can merge, the author answers a short quiz grounded
+            in what actually changed &mdash; proving they understand the code,
+            not just that it compiles.
+          </p>
+          <div class="uc-points">
+            <div class="uc-point">
+              <span class="uc-point-num">01</span>
+              <div>
+                <strong>Stop rubber-stamped AI code</strong>
+                <p>When half the team is shipping copilot-assisted PRs, the quiz ensures the author can explain every change before it lands.</p>
+              </div>
+            </div>
+            <div class="uc-point">
+              <span class="uc-point-num">02</span>
+              <div>
+                <strong>Configurable strictness</strong>
+                <p>Lighter quizzes for routine work, stricter gates for auth, payments, and infra. You set the bar per-repo.</p>
+              </div>
+            </div>
+            <div class="uc-point">
+              <span class="uc-point-num">03</span>
+              <div>
+                <strong>Works alongside code review</strong>
+                <p>SlopBlock runs as a status check. It doesn't replace reviewers &mdash; it makes sure the author did their homework first.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="uc-visual">
+          <div class="term">
+            <div class="term-bar">
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-title">team workflow</span>
+            </div>
+            <div class="term-body">
+              <span class="term-line"><span class="term-muted">PR #318</span> &nbsp; <span class="term-accent">feat: migrate payments to Stripe v4</span></span>
+              <span class="term-line"><span class="term-muted">author:</span> @junior-dev &nbsp; <span class="term-muted">reviewers:</span> @lead, @security</span>
+              <span class="term-line">&nbsp;</span>
+              <span class="term-line term-indent"><span class="term-ok">&#10003;</span> CI / build</span>
+              <span class="term-line term-indent"><span class="term-ok">&#10003;</span> CI / test</span>
+              <span class="term-line term-indent"><span class="term-ok">&#10003;</span> @lead approved</span>
+              <span class="term-line term-indent"><span class="term-wait">&#9679;</span> SlopBlock &mdash; <span class="term-highlight">Awaiting author quiz (3 questions)</span></span>
+              <span class="term-line">&nbsp;</span>
+              <span class="term-line"><span class="term-muted">#</span> Merge blocked until @junior-dev passes</span>
+              <span class="term-line"><span class="term-muted">#</span> Questions focus on changed <span class="term-accent">webhook signature</span> and <span class="term-accent">idempotency key</span> logic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ──────────────────────────── -->
   <section class="how">
-    <h2>How it works</h2>
-    <ol class="steps">
-      <li>
-        <strong>PR opens.</strong> SlopBlock picks it up automatically when the
-        pull request is opened or marked ready for review.
-      </li>
-      <li>
-        <strong>Diff gets read.</strong> If the changes are trivial (typos,
-        formatting, lockfiles), it skips the quiz entirely. Otherwise it builds
-        questions from the actual code that changed.
-      </li>
-      <li>
-        <strong>Author takes the quiz.</strong> A few multiple-choice questions
-        about what the code does and why. No trick questions.
-      </li>
-      <li>
-        <strong>Status check updates.</strong> Pass and the PR can merge. Fail
-        and you get another attempt with fresh questions.
-      </li>
-    </ol>
-  </section>
-
-  <section class="why">
-    <h2>Why bother</h2>
-    <div class="reasons">
-      <div class="reason">
-        <h3>Catch vibe-coded PRs</h3>
-        <p>
-          If the author can't explain what their code does, that's useful
-          information for the reviewer. SlopBlock surfaces it before anyone
-          has to read the diff.
-        </p>
-      </div>
-      <div class="reason">
-        <h3>Lightweight by default</h3>
-        <p>
-          Small diffs get skipped. Config changes get skipped. The quiz only
-          fires when the changes are complex enough to warrant it. You can tune
-          the thresholds.
-        </p>
-      </div>
-      <div class="reason">
-        <h3>Works with your flow</h3>
-        <p>
-          It runs as a required status check. No new tabs, no separate
-          dashboards. The author clicks a link in the PR, answers the
-          questions, and they're done.
-        </p>
+    <div class="how-inner">
+      <p class="how-kicker">How it works</p>
+      <div class="how-steps">
+        <article class="step">
+          <div class="step-num">01</div>
+          <h3>Reads the diff</h3>
+          <p>Every question is grounded in actual changed lines &mdash; not generic best-practice trivia.</p>
+        </article>
+        <article class="step">
+          <div class="step-num">02</div>
+          <h3>Skips the obvious</h3>
+          <p>Docs, renames, and trivial changes pass through. The gate only fires when it matters.</p>
+        </article>
+        <article class="step">
+          <div class="step-num">03</div>
+          <h3>Quizzes the author</h3>
+          <p>A short multiple-choice quiz built from behavior, risk, and implementation details in the PR.</p>
+        </article>
+        <article class="step">
+          <div class="step-num">04</div>
+          <h3>Unblocks the merge</h3>
+          <p>Pass the quiz and the status check goes green. Fail and you get explanations to learn from.</p>
+        </article>
       </div>
     </div>
   </section>
 
-  <section class="demo-section">
-    <div class="demo-inner">
-      <div>
-        <h2>See it in action</h2>
-        <p>
-          The public demo walks through a realistic quiz generated from a real
-          diff. No account needed.
-        </p>
+  <!-- ── CTA ───────────────────────────────────── -->
+  <section class="cta">
+    <div class="cta-inner">
+      <p class="cta-kicker">Whether you ship alone or with a team</p>
+      <h2 class="cta-heading">Stop merging code<br />nobody can explain.</h2>
+      <div class="cta-buttons">
+        <a
+          class="btn btn-primary"
+          href={GITHUB_APP_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          View on GitHub
+        </a>
+        <a
+          class="btn btn-ghost"
+          href={GITHUB_REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Documentation
+        </a>
       </div>
-      <a class="btn btn-primary" href="/demo">Open the demo</a>
     </div>
   </section>
-
-  <footer class="foot">
-    <a
-      href="https://github.com/sampnorris/slopblock"
-      target="_blank"
-      rel="noreferrer"
-    >Source on GitHub</a>
-  </footer>
 </div>
 
 <style>
-  .page {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 0 24px 80px;
+  /* ── Page wrapper ─────────────────────────── */
+  .lp {
+    --lp-bg: #0c0c0e;
+    --lp-surface: #161619;
+    --lp-line: rgba(255, 255, 255, 0.07);
+    --lp-text: #e4e4e7;
+    --lp-muted: #71717a;
+    --lp-pink: #e8709a;
+    --lp-pink-glow: rgba(232, 112, 154, 0.15);
+
+    background: var(--lp-bg);
+    color: var(--lp-text);
+    min-height: 100vh;
   }
 
-  /* Nav */
-
-  .nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 0;
-    margin-bottom: 24px;
+  /* ── HERO ─────────────────────────────────── */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(60px, 12vh, 140px) 24px clamp(48px, 8vh, 100px);
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, var(--lp-pink-glow), transparent),
+      radial-gradient(ellipse 40% 60% at 80% 100%, rgba(232, 112, 154, 0.06), transparent),
+      var(--lp-bg);
   }
 
-  .nav-brand {
-    display: flex;
+  .hero-grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 180px;
+  }
+
+  .hero-inner {
+    position: relative;
+    width: min(820px, 100%);
+    display: grid;
+    gap: 0;
+    text-align: center;
+  }
+
+  /* Badge */
+  .hero-badge {
+    display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--gray-800);
-    text-decoration: none;
-    letter-spacing: -0.02em;
+    margin: 0 auto 36px;
+    padding: 6px 16px 6px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--lp-line);
+    background: var(--lp-surface);
   }
 
-  .nav-brand:hover {
-    color: var(--gray-900);
-  }
-
-  .nav-logo {
+  .hero-logo {
     width: 34px;
     height: 34px;
     display: grid;
     place-items: center;
-    border-radius: 10px;
+    border-radius: 50%;
     background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
     color: #fff;
-    flex: none;
+    flex-shrink: 0;
   }
 
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .nav-links a {
-    padding: 7px 14px;
-    border-radius: var(--radius-md);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--gray-500);
-    text-decoration: none;
-    transition: color 120ms ease, background 120ms ease;
-  }
-
-  .nav-links a:hover {
-    color: var(--gray-800);
-    background: var(--gray-100);
-  }
-
-  .nav-install {
-    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
-    color: #fff !important;
-    border-radius: var(--radius-md);
-  }
-
-  .nav-install:hover {
-    background: linear-gradient(135deg, var(--pink-500), var(--pink-700)) !important;
-    color: #fff !important;
-  }
-
-  /* Hero */
-
-  .hero {
-    padding: 48px 0 0;
-    margin-bottom: 64px;
-  }
-
-  .hero-logo {
-    width: 56px;
-    height: 56px;
-    display: grid;
-    place-items: center;
-    border-radius: 15px;
-    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
+  .hero-badge-text {
+    font: 600 14px/1 "DM Sans", sans-serif;
     color: #fff;
-    margin-bottom: 32px;
-    box-shadow: 0 12px 28px rgba(212, 80, 126, 0.2);
+    letter-spacing: -0.01em;
   }
 
+  .hero-badge-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--lp-line);
+  }
+
+  .hero-badge-label {
+    font: 500 12px/1 "DM Mono", monospace;
+    color: var(--lp-muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* Headline */
   h1 {
-    font-family: "Playfair Display", serif;
-    font-size: clamp(28px, 5vw, 40px);
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
-    color: var(--gray-900);
-    margin: 0 0 20px;
-    max-width: 18ch;
+    margin: 0 0 24px;
+    font: 700 clamp(36px, 7vw, 72px)/0.95 "Playfair Display", serif;
+    letter-spacing: -0.035em;
+    color: #fff;
   }
 
-  .lede {
-    font-size: 17px;
-    line-height: 1.65;
-    color: var(--gray-500);
-    margin: 0 0 32px;
-    max-width: 52ch;
+  .h1-line { display: block; }
+  .h1-line-accent { color: var(--lp-pink); }
+
+  .hero-sub {
+    max-width: 56ch;
+    margin: 0 auto 36px;
+    font-size: clamp(16px, 1.8vw, 19px);
+    line-height: 1.6;
+    color: var(--lp-muted);
   }
 
-  .hero-actions {
+  /* CTA buttons */
+  .hero-cta, .cta-buttons {
     display: flex;
-    gap: 10px;
+    justify-content: center;
+    gap: 14px;
     flex-wrap: wrap;
   }
-
-  /* Buttons */
 
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 22px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--gray-700);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font: 600 15px/1 "DM Sans", sans-serif;
+    letter-spacing: -0.01em;
     text-decoration: none;
     cursor: pointer;
-    transition: all 120ms ease;
-  }
-
-  .btn:hover {
-    border-color: var(--gray-300);
-    background: var(--gray-50);
-    color: var(--gray-900);
+    transition: all 160ms ease;
   }
 
   .btn-primary {
     background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
     color: #fff;
-    border-color: transparent;
-    box-shadow: 0 2px 8px rgba(212, 80, 126, 0.25);
+    border: none;
+    box-shadow:
+      0 0 0 1px rgba(232, 112, 154, 0.3),
+      0 4px 24px rgba(232, 112, 154, 0.25);
   }
 
   .btn-primary:hover {
-    background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
-    border-color: transparent;
-    box-shadow: 0 4px 16px rgba(212, 80, 126, 0.35);
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 1px rgba(232, 112, 154, 0.5),
+      0 8px 40px rgba(232, 112, 154, 0.35);
     color: #fff;
   }
 
-  /* Sections */
-
-  .how, .why, .demo-section {
-    margin-bottom: 64px;
+  .btn-ghost {
+    background: transparent;
+    color: var(--lp-text);
+    border: 1px solid var(--lp-line);
   }
 
-  h2 {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--gray-900);
-    letter-spacing: -0.02em;
-    margin: 0 0 24px;
-    line-height: 1.3;
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    transform: translateY(-2px);
   }
 
-  /* Steps */
-
-  .steps {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 0;
-    counter-reset: step;
+  /* ── USE-CASE SECTION ───────────────────────── */
+  .use-cases {
+    padding: clamp(48px, 8vh, 96px) 24px;
+    border-top: 1px solid var(--lp-line);
   }
 
-  .steps li {
-    counter-increment: step;
-    padding: 20px 0;
-    border-top: 1px solid var(--line);
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--gray-600);
-    display: grid;
-    grid-template-columns: 32px 1fr;
-    gap: 16px;
-    align-items: baseline;
+  .uc-inner {
+    width: min(1120px, 100%);
+    margin: 0 auto;
   }
 
-  .steps li:last-child {
-    border-bottom: 1px solid var(--line);
+  /* Tabs */
+  .uc-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 48px;
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-line);
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
   }
 
-  .steps li::before {
-    content: counter(step);
-    font: 700 12px/1 "DM Sans", sans-serif;
-    color: var(--pink-600);
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    border: 1px solid var(--pink-200);
-    background: var(--pink-50);
-    flex: none;
-  }
-
-  .steps li strong {
-    color: var(--gray-800);
-    font-weight: 600;
-  }
-
-  /* Reasons */
-
-  .reasons {
-    display: grid;
-    gap: 0;
-  }
-
-  .reason {
-    padding: 24px 0;
-    border-top: 1px solid var(--line);
-  }
-
-  .reason:last-child {
-    border-bottom: 1px solid var(--line);
-  }
-
-  .reason h3 {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--gray-800);
-    margin: 0 0 8px;
+  .uc-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 10px;
+    font: 600 14px/1 "DM Sans", sans-serif;
+    color: var(--lp-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: all 200ms ease;
     letter-spacing: -0.01em;
   }
 
-  .reason p {
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--gray-500);
-    margin: 0;
-    max-width: 55ch;
+  .uc-tab:hover {
+    color: var(--lp-text);
   }
 
-  /* Demo CTA */
+  .uc-tab.active {
+    background: rgba(232, 112, 154, 0.12);
+    color: var(--lp-pink);
+    box-shadow: 0 0 20px rgba(232, 112, 154, 0.08);
+  }
 
-  .demo-inner {
-    background:
-      radial-gradient(ellipse at top right, rgba(212, 80, 126, 0.06), transparent 60%),
-      var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-xl);
-    padding: 32px;
+  .uc-tab-icon {
+    display: grid;
+    place-items: center;
+    opacity: 0.5;
+  }
+
+  .uc-tab.active .uc-tab-icon { opacity: 1; }
+
+  /* Panel */
+  .uc-panel {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .uc-panel.visible {
+    display: grid;
+    animation: fadeUp 400ms ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Content side */
+  .uc-kicker {
+    font: 500 12px/1 "DM Mono", monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-pink);
+    margin: 0 0 16px;
+  }
+
+  .uc-heading {
+    margin: 0 0 20px;
+    font: 700 clamp(26px, 4vw, 40px)/1.05 "Playfair Display", serif;
+    color: #fff;
+    letter-spacing: -0.03em;
+  }
+
+  .uc-body {
+    margin: 0 0 32px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--lp-muted);
+  }
+
+  .uc-points {
+    display: grid;
+    gap: 20px;
+  }
+
+  .uc-point {
+    display: flex;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .uc-point-num {
+    font: 700 12px/1 "DM Mono", monospace;
+    color: var(--lp-pink);
+    padding-top: 3px;
+    flex: none;
+    letter-spacing: 0.06em;
+  }
+
+  .uc-point strong {
+    display: block;
+    font: 600 15px/1.3 "DM Sans", sans-serif;
+    color: #fff;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+
+  .uc-point p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--lp-muted);
+  }
+
+  /* Visual side */
+  .uc-visual {
+    position: sticky;
+    top: 32px;
+  }
+
+  /* Terminal mock */
+  .term {
+    border-radius: 14px;
+    border: 1px solid var(--lp-line);
+    background: var(--lp-surface);
+    overflow: hidden;
+    text-align: left;
+    box-shadow:
+      0 2px 0 rgba(255, 255, 255, 0.02),
+      0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  .term-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--lp-line);
   }
 
-  .demo-inner h2 {
-    margin-bottom: 8px;
+  .term-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
   }
 
-  .demo-inner p {
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--gray-500);
-    margin: 0;
-    max-width: 38ch;
+  .term-title {
+    margin-left: auto;
+    font: 500 11px/1 "DM Mono", monospace;
+    color: var(--lp-muted);
+    letter-spacing: 0.02em;
   }
 
-  .demo-inner .btn {
-    flex: none;
-    white-space: nowrap;
+  .term-body {
+    padding: 20px 22px;
+    display: grid;
+    gap: 6px;
+    font: 400 13px/1.65 "DM Mono", monospace;
+    color: var(--lp-text);
   }
 
-  /* Footer */
+  .term-line { display: block; white-space: pre-wrap; }
+  .term-indent { padding-left: 24px; }
+  .term-muted { color: var(--lp-muted); }
+  .term-ok { color: #4ade80; }
+  .term-dim { color: var(--lp-muted); opacity: 0.6; }
+  .term-accent { color: var(--lp-pink); }
 
-  .foot {
-    padding-top: 40px;
-    border-top: 1px solid var(--line);
+  .term-wait {
+    color: var(--lp-pink);
+    animation: pulse-dot 2s ease-in-out infinite;
   }
 
-  .foot a {
-    font-size: 13px;
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .term-highlight {
+    color: var(--lp-pink);
     font-weight: 500;
-    color: var(--gray-400);
-    text-decoration: none;
   }
 
-  .foot a:hover {
-    color: var(--gray-600);
+  /* ── HOW IT WORKS ───────────────────────────── */
+  .how {
+    padding: clamp(48px, 8vh, 96px) 24px;
+    border-top: 1px solid var(--lp-line);
   }
 
-  /* Responsive */
+  .how-inner {
+    width: min(1120px, 100%);
+    margin: 0 auto;
+  }
+
+  .how-kicker {
+    font: 500 12px/1 "DM Mono", monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-pink);
+    margin: 0 0 36px;
+    text-align: center;
+  }
+
+  .how-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+  }
+
+  .step {
+    padding: 32px 28px;
+    border-radius: 16px;
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-line);
+    display: grid;
+    gap: 12px;
+    align-content: start;
+    transition: border-color 300ms ease, box-shadow 300ms ease;
+  }
+
+  .step:hover {
+    border-color: rgba(232, 112, 154, 0.2);
+    box-shadow: 0 0 40px rgba(232, 112, 154, 0.06);
+  }
+
+  .step-num {
+    font: 700 13px/1 "DM Mono", monospace;
+    color: var(--lp-pink);
+    letter-spacing: 0.06em;
+  }
+
+  .step h3 {
+    margin: 0;
+    font: 600 18px/1.2 "DM Sans", sans-serif;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  .step p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--lp-muted);
+  }
+
+  /* ── CTA ──────────────────────────────────── */
+  .cta {
+    padding: clamp(56px, 10vh, 120px) 24px;
+    border-top: 1px solid var(--lp-line);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 100%, var(--lp-pink-glow), transparent),
+      var(--lp-bg);
+  }
+
+  .cta-inner {
+    display: grid;
+    gap: 28px;
+    justify-items: center;
+  }
+
+  .cta-kicker {
+    font: 500 12px/1 "DM Mono", monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lp-pink);
+    margin: 0;
+  }
+
+  .cta-heading {
+    margin: 0;
+    font: 700 clamp(28px, 5vw, 48px)/1.05 "Playfair Display", serif;
+    color: #fff;
+    letter-spacing: -0.03em;
+  }
+
+  /* ── Responsive ──────────────────────────── */
+  @media (max-width: 900px) {
+    .uc-panel.visible {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+
+    .uc-visual {
+      position: static;
+    }
+
+    .how-steps {
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+  }
 
   @media (max-width: 600px) {
-    .page {
-      padding: 0 16px 60px;
-    }
-
-    .nav {
-      padding: 16px 0;
-      margin-bottom: 8px;
-    }
-
-    .hero {
-      padding-top: 32px;
-      margin-bottom: 48px;
-    }
-
-    .hero-logo {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 24px;
-    }
-
-    .lede {
-      font-size: 16px;
-    }
-
-    .hero-actions {
+    .hero-cta, .cta-buttons {
       flex-direction: column;
+      align-items: stretch;
     }
 
-    .hero-actions .btn {
-      width: 100%;
-    }
+    .btn { width: 100%; }
 
-    .how, .why, .demo-section {
-      margin-bottom: 48px;
-    }
-
-    .steps li {
+    .how-steps {
       grid-template-columns: 1fr;
-      gap: 8px;
-      padding: 16px 0;
     }
 
-    .steps li::before {
-      width: 28px;
-      height: 28px;
-      font-size: 11px;
-    }
-
-    .demo-inner {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 24px;
-    }
-
-    .demo-inner .btn {
+    .uc-tabs {
       width: 100%;
+    }
+
+    .uc-tab {
+      flex: 1;
+      justify-content: center;
+      padding: 12px 16px;
     }
   }
 </style>

@@ -1,11 +1,41 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
+import { devMocksEnabled, mockActor, mockSession } from "$lib/server/dev-mocks.js";
 import { getInstallationOctokit } from "$lib/server/github-app.js";
 import { getSessionById } from "$lib/server/session-store.js";
 import { markQuizPassed, requestNewQuiz } from "$lib/server/service.js";
 
 export const POST: RequestHandler = async ({ params, request }) => {
+  if (devMocksEnabled()) {
+    const body = await request.json();
+    const action = body?.action;
+    const session = mockSession(params.token);
+
+    if (action === "pass") {
+      const answers = body?.answers;
+      const correctCount = Object.entries(answers ?? {}).reduce((count, [questionId, answer]) => {
+        const question = session.quiz?.questions.find((item) => item.id === questionId);
+        return count + (question && typeof answer === "string" && answer.toUpperCase() === question.correctOption ? 1 : 0);
+      }, 0);
+
+      return json({
+        ok: true,
+        passed: correctCount === session.questionCount,
+        correctCount,
+        questionCount: session.questionCount,
+        attemptNumber: 1,
+        message: correctCount === session.questionCount ? "Mock quiz passed." : undefined
+      });
+    }
+
+    if (action === "retry_new") {
+      return json({ ok: true, message: "Mock new quiz generated." });
+    }
+
+    return json({ ok: false, message: "Unknown action." }, { status: 400 });
+  }
+
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
 

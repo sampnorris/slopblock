@@ -125,7 +125,7 @@ Once the GitHub App is deployed:
 
 ## Configuration
 
-All configuration is managed through the [SlopBlock app](https://github.com/apps/slop-block). After installing the app on a repository, use the app's settings UI to configure quiz behavior, heuristics, context budgets, and model preferences per repository.
+All configuration is managed through the [SlopBlock app](https://github.com/marketplace/slopblock-quiz). After installing the app on a repository, use the app's settings UI to configure quiz behavior, heuristics, context budgets, and model preferences per repository.
 
 ## Local Prompt Harness
 
