@@ -5,16 +5,17 @@
   import SearchSelect from "$lib/components/SearchSelect.svelte";
 
   let { data }: { data: PageData } = $props();
+  const initial = data as any;
 
   const installationId = data.installationId;
   const actor = data.actor;
-  const isPaid = data.marketplacePlan === "paid";
-  const isOrg = data.accountType === "Organization";
+  const isPaid = initial.marketplacePlan === "paid";
+  const isOrg = initial.accountType === "Organization";
 
   let saving = $state(false);
   let saveMessage = $state("");
   let saveOk = $state(false);
-  let provider = $state<"openrouter" | "manual" | "none">(data.provider as any);
+  let provider = $state<"openrouter" | "manual" | "none">(initial.provider as any);
   let hasApiKey = $state(data.hasApiKey);
   let hasBaseUrl = $state(Boolean(data.settings?.llmBaseUrl));
 
@@ -24,19 +25,21 @@
   let settingKey = $state(false);
   let keyMessage = $state("");
 
-  let llmGenerationModel = $state(data.settings?.llmGenerationModel ?? "");
-  let llmValidationModel = $state(data.settings?.llmValidationModel ?? "");
-  let llmSkipModel = $state(data.settings?.llmSkipModel ?? "");
-  let questionCountMin = $state(data.settings?.questionCountMin ?? 2);
-  let questionCountMax = $state(data.settings?.questionCountMax ?? 5);
-  let quizGenerationMaxAttempts = $state(data.settings?.quizGenerationMaxAttempts ?? 3);
-  let llmMaxJsonAttempts = $state(data.settings?.llmMaxJsonAttempts ?? 2);
-  let allowBestEffortFallback = $state(data.settings?.allowBestEffortFallback ?? true);
-  let retryMode = $state(data.settings?.retryMode ?? "same_quiz");
-  let skipBots = $state(data.settings?.skipBots ?? true);
-  let skipForks = $state(data.settings?.skipForks ?? true);
-  let customSystemPrompt = $state(data.settings?.customSystemPrompt ?? "");
-  let customQuizInstructions = $state(data.settings?.customQuizInstructions ?? "");
+  let llmGenerationModel = $state(initial.settings?.llmGenerationModel ?? "");
+  let llmValidationModel = $state(initial.settings?.llmValidationModel ?? "");
+  let llmSkipModel = $state(initial.settings?.llmSkipModel ?? "");
+  let questionCountMin = $state(initial.settings?.questionCountMin ?? 2);
+  let questionCountMax = $state(initial.settings?.questionCountMax ?? 5);
+  let quizGenerationMaxAttempts = $state(initial.settings?.quizGenerationMaxAttempts ?? 3);
+  let allowBestEffortFallback = $state(initial.settings?.allowBestEffortFallback ?? true);
+  let retryMode = $state(initial.settings?.retryMode ?? "same_quiz");
+  let allowedWrongAnswers = $state(initial.settings?.allowedWrongAnswers ?? 0);
+  let skipBots = $state(initial.settings?.skipBots ?? true);
+  let skipForks = $state(initial.settings?.skipForks ?? true);
+  let customSystemPrompt = $state(initial.settings?.customSystemPrompt ?? "");
+  let customQuizInstructions = $state(initial.settings?.customQuizInstructions ?? "");
+  let maxTokenBudget = $state<number | undefined>(initial.settings?.maxTokenBudget ?? undefined);
+  let tokenBudgetFallback = $state<"pass" | "fail">(initial.settings?.tokenBudgetFallback === "fail" ? "fail" : "pass");
 
   const defaultModels = [
     "anthropic/claude-sonnet-4.5",
@@ -75,7 +78,7 @@
     finally { modelsLoading = false; }
   }
 
-  if (typeof window !== "undefined" && data.provider === "openrouter") { fetchModels(); }
+  if (typeof window !== "undefined" && initial.provider === "openrouter") { fetchModels(); }
 
   async function connectOpenRouter() {
     const codeVerifier = generateCodeVerifier();
@@ -146,7 +149,7 @@
     if (!modelsConfigured) { saveMessage = "Select generation, validation, and skip models before saving."; saveOk = false; return; }
     saving = true; saveMessage = "";
     try {
-      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, llmMaxJsonAttempts, allowBestEffortFallback, retryMode, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined }) });
+      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
       const json = await res.json();
       if (json.ok) { saveMessage = "Settings saved."; saveOk = true; }
       else { saveMessage = json.error || "Failed to save."; saveOk = false; }
@@ -175,6 +178,10 @@
       <a href="/settings/{installationId}" class="sidebar-link active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         Configuration
+      </a>
+      <a href="/settings/{installationId}/activity" class="sidebar-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Activity
       </a>
       <a href={GITHUB_APP_URL} target="_blank" class="sidebar-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg>
@@ -237,6 +244,34 @@
         {/if}
       </div>
 
+      {#if !providerConnected || !modelsConfigured}
+        <div class="setup-todo">
+          <div class="setup-todo-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Complete setup to enable quiz generation</span>
+          </div>
+          <p class="setup-todo-desc">SlopBlock won't generate quizzes on your pull requests until you finish these steps:</p>
+          <ul class="setup-todo-list">
+            <li class:done={providerConnected}>
+              {#if providerConnected}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              {:else}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/></svg>
+              {/if}
+              <span>Connect an LLM provider</span> <span class="setup-hint">&mdash; via OpenRouter or your own API key</span>
+            </li>
+            <li class:done={modelsConfigured}>
+              {#if modelsConfigured}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              {:else}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/></svg>
+              {/if}
+              <span>Choose models for each stage</span> <span class="setup-hint">&mdash; generation, validation, and skip evaluation</span>
+            </li>
+          </ul>
+        </div>
+      {/if}
+
       <div class="settings-grid">
         <!-- LLM Provider -->
         <section class="sc">
@@ -281,6 +316,10 @@
                 <label for="manualKey">API Key</label>
                 <input id="manualKey" type="password" bind:value={manualApiKey} placeholder="sk-..." />
               </div>
+              <div class="encryption-notice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <span>Your API key is encrypted at rest with AES-256-GCM before being stored. It is never exposed in API responses or logs.</span>
+              </div>
               <button class="button primary" style="margin-top: 4px;" onclick={submitManualKey} disabled={settingKey || !manualApiKey.trim() || !manualBaseUrl.trim()}>
                 {settingKey ? "Saving..." : "Save API Key"}
               </button>
@@ -312,6 +351,114 @@
           {/if}
         </section>
 
+        <!-- Token Usage & Budget -->
+        {#if providerConnected}
+          <section class="sc">
+            <div class="sc-head">
+              <h2>Token Usage & Budget</h2>
+              <p class="sc-desc">Understand and control how many LLM tokens each quiz generation consumes.</p>
+            </div>
+
+            <div class="token-warning">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div>
+                <strong>You are responsible for LLM token usage.</strong>
+                Each quiz generation sends code diffs to your configured provider and consumes tokens.
+                Set a billing cap or spending limit with your LLM provider to avoid unexpected charges.
+                SlopBlock is not responsible for excessive token usage under any circumstances.
+                See our <a href="/terms">Terms of Service</a> for details.
+              </div>
+            </div>
+
+            <div class="mitigations">
+              <div class="mitigations-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Built-in token usage mitigations</span>
+              </div>
+              <ul class="mitigations-list">
+                <li>
+                  <span class="mitigation-label">Heuristic skip</span>
+                  <span class="mitigation-desc">Docs-only, test-only, dependency-only, tiny copy, and formatting-only PRs are skipped with zero LLM calls.</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Diff-focused context</span>
+                  <span class="mitigation-desc">Only changed hunks and surrounding lines are sent instead of full file contents, reducing input tokens by 30-70% for large files.</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Prompt caching</span>
+                  <span class="mitigation-desc">System prompts are cached across LLM calls within a generation cycle, saving ~50% of system prompt tokens on repeated calls (Anthropic models).</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Quiz caching</span>
+                  <span class="mitigation-desc">Duplicate webhooks for the same commit SHA reuse the existing quiz with zero LLM calls.</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Context caching</span>
+                  <span class="mitigation-desc">Repository context is cached in-memory for 10 minutes, avoiding redundant GitHub API fetches and re-serialization.</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Context budgets</span>
+                  <span class="mitigation-desc">Repo map limited to 120 paths, related snippets capped at 12 files / 12K chars, diffs truncated per-call type.</span>
+                </li>
+                <li>
+                  <span class="mitigation-label">Generation attempt limit</span>
+                  <span class="mitigation-desc">The generate-and-validate loop runs at most {quizGenerationMaxAttempts} attempts (configurable above), with best-effort fallback to avoid wasted retries.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div class="field" style="margin-top: 20px;">
+              <label for="tokenBudget">Max Token Budget Per Quiz</label>
+              <input
+                id="tokenBudget"
+                type="number"
+                min="1000"
+                step="1000"
+                placeholder="Unlimited"
+                value={maxTokenBudget ?? ""}
+                oninput={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  maxTokenBudget = val ? Number(val) : undefined;
+                }}
+              />
+              <span class="hint">
+                Hard limit on total tokens (input + output) consumed across all LLM calls for a single quiz generation.
+                Leave empty for unlimited. Minimum 1,000.
+              </span>
+            </div>
+
+            <div class="field" style="margin-top: 14px;">
+              <label for="budgetFallback">When Budget Is Exceeded</label>
+              <select id="budgetFallback" bind:value={tokenBudgetFallback}>
+                <option value="pass">Pass the PR check with a warning</option>
+                <option value="fail">Fail the PR check and block merge</option>
+              </select>
+              <span class="hint">
+                Controls whether exceeding the token budget blocks the merge or allows it through with a warning.
+              </span>
+            </div>
+
+            {#if tokenBudgetFallback === "pass"}
+              <div class="budget-fallback-notice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>
+                  If the budget is exceeded during generation, the best available quiz is used.
+                  If no quiz was generated yet, the PR check passes automatically with a warning &mdash; merges are never blocked by a budget limit.
+                </span>
+              </div>
+            {:else}
+              <div class="budget-fail-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>
+                  <strong>Merges will be blocked</strong> if the token budget is exceeded before a valid quiz is generated.
+                  The commit status will show as a failure and the PR author will need to wait for you to increase the budget or change this setting.
+                  Make sure your budget is high enough for typical PRs in your repository.
+                </span>
+              </div>
+            {/if}
+          </section>
+        {/if}
+
         <!-- Quiz Behavior -->
         <section class="sc">
           <div class="sc-head">
@@ -323,18 +470,23 @@
             <div class="field"><label for="qmin">Min Questions</label><input id="qmin" type="number" min="1" max="10" bind:value={questionCountMin} /></div>
             <div class="field"><label for="qmax">Max Questions</label><input id="qmax" type="number" min="1" max="10" bind:value={questionCountMax} /></div>
           </div>
-          <div class="field-row">
-            <div class="field"><label for="generationAttempts">Generation Attempts</label><input id="generationAttempts" type="number" min="1" max="10" bind:value={quizGenerationMaxAttempts} /><span class="hint">Full generate-and-validate passes before giving up.</span></div>
-            <div class="field"><label for="jsonAttempts">LLM JSON Attempts</label><input id="jsonAttempts" type="number" min="1" max="10" bind:value={llmMaxJsonAttempts} /><span class="hint">Retries when a model sends malformed JSON.</span></div>
+          <div class="field">
+            <label for="generationAttempts">Generation Attempts</label><input id="generationAttempts" type="number" min="1" max="10" bind:value={quizGenerationMaxAttempts} /><span class="hint">Full generate-and-validate passes before giving up.</span>
           </div>
 
           <div class="field">
             <label for="retry">Answer Mode</label>
             <select id="retry" bind:value={retryMode}>
-              <option value="same_quiz">Explain mistakes and retry same quiz</option>
+              <option value="same_quiz">Show mistakes and retry only wrong answers</option>
               <option value="new_quiz">Generate a new quiz after mistakes</option>
               <option value="maintainer_rerun">Maintainer re-run only</option>
             </select>
+          </div>
+
+          <div class="field">
+            <label for="allowedWrongAnswers">Allowed Wrong Answers</label>
+            <input id="allowedWrongAnswers" type="number" min="0" max="10" bind:value={allowedWrongAnswers} />
+            <span class="hint">Set how many wrong answers can still pass the PR check. Use 0 to require all correct.</span>
           </div>
 
           <div class="toggle-row">
@@ -346,6 +498,15 @@
             <label class="toggle"><input type="checkbox" bind:checked={skipBots} /><span class="toggle-slider"></span><span class="toggle-label">Skip bot PRs</span></label>
             <label class="toggle"><input type="checkbox" bind:checked={skipForks} /><span class="toggle-slider"></span><span class="toggle-label">Skip fork PRs</span></label>
           </div>
+          {#if !skipForks}
+            <div class="fork-warning">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div>
+                <strong>Enabling quizzes on fork PRs has risks.</strong>
+                Fork PRs run in a context where repository secrets are not available, so quiz generation will use your stored API key directly. This means any fork contributor's PR will trigger LLM API calls billed to your key. Additionally, a malicious fork could craft a large diff designed to consume tokens. Only enable this if you trust the contributors opening fork PRs or have spending limits on your LLM provider.
+              </div>
+            </div>
+          {/if}
         </section>
 
         <!-- Custom Prompts -->
@@ -429,6 +590,37 @@
   }
   .upgrade-gate a { font-weight: 600; color: var(--accent); white-space: nowrap; }
 
+  /* Setup TODO banner */
+  .setup-todo {
+    padding: 20px 22px;
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(232, 112, 154, 0.25);
+    background: rgba(232, 112, 154, 0.04);
+    margin-bottom: 20px;
+  }
+  .setup-todo-header {
+    display: flex; align-items: center; gap: 10px;
+    font: 600 15px/1.3 "DM Sans", sans-serif;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .setup-todo-header svg { flex: none; color: var(--accent); }
+  .setup-todo-desc {
+    font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5;
+  }
+  .setup-todo-list {
+    list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
+  }
+  .setup-todo-list li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 500; color: var(--gray-700);
+  }
+  .setup-todo-list li svg { flex: none; color: var(--muted); }
+  .setup-todo-list li.done { color: var(--good); }
+  .setup-todo-list li.done svg { color: var(--good); }
+  .setup-hint { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .setup-todo-list li.done .setup-hint { color: rgba(74, 222, 128, 0.5); }
+
   .settings-grid { display: grid; gap: 16px; }
 
   .sc {
@@ -457,6 +649,68 @@
     margin-top: 14px; padding: 18px; border: 1px solid var(--line);
     border-radius: var(--radius-lg); background: var(--gray-50); display: grid; gap: 12px;
   }
+
+  .token-warning {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 16px; border-radius: var(--radius-md);
+    border: 1px solid rgba(234, 179, 8, 0.25); background: rgba(234, 179, 8, 0.06);
+    font-size: 13px; line-height: 1.55; color: var(--fg);
+  }
+  .token-warning svg { flex: none; margin-top: 2px; color: rgb(180, 130, 0); }
+  .token-warning strong { display: block; margin-bottom: 2px; }
+  .token-warning a { font-weight: 600; text-decoration: underline; color: inherit; }
+
+  .mitigations {
+    margin-top: 16px; padding: 16px 18px;
+    border: 1px solid rgba(74, 222, 128, 0.15); border-radius: var(--radius-md);
+    background: rgba(74, 222, 128, 0.03);
+  }
+  .mitigations-header {
+    display: flex; align-items: center; gap: 8px;
+    font: 600 13px/1 "DM Sans", sans-serif;
+    color: var(--good); margin-bottom: 12px;
+  }
+  .mitigations-header svg { flex: none; }
+  .mitigations-list {
+    list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
+  }
+  .mitigations-list li {
+    display: grid; grid-template-columns: 140px 1fr; gap: 8px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .mitigation-label {
+    font: 600 12px/1.5 "DM Mono", monospace;
+    color: var(--gray-600); white-space: nowrap;
+  }
+  .mitigation-desc { color: var(--muted); }
+
+  .budget-fallback-notice {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-top: 12px; padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(74, 222, 128, 0.04); border: 1px solid rgba(74, 222, 128, 0.12);
+    font-size: 12px; line-height: 1.55; color: var(--muted);
+  }
+  .budget-fallback-notice svg { flex: none; margin-top: 1px; color: var(--good); }
+  .budget-fallback-notice strong { color: var(--gray-700); }
+
+  .budget-fail-warning {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-top: 12px; padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.18);
+    font-size: 12px; line-height: 1.55; color: var(--muted);
+  }
+  .budget-fail-warning svg { flex: none; margin-top: 1px; color: #ef4444; }
+  .budget-fail-warning strong { color: #ef4444; font-weight: 600; }
+
+  .encryption-notice {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    background: var(--good-light); border: 1px solid rgba(74, 222, 128, 0.15);
+    font-size: 12px; line-height: 1.5; color: var(--good);
+  }
+  .encryption-notice svg { flex: none; margin-top: 1px; }
 
   /* Fields */
   .field { margin-top: 14px; }
@@ -488,6 +742,15 @@
   .toggle input:checked + .toggle-slider { background: var(--accent); }
   .toggle input:checked + .toggle-slider::after { transform: translateX(16px); }
   .toggle-label { color: var(--gray-700); font-weight: 500; }
+
+  .fork-warning {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-md);
+    background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.18);
+    font-size: 13px; line-height: 1.55; color: var(--gray-600);
+  }
+  .fork-warning svg { flex: none; margin-top: 2px; color: #ef4444; }
+  .fork-warning strong { color: #ef4444; font-weight: 600; }
 
   /* Messages */
   .save-msg, .key-msg { font-size: 13px; font-weight: 500; margin-top: 8px; }

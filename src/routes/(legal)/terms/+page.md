@@ -9,7 +9,7 @@ title: Terms of Service
 # Terms of Service
 
 **Effective Date:** April 6, 2026
-**Last Updated:** April 6, 2026
+**Last Updated:** April 6, 2026 (rev. 2 — added token usage responsibility)
 
 These Terms of Service ("Terms") govern your use of SlopBlock, a GitHub App operated by Sam Norris ("we", "us", "our"). By installing or using SlopBlock, you agree to these Terms.
 
@@ -47,9 +47,24 @@ SlopBlock requires access to an LLM provider (e.g., OpenRouter or any OpenAI-com
 
 - Providing and maintaining your own LLM API key.
 - Complying with your LLM provider's terms of service and usage policies.
-- Any costs incurred from LLM API usage.
+- **All costs incurred from LLM API usage, including token consumption charges.**
+- Setting and maintaining appropriate billing caps, spending limits, or usage alerts with your LLM provider.
 
 We encrypt your API key at rest but are not responsible for charges, rate limits, or policy violations on your LLM provider account.
+
+### 3.3 Token Usage and Billing Responsibility
+
+**You are solely responsible for all LLM token usage and associated costs incurred through your use of SlopBlock.** Each quiz generation sends code diffs, file paths, repository context, and related data to your configured LLM provider, consuming tokens on your account. The volume of tokens consumed depends on factors including but not limited to:
+
+- The size of pull request diffs and the number of changed files.
+- The number of quiz questions configured.
+- The number of generation and validation attempts configured.
+- The models you select (different models have different token pricing).
+- The frequency of pull requests in your repositories.
+
+**We strongly recommend that you set a billing cap or spending limit with your LLM provider before enabling SlopBlock.** While SlopBlock includes built-in stopgaps to limit unnecessary usage (such as skip heuristics for trivial changes, context size budgets, and configurable generation attempt limits), these safeguards do not guarantee any particular level of token consumption, and we make no representations about the cost of operating the service on your repositories.
+
+**SlopBlock is not responsible for excessive, unexpected, or runaway token usage or charges under any circumstances**, including but not limited to: high-volume repositories, misconfigured settings, LLM provider pricing changes, bugs in the service, or any other cause.
 
 ---
 
@@ -113,8 +128,11 @@ We reserve the right to modify, suspend, or discontinue the service at any time 
 
 - Blocked or delayed merges due to service outages or quiz errors.
 - Code or data exposed to third-party LLM providers through your configuration.
-- Costs incurred from LLM API usage.
+- **Any and all costs, charges, or fees incurred from LLM API token usage**, whether expected or unexpected, including charges resulting from high-volume repositories, misconfigured settings, service bugs, retries, or any other cause.
 - Any bugs, vulnerabilities, or security incidents in code that passed a SlopBlock quiz.
+- Financial losses resulting from failure to set billing caps or spending limits with your LLM provider.
+
+**You expressly agree that SlopBlock bears no responsibility for LLM provider charges incurred through your use of the service.** You use your own API key, choose your own models, and configure your own usage limits. We provide built-in safeguards as a courtesy, but they do not constitute a guarantee of any cost ceiling.
 
 Our total liability for any claim arising from the service is limited to the amount you paid us in the 12 months preceding the claim, or $50, whichever is greater.
 

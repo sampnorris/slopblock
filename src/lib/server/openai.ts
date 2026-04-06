@@ -6,17 +6,34 @@ import { skipDecisionTool, quizPayloadTool, quizValidationTool } from "./schemas
 import { normalizeQuizPayload } from "./quiz.js";
 import { truncate } from "./util.js";
 
+interface ContentBlock {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+}
+
 interface Message {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentBlock[];
+}
+
+/**
+ * Wrap a plain message string in the content-block format with a
+ * cache_control breakpoint. When sent through OpenRouter to Anthropic
+ * models, this enables prompt caching — the provider caches everything
+ * up to the breakpoint so repeated calls with the same system prompt
+ * only pay input tokens once.
+ */
+function cacheable(text: string): ContentBlock[] {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
 }
 
 interface OpenAIClientOptions {
   baseUrl: string;
   apiKey: string;
   model: string;
-  maxAttempts?: number;
   trace?: TraceContext;
+  tokenTracker?: TokenTracker;
 }
 
 interface ChatOptions {
@@ -37,6 +54,11 @@ interface ToolCallResponse {
     };
     finish_reason?: string;
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 export class InsufficientCreditsError extends Error {
@@ -46,12 +68,60 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
+export class TokenBudgetExceededError extends Error {
+  public readonly tokensUsed: number;
+  public readonly budget: number;
+  /** Set by the service layer to control how the webhook handler reports status. */
+  public fallback: "pass" | "fail" = "pass";
+
+  constructor(tokensUsed: number, budget: number) {
+    super(`Token budget exceeded: ${tokensUsed.toLocaleString()} tokens used, budget is ${budget.toLocaleString()}.`);
+    this.name = "TokenBudgetExceededError";
+    this.tokensUsed = tokensUsed;
+    this.budget = budget;
+  }
+}
+
+/**
+ * Tracks cumulative token usage across multiple LLM calls within a single
+ * quiz generation pipeline. Shared between generation and validation clients.
+ */
+export class TokenTracker {
+  private _totalTokens = 0;
+  private readonly _budget: number | undefined;
+
+  constructor(budget?: number) {
+    this._budget = budget && budget > 0 ? budget : undefined;
+  }
+
+  get totalTokens(): number { return this._totalTokens; }
+  get budget(): number | undefined { return this._budget; }
+  get hasBudget(): boolean { return this._budget !== undefined; }
+
+  /** Record tokens from a completed LLM call. Throws if budget is exceeded. */
+  record(promptTokens: number, completionTokens: number): void {
+    this._totalTokens += promptTokens + completionTokens;
+    if (this._budget && this._totalTokens > this._budget) {
+      throw new TokenBudgetExceededError(this._totalTokens, this._budget);
+    }
+  }
+
+  /** Check whether the next call would likely exceed the budget. */
+  wouldExceed(estimatedTokens: number): boolean {
+    if (!this._budget) return false;
+    return this._totalTokens + estimatedTokens > this._budget;
+  }
+}
+
 export class OpenAICompatibleClient {
   constructor(private readonly options: OpenAIClientOptions) {}
 
-  private get maxAttempts(): number {
-    return this.options.maxAttempts ?? 2;
-  }
+  /**
+   * Number of retries for the legacy JSON-from-content fallback path.
+   * With tool calling as the primary method this rarely fires, so a
+   * single retry is sufficient.
+   */
+  private readonly maxFallbackAttempts = 2;
 
   /**
    * Low-level chat completion call. When a tool is provided, includes it in
@@ -90,6 +160,13 @@ export class OpenAICompatibleClient {
     }
 
     const json = (await response.json()) as ToolCallResponse;
+
+    // Record token usage if tracker is available
+    const tracker = this.options.tokenTracker;
+    if (tracker && json.usage) {
+      tracker.record(json.usage.prompt_tokens ?? 0, json.usage.completion_tokens ?? 0);
+    }
+
     const message = json.choices?.[0]?.message;
 
     // If a tool call was returned, extract the arguments (guaranteed JSON)
@@ -182,7 +259,7 @@ export class OpenAICompatibleClient {
     let lastError: unknown;
     let prompt = messages;
 
-    for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+    for (let attempt = 1; attempt <= this.maxFallbackAttempts; attempt += 1) {
       const content = await this.chat(prompt, { temperature });
       try {
         return this.parseJson<T>(content);
@@ -214,7 +291,7 @@ export class OpenAICompatibleClient {
 
     return await this.chatStructured<SkipDecision>(
       [
-        { role: "system", content: systemContent },
+        { role: "system", content: cacheable(systemContent) },
         {
           role: "user",
           content: JSON.stringify(
@@ -268,7 +345,8 @@ export class OpenAICompatibleClient {
       "Do not ask trivia about unchanged code.",
       "Make distractors plausible.",
       "Use exactly 3 options for every question.",
-      "Write the summary, question prompts, option text, and explanations as markdown.",
+      "The summary must be a single concise plain-English sentence describing what the PR does. No file names, no code, no markdown formatting. Write it for a human, not a machine.",
+      "Write question prompts, option text, and explanations as markdown.",
       "Use inline code markdown for identifiers, symbols, file paths, commands, and literals when relevant.",
       "Return JSON with summary and questions.",
       "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
@@ -286,7 +364,7 @@ export class OpenAICompatibleClient {
       [
         {
           role: "system",
-          content: systemPrompt
+          content: cacheable(systemPrompt)
         },
         {
           role: "user",
@@ -325,7 +403,7 @@ export class OpenAICompatibleClient {
 
     return await this.chatStructured<QuizValidation>(
       [
-        { role: "system", content: systemContent },
+        { role: "system", content: cacheable(systemContent) },
         {
           role: "user",
           content: JSON.stringify(

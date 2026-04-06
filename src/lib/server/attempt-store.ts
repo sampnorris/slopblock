@@ -39,6 +39,32 @@ export function gradeQuizAnswers(session: SessionRecord, rawAnswers: Record<stri
   };
 }
 
+export interface AttemptStats {
+  totalAttempts: number;
+  passedAttempts: number;
+  failedAttempts: number;
+  uniqueAuthors: number;
+}
+
+export async function getAttemptStats(installationId: string): Promise<AttemptStats> {
+  const [total, passed, authors] = await Promise.all([
+    prisma.quizAttempt.count({ where: { installationId } }),
+    prisma.quizAttempt.count({ where: { installationId, passed: true } }),
+    prisma.quizAttempt.groupBy({
+      by: ["authorLogin"],
+      where: { installationId },
+      _count: true
+    })
+  ]);
+
+  return {
+    totalAttempts: total,
+    passedAttempts: passed,
+    failedAttempts: total - passed,
+    uniqueAuthors: authors.length
+  };
+}
+
 export async function createQuizAttempt(session: SessionRecord, graded: GradedQuizAttempt): Promise<{ attemptNumber: number }> {
   const sessionId = session.id;
 

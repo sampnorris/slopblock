@@ -1,14 +1,14 @@
-# SlopBlock — Transparency Disclosures
+# SlopBlock transparency disclosures
 
-SlopBlock is a GitHub App that generates short quizzes from PR diffs. It sets a commit status check — it does not approve PRs, modify code, or make merge decisions autonomously.
+SlopBlock is a GitHub App that generates short quizzes from PR diffs. It sets a commit status check. It does not approve PRs, modify code, or make merge decisions on its own.
 
 ## AI Usage
 
-AI generates quiz questions and validates them. The pass/fail decision is deterministic: the author answers correctly or doesn't. Under the EU AI Act this is a limited-risk system — a developer tool with no autonomous decisions affecting individuals.
+AI is used to generate quiz questions and check them. The pass/fail result is deterministic: the author either answers correctly or doesn't. Under the EU AI Act, this is a limited-risk developer tool because it does not make autonomous decisions about individuals.
 
 ## Data Sent to LLM Providers
 
-The LLM provider is user-configured (default: OpenRouter). Organizations can use any OpenAI-compatible endpoint, including self-hosted models.
+The LLM provider is chosen by the user. OpenRouter is the default. Organizations can use any OpenAI-compatible endpoint, including self-hosted models.
 
 **Sent:** file paths (up to 120), changed file contents (truncated to 3K chars each), diff patches (truncated, max 14K chars), file metadata (additions/deletions), custom prompts if configured.
 
@@ -16,7 +16,7 @@ The LLM provider is user-configured (default: OpenRouter). Organizations can use
 
 ## Data Stored
 
-PostgreSQL stores: installation settings (with LLM API key encrypted via AES-256-GCM), quiz sessions (PR metadata, questions, status), and quiz attempts (scores, answers). Diffs, file contents, and patches are transient — never persisted. OAuth tokens are discarded immediately after fetching the user's GitHub login.
+PostgreSQL stores installation settings, with the LLM API key encrypted using AES-256-GCM, along with quiz sessions and quiz attempts. Diffs, file contents, and patches are transient and are not persisted. OAuth tokens are discarded immediately after the user's GitHub login is fetched.
 
 ## Security
 
@@ -31,7 +31,7 @@ Completed sessions are deleted after 30 days. Sessions for closed PRs are delete
 
 ## Compliance
 
-Complies with the GitHub Marketplace Developer Agreement. EU AI Act (Arts. 6, 8–17): limited-risk classification, multi-stage validation, documented risk mitigations, human oversight (maintainers control merge), open-source codebase. GDPR: only GitHub login stored; no email/PII; tokens discarded; data erasure via settings UI and automatic cleanup.
+SlopBlock is built to comply with the GitHub Marketplace Developer Agreement. Under the EU AI Act (Arts. 6, 8-17), it is treated as a limited-risk system with multi-stage validation, documented mitigations, and human oversight because maintainers still control the merge. For GDPR, SlopBlock stores only the GitHub login, not email addresses or other personal data. Tokens are discarded, and data can be erased through the settings UI or automatic cleanup.
 
 SlopBlock does not train models on your code, does not cache code beyond a single request, and does not share data between installations.
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
+  import { renderMarkdown } from "$lib/markdown";
   import { publicDemoQuiz } from "$lib/demo-quiz";
 
   const questions = publicDemoQuiz.questions;
@@ -59,6 +60,28 @@
     submitMessage = `Demo attempt ${attempts}. Score: ${correct} / ${total}. In the real app, this PR would stay blocked until the author answers every question correctly.`;
   }
 
+  function diffLineClass(line: string): string {
+    if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++")) return "diff-meta";
+    if (line.startsWith("@@")) return "diff-hunk";
+    if (line.startsWith("+")) return "diff-add";
+    if (line.startsWith("-")) return "diff-del";
+    return "diff-ctx";
+  }
+
+  function diffPrefix(line: string): string {
+    if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++") || line.startsWith("@@")) return "";
+    if (line.startsWith("+")) return "+";
+    if (line.startsWith("-")) return "-";
+    return " ";
+  }
+
+  function diffContent(line: string): string {
+    if (line.startsWith("diff --git") || line.startsWith("@@")) return line;
+    if (line.startsWith("+") || line.startsWith("-")) return line.slice(1);
+    if (line.startsWith(" ")) return line.slice(1);
+    return line;
+  }
+
   function retryDemo() {
     answered = 0;
     correct = 0;
@@ -114,8 +137,11 @@
       </div>
 
       <div class="diff-card">
-        <div class="diff-label">Changed lines</div>
-        <pre class="diff-block">{publicDemoQuiz.diff.join("\n")}</pre>
+        <div class="diff-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Diff
+        </div>
+        <div class="diff-block">{#each publicDemoQuiz.diff as line}<div class="diff-line {diffLineClass(line)}"><span class="diff-prefix">{diffPrefix(line)}</span><span>{diffContent(line)}</span></div>{/each}</div>
       </div>
 
       <div class="progress-bar">
@@ -139,7 +165,7 @@
               </div>
             </div>
 
-            <p class="question-prompt">{q.prompt}</p>
+            <div class="question-prompt markdown">{@html renderMarkdown(q.prompt)}</div>
 
             <div class="diff-anchors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -153,7 +179,7 @@
               {#each q.options as opt}
                 <button type="button" class={btnClass(i, opt.key)} onclick={() => selectAnswer(i, opt.key)}>
                   <span class="choice-key">{opt.key}</span>
-                  <span class="choice-text">{opt.text}</span>
+                  <span class="choice-text choice-markdown">{@html renderMarkdown(opt.text)}</span>
                 </button>
               {/each}
             </div>
@@ -161,7 +187,7 @@
             {#if questionStates[i].answered}
               <div class="explanation" class:good={questionStates[i].isCorrect} class:bad={!questionStates[i].isCorrect}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <span>{q.explanation}</span>
+                <span class="markdown">{@html renderMarkdown(q.explanation)}</span>
               </div>
             {/if}
           </div>
@@ -261,29 +287,52 @@
 
   .diff-card {
     margin-top: 20px;
-    border: 1px solid var(--line);
+    border: 1px solid #2d2d3a;
     border-radius: var(--radius-xl);
-    background: var(--gray-900);
-    color: var(--gray-100);
+    background: #1a1b26;
+    color: #c0caf5;
     overflow: hidden;
   }
 
   .diff-label {
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    font: 700 12px/1 "DM Mono", ui-monospace, monospace;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font: 700 11px/1 "DM Mono", ui-monospace, monospace;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--pink-200);
+    color: #bb9af7;
+    display: flex; align-items: center; gap: 8px;
   }
+  .diff-label svg { opacity: 0.5; }
 
   .diff-block {
     margin: 0;
-    padding: 16px;
+    padding: 4px 0;
     overflow-x: auto;
-    white-space: pre-wrap;
-    font: 400 13px/1.7 "DM Mono", ui-monospace, monospace;
+    font: 400 13px/1 "DM Mono", ui-monospace, monospace;
   }
+
+  .diff-line {
+    display: flex;
+    padding: 2px 16px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.65;
+  }
+
+  .diff-prefix {
+    flex: none;
+    width: 18px;
+    text-align: center;
+    user-select: none;
+    opacity: 0.5;
+  }
+
+  .diff-line.diff-ctx { color: rgba(192, 202, 245, 0.5); }
+  .diff-line.diff-add { color: #9ece6a; background: rgba(158, 206, 106, 0.08); }
+  .diff-line.diff-del { color: #f7768e; background: rgba(247, 118, 142, 0.08); }
+  .diff-line.diff-hunk { color: #7aa2f7; font-style: italic; opacity: 0.7; }
+  .diff-line.diff-meta { color: rgba(192, 202, 245, 0.3); font-size: 12px; }
 
   .progress-bar {
     height: 6px;
@@ -369,6 +418,18 @@
     line-height: 1.6;
     margin-bottom: 6px;
   }
+
+  /* Markdown content styles */
+  :global(.markdown p, .choice-markdown p) { margin: 0; color: inherit; }
+  :global(.markdown p + p, .choice-markdown p + p) { margin-top: 8px; }
+  :global(.markdown ul, .markdown ol, .choice-markdown ul, .choice-markdown ol) { margin: 6px 0 0 18px; padding: 0; }
+  :global(.markdown li + li, .choice-markdown li + li) { margin-top: 3px; }
+  :global(.markdown code, .choice-markdown code) {
+    font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em; background: rgba(232, 112, 154, 0.08); padding: 0.1em 0.35em; border-radius: 4px;
+  }
+  :global(.markdown strong, .choice-markdown strong) { font-weight: 600; color: inherit; }
+  :global(.markdown em, .choice-markdown em) { font-style: italic; }
 
   .diff-anchors {
     display: flex;

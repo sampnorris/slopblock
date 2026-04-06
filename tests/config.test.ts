@@ -13,7 +13,7 @@ test("loadConfig returns defaults when config file is missing", () => {
   assert.equal(config.retryMode, "same_quiz");
   assert.equal(config.quizGeneration.maxAttempts, 3);
   assert.equal(config.quizGeneration.allowBestEffortFallback, true);
-  assert.equal(config.llm.maxJsonAttempts, 2);
+  assert.equal(config.passRule.allowedWrongAnswers, 0);
   assert.equal(config.llm.generationModel, "anthropic/claude-sonnet-4.5");
   assert.equal(config.llm.validationModel, "anthropic/claude-opus-4.1");
   assert.equal(config.llm.skipModel, "anthropic/claude-sonnet-4.5");
@@ -33,11 +33,12 @@ test("loadConfig merges overrides", () => {
       "quizGeneration:",
       "  maxAttempts: 5",
       "  allowBestEffortFallback: false",
+      "passRule:",
+      "  allowedWrongAnswers: 2",
       "llm:",
       "  generationModel: model-a",
       "  validationModel: model-b",
       "  skipModel: model-c",
-      "  maxJsonAttempts: 4",
       "heuristics:",
       "  skipBots: false"
     ].join("\n")
@@ -50,7 +51,7 @@ test("loadConfig merges overrides", () => {
   assert.equal(config.questionCount.max, 3);
   assert.equal(config.quizGeneration.maxAttempts, 5);
   assert.equal(config.quizGeneration.allowBestEffortFallback, false);
-  assert.equal(config.llm.maxJsonAttempts, 4);
+  assert.equal(config.passRule.allowedWrongAnswers, 2);
   assert.equal(config.heuristics.skipBots, false);
   assert.equal(config.llm.generationModel, "model-a");
   assert.equal(config.llm.validationModel, "model-b");

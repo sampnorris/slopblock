@@ -31,13 +31,15 @@ model InstallationSettings {
   questionCountMin Int?
   questionCountMax Int?
   quizGenerationMaxAttempts Int?
-  llmMaxJsonAttempts Int?
   allowBestEffortFallback Boolean?
   retryMode        String?
   skipBots         Boolean?
   skipForks        Boolean?
   customSystemPrompt String?
   customQuizInstructions String?
+  allowedWrongAnswers Int?
+  maxTokenBudget   Int?
+  tokenBudgetFallback String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
@@ -55,6 +57,7 @@ model PullRequestSession {
   currentQuestionIndex Int           @default(0)
   questionCount        Int           @default(0)
   retryMode            String
+  allowedWrongAnswers  Int           @default(0)
   generationModel      String?
   validationModel      String?
   summary              String?

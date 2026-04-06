@@ -30,9 +30,8 @@
       </h1>
 
       <p class="hero-sub">
-        A diff-grounded quiz that runs on every pull request.
-        Whether you're building solo or shipping as a team, nothing merges
-        until the author proves they understand the change.
+        SlopBlock posts a short quiz based on the actual diff.
+        If the pull request matters, the author has to pass it before the merge goes through.
       </p>
 
       <div class="hero-cta">
@@ -87,31 +86,30 @@
           <p class="uc-kicker">Your second pair of eyes</p>
           <h2 class="uc-heading">Catch what speed<br />makes you miss.</h2>
           <p class="uc-body">
-            Moving fast is the point. But when you're deep in a feature, it's easy to
-            merge changes you haven't fully thought through &mdash; especially with AI-assisted code.
-            SlopBlock makes you pause for 30&nbsp;seconds and prove you understand
-            what's actually going in.
+            Moving fast is fine. Blindly merging is the problem.
+            When you're deep in a feature, especially with AI in the loop, it's easy to ship code you only half read.
+            SlopBlock slows you down just long enough to prove you actually know what changed.
           </p>
           <div class="uc-points">
             <div class="uc-point">
               <span class="uc-point-num">01</span>
               <div>
                 <strong>Review your own blind spots</strong>
-                <p>Questions are built from the diff, not generic best-practice trivia. They surface the parts you're most likely to gloss over.</p>
+                <p>The questions come from the diff, not from a generic list of best practices. They tend to hit the parts you'd otherwise skim.</p>
               </div>
             </div>
             <div class="uc-point">
               <span class="uc-point-num">02</span>
               <div>
                 <strong>Understand AI-generated code</strong>
-                <p>If a copilot wrote half the PR, you should be able to explain what it did. The quiz makes sure you can.</p>
+                <p>If Copilot or Cursor wrote half the PR, you should still be able to explain it. This gives you a quick gut check before it lands.</p>
               </div>
             </div>
             <div class="uc-point">
               <span class="uc-point-num">03</span>
               <div>
                 <strong>Skip the obvious, quiz the risky</strong>
-                <p>Docs, renames, and trivial changes pass through automatically. The gate only fires when it matters.</p>
+                <p>Docs, renames, and low-risk changes pass through automatically. The quiz shows up when a PR looks worth slowing down for.</p>
               </div>
             </div>
           </div>
@@ -148,31 +146,29 @@
           <p class="uc-kicker">Enforce understanding at merge</p>
           <h2 class="uc-heading">No one merges what<br />they can't explain.</h2>
           <p class="uc-body">
-            Code review catches bugs. SlopBlock catches comprehension gaps.
-            Before a PR can merge, the author answers a short quiz grounded
-            in what actually changed &mdash; proving they understand the code,
-            not just that it compiles.
+            Code review can catch bugs. It does not always catch the author nodding along to code they barely understand.
+            SlopBlock adds one more check before merge: can the person who opened this PR explain what changed and where it might break?
           </p>
           <div class="uc-points">
             <div class="uc-point">
               <span class="uc-point-num">01</span>
               <div>
                 <strong>Stop rubber-stamped AI code</strong>
-                <p>When half the team is shipping copilot-assisted PRs, the quiz ensures the author can explain every change before it lands.</p>
+                <p>If AI wrote part of the pull request, the author still has to own it. Passing the quiz is a simple way to prove that.</p>
               </div>
             </div>
             <div class="uc-point">
               <span class="uc-point-num">02</span>
               <div>
                 <strong>Configurable strictness</strong>
-                <p>Lighter quizzes for routine work, stricter gates for auth, payments, and infra. You set the bar per-repo.</p>
+                <p>Routine changes can get a lighter touch. Auth, payments, and infra can get stricter checks. You control that per repo.</p>
               </div>
             </div>
             <div class="uc-point">
               <span class="uc-point-num">03</span>
               <div>
                 <strong>Works alongside code review</strong>
-                <p>SlopBlock runs as a status check. It doesn't replace reviewers &mdash; it makes sure the author did their homework first.</p>
+                <p>SlopBlock runs as a status check. Reviewers still review. This just makes sure the author came prepared.</p>
               </div>
             </div>
           </div>
@@ -212,22 +208,22 @@
         <article class="step">
           <div class="step-num">01</div>
           <h3>Reads the diff</h3>
-          <p>Every question is grounded in actual changed lines &mdash; not generic best-practice trivia.</p>
+          <p>Questions are tied to the changed lines in the PR, not generic trivia.</p>
         </article>
         <article class="step">
           <div class="step-num">02</div>
           <h3>Skips the obvious</h3>
-          <p>Docs, renames, and trivial changes pass through. The gate only fires when it matters.</p>
+          <p>Docs, renames, and trivial changes pass through without extra noise.</p>
         </article>
         <article class="step">
           <div class="step-num">03</div>
           <h3>Quizzes the author</h3>
-          <p>A short multiple-choice quiz built from behavior, risk, and implementation details in the PR.</p>
+          <p>The author gets a short multiple-choice quiz about behavior, risk, and implementation details in the PR.</p>
         </article>
         <article class="step">
           <div class="step-num">04</div>
           <h3>Unblocks the merge</h3>
-          <p>Pass the quiz and the status check goes green. Fail and you get explanations to learn from.</p>
+          <p>Pass the quiz and the status check goes green. Miss a question and retry based on your team's policy.</p>
         </article>
       </div>
     </div>
@@ -236,7 +232,7 @@
   <!-- ── CTA ───────────────────────────────────── -->
   <section class="cta">
     <div class="cta-inner">
-      <p class="cta-kicker">Whether you ship alone or with a team</p>
+      <p class="cta-kicker">For solo builders and teams</p>
       <h2 class="cta-heading">Stop merging code<br />nobody can explain.</h2>
       <div class="cta-buttons">
         <a

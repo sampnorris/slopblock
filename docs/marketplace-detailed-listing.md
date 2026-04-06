@@ -4,34 +4,34 @@
 
 ## Capabilities
 
-- **Diff-grounded quizzes** — Generates 2–5 multiple-choice questions from the actual PR diff, not generic trivia.
-- **Two-model validation** — A second AI model reviews every quiz for accuracy before it reaches the author.
-- **Smart skip heuristics** — Auto-skips docs, tests, lockfiles, formatting, and tiny changes.
-- **Required status check** — Blocks merges via a `slopblock` commit status until the quiz is passed.
-- **Risk-aware scaling** — Auth, API, migration, and CI changes trigger more questions.
+- Builds 2 to 5 multiple-choice questions from the actual PR diff.
+- Checks each quiz with a second model before it reaches the author.
+- Skips docs, tests, lockfiles, formatting, and other low-signal changes.
+- Blocks merges with a required `slopblock` status check until the quiz is passed.
+- Asks more questions when a PR touches auth, APIs, migrations, or CI.
 
 ## Benefits
 
-- **Stop rubber-stamped AI code:** Prove comprehension before merging Copilot/Cursor-generated PRs.
-- **Low noise:** Quizzes only appear when they matter.
-- **Any LLM provider:** OpenRouter one-click or any OpenAI-compatible API key.
+- Make sure the author understands the code before it merges.
+- Keep noise down by skipping obvious or routine pull requests.
+- Use OpenRouter or any OpenAI-compatible provider.
 
 ## Getting Started
 
 **Pricing:**
-- **Personal accounts:** Free forever.
-- **Organizations:** Check GitHub Marketplace for pricing.
-- **Open source:** Contact us for exceptions.
+- Personal accounts: free.
+- Organizations: see GitHub Marketplace for pricing.
+- Open source: contact us if you need an exception.
 
 **Setup:**
 1. Install SlopBlock from the GitHub Marketplace.
 2. Sign in to the settings dashboard and connect an LLM provider.
-3. Open a PR — SlopBlock posts a quiz link. Pass it to unblock the merge.
+3. Open a PR. If the change is worth checking, SlopBlock posts a quiz link. Pass it to unblock the merge.
 
 ## Example Prompts
 
 Trigger manually with a PR comment:
-- `/quiz` — Generate or regenerate a quiz on any open PR.
+- `/quiz` to generate or regenerate a quiz on any open PR.
 
 Example quiz questions:
 - "What does the new `validateSession()` guard do when the token is expired?"
@@ -40,7 +40,7 @@ Example quiz questions:
 
 ## How It Works
 
-1. PR opened → SlopBlock reads the diff.
-2. Trivial changes auto-skipped. Non-trivial changes get a quiz.
-3. Author clicks the link, signs in, answers questions one at a time.
-4. Pass → merge unblocked. Miss → retry per your team's policy.
+1. A PR opens and SlopBlock reads the diff.
+2. Trivial changes are skipped. Non-trivial changes get a quiz.
+3. The author clicks the link, signs in, and answers the questions.
+4. Pass the quiz and the merge is unblocked. Miss it and retry based on your team's policy.

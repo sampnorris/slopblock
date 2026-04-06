@@ -15,6 +15,7 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "pnpm exec dotenv -e .env.local -- prisma migrate dev",
+    "prisma:deploy": "pnpm exec dotenv -e .env.local -- prisma migrate deploy",
     "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check": "pnpm run typecheck && pnpm test"

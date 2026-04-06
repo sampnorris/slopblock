@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockActor, mockSession } from "$lib/server/dev-mocks.js";
 import { getSessionById } from "$lib/server/session-store.js";
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
+}
 
 export const load: PageServerLoad = async ({ params, request }) => {
   const session = devMocksEnabled() ? mockSession(params.token) : await getSessionById(params.token);
@@ -16,6 +21,17 @@ export const load: PageServerLoad = async ({ params, request }) => {
   const prUrl = `https://github.com/${session.repositoryOwner}/${session.repositoryName}/pull/${session.pullNumber}`;
   const questions = session.quiz?.questions ?? [];
 
+  // Pre-compute SHA-256 hashes for diff anchor file paths (GitHub uses #diff-{sha256} format)
+  const diffAnchorHashes: Record<string, string> = {};
+  for (const q of questions) {
+    for (const anchor of q.diffAnchors ?? []) {
+      const clean = anchor.replace(/^[+\-~]\s*/, "").split(/[:#]/)[0];
+      if (clean && !diffAnchorHashes[clean]) {
+        diffAnchorHashes[clean] = sha256Hex(clean);
+      }
+    }
+  }
+
   return {
     session: {
       id: session.id,
@@ -25,6 +41,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
       status: session.status,
       questionCount: session.questionCount,
       retryMode: session.retryMode,
+      allowedWrongAnswers: session.allowedWrongAnswers ?? 0,
       generationModel: session.generationModel,
       validationModel: session.validationModel,
       summary: session.summary,
@@ -40,6 +57,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
       })) : [],
     },
     actor: actor ? { login: actor.login } : null,
-    prUrl
+    prUrl,
+    diffAnchorHashes,
   };
 };

@@ -1,4 +1,3 @@
-import type { InstallationSettings } from "@prisma/client";
 import { prisma } from "./db.js";
 import { encrypt, decrypt } from "./crypto.js";
 
@@ -17,13 +16,15 @@ export interface SettingsRecord {
   questionCountMin?: number;
   questionCountMax?: number;
   quizGenerationMaxAttempts?: number;
-  llmMaxJsonAttempts?: number;
   allowBestEffortFallback?: boolean;
   retryMode?: string;
   skipBots?: boolean;
   skipForks?: boolean;
   customSystemPrompt?: string;
   customQuizInstructions?: string;
+  maxTokenBudget?: number;
+  tokenBudgetFallback?: string;
+  allowedWrongAnswers?: number;
 }
 
 function decryptApiKey(encrypted: string | null): string | undefined {
@@ -35,7 +36,7 @@ function decryptApiKey(encrypted: string | null): string | undefined {
   }
 }
 
-function fromRow(row: InstallationSettings): SettingsRecord {
+function fromRow(row: any): SettingsRecord {
   return {
     id: row.id,
     installationId: row.installationId,
@@ -51,13 +52,15 @@ function fromRow(row: InstallationSettings): SettingsRecord {
     questionCountMin: row.questionCountMin ?? undefined,
     questionCountMax: row.questionCountMax ?? undefined,
     quizGenerationMaxAttempts: row.quizGenerationMaxAttempts ?? undefined,
-    llmMaxJsonAttempts: row.llmMaxJsonAttempts ?? undefined,
     allowBestEffortFallback: row.allowBestEffortFallback ?? undefined,
     retryMode: row.retryMode ?? undefined,
     skipBots: row.skipBots ?? undefined,
     skipForks: row.skipForks ?? undefined,
     customSystemPrompt: row.customSystemPrompt ?? undefined,
-    customQuizInstructions: row.customQuizInstructions ?? undefined
+    customQuizInstructions: row.customQuizInstructions ?? undefined,
+    maxTokenBudget: (row as any).maxTokenBudget ?? undefined,
+    tokenBudgetFallback: (row as any).tokenBudgetFallback ?? undefined,
+    allowedWrongAnswers: (row as any).allowedWrongAnswers ?? undefined
   };
 }
 
@@ -102,14 +105,16 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       questionCountMin: input.questionCountMin,
       questionCountMax: input.questionCountMax,
       quizGenerationMaxAttempts: input.quizGenerationMaxAttempts,
-      llmMaxJsonAttempts: input.llmMaxJsonAttempts,
       allowBestEffortFallback: input.allowBestEffortFallback,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
       skipForks: input.skipForks,
       customSystemPrompt: input.customSystemPrompt,
-      customQuizInstructions: input.customQuizInstructions
-    },
+      customQuizInstructions: input.customQuizInstructions,
+      maxTokenBudget: input.maxTokenBudget ?? null,
+      tokenBudgetFallback: input.tokenBudgetFallback ?? null,
+      allowedWrongAnswers: input.allowedWrongAnswers ?? null
+    } as any,
     update: {
       accountLogin: input.accountLogin,
       accountType: input.accountType,
@@ -125,14 +130,16 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       questionCountMin: input.questionCountMin,
       questionCountMax: input.questionCountMax,
       quizGenerationMaxAttempts: input.quizGenerationMaxAttempts,
-      llmMaxJsonAttempts: input.llmMaxJsonAttempts,
       allowBestEffortFallback: input.allowBestEffortFallback,
       retryMode: input.retryMode,
       skipBots: input.skipBots,
       skipForks: input.skipForks,
       customSystemPrompt: input.customSystemPrompt,
-      customQuizInstructions: input.customQuizInstructions
-    }
+      customQuizInstructions: input.customQuizInstructions,
+      maxTokenBudget: input.maxTokenBudget ?? null,
+      tokenBudgetFallback: input.tokenBudgetFallback ?? null,
+      allowedWrongAnswers: input.allowedWrongAnswers ?? null
+    } as any
   });
   return fromRow(row);
 }

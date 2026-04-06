@@ -14,7 +14,8 @@ const DEFAULT_CONFIG: SlopblockConfig = {
     allowBestEffortFallback: true
   },
   passRule: {
-    requireAllCorrect: true
+    requireAllCorrect: true,
+    allowedWrongAnswers: 0
   },
   retryMode: "same_quiz",
   contextBudget: {
@@ -55,9 +56,9 @@ const DEFAULT_CONFIG: SlopblockConfig = {
   llm: {
     generationModel: "anthropic/claude-sonnet-4.5",
     validationModel: "anthropic/claude-opus-4.1",
-    skipModel: "anthropic/claude-sonnet-4.5",
-    maxJsonAttempts: 2
-  }
+    skipModel: "anthropic/claude-sonnet-4.5"
+  },
+  tokenBudgetFallback: "pass"
 };
 
 function mergeArrays<T>(base: T[], override: unknown): T[] {
@@ -73,6 +74,12 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
   const questionCount = asObject(raw.questionCount);
   const quizGeneration = asObject(raw.quizGeneration);
   const passRule = asObject(raw.passRule);
+  const allowedWrongAnswersRaw =
+    typeof passRule.allowedWrongAnswers === "number" ? passRule.allowedWrongAnswers : undefined;
+  const allowedWrongAnswers =
+    allowedWrongAnswersRaw != null && Number.isFinite(allowedWrongAnswersRaw)
+      ? Math.max(0, Math.floor(allowedWrongAnswersRaw))
+      : DEFAULT_CONFIG.passRule.allowedWrongAnswers;
   const contextBudget = asObject(raw.contextBudget);
   const heuristics = asObject(raw.heuristics);
   const llm = asObject(raw.llm);
@@ -97,7 +104,8 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
       requireAllCorrect:
         typeof passRule.requireAllCorrect === "boolean"
           ? passRule.requireAllCorrect
-          : DEFAULT_CONFIG.passRule.requireAllCorrect
+          : DEFAULT_CONFIG.passRule.requireAllCorrect,
+      allowedWrongAnswers
     },
     retryMode:
       raw.retryMode === "same_quiz" || raw.retryMode === "new_quiz" || raw.retryMode === "maintainer_rerun"
@@ -158,13 +166,13 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
           : typeof llm.model === "string"
             ? llm.model
             : DEFAULT_CONFIG.llm.skipModel,
-      maxJsonAttempts:
-        typeof llm.maxJsonAttempts === "number"
-          ? llm.maxJsonAttempts
-          : DEFAULT_CONFIG.llm.maxJsonAttempts,
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : undefined,
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined
-    }
+    },
+    tokenBudgetFallback:
+      raw.tokenBudgetFallback === "pass" || raw.tokenBudgetFallback === "fail"
+        ? raw.tokenBudgetFallback
+        : DEFAULT_CONFIG.tokenBudgetFallback
   };
 }
 

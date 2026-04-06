@@ -4,7 +4,7 @@ import { getInstallationOctokit, verifyWebhookSignature } from "$lib/server/gith
 import { setCommitStatus } from "$lib/server/github-service.js";
 import { logError, logInfo } from "$lib/server/log.js";
 import { handlePullRequestWebhook, handlePullRequestClosed, handleQuizCommand, MissingModelError, MissingProviderError, PlanError } from "$lib/server/service.js";
-import { InsufficientCreditsError } from "$lib/server/openai.js";
+import { InsufficientCreditsError, TokenBudgetExceededError } from "$lib/server/openai.js";
 import { handleMarketplacePurchase } from "$lib/server/marketplace-service.js";
 import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 
@@ -54,7 +54,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     logInfo("webhook.auth_installation.start", { installationId: payload.installation.id, deliveryId });
-    const octokit = await getInstallationOctokit(payload.installation.id);
+    let octokit;
+    try {
+      octokit = await getInstallationOctokit(payload.installation.id);
+    } catch (authError) {
+      logError("webhook.auth_installation.failed", authError, {
+        installationId: payload.installation.id,
+        repository: payload.repository?.full_name,
+        deliveryId
+      });
+      return json(
+        { ignored: true, reason: "Installation authentication failed" },
+        { status: 202 }
+      );
+    }
     logInfo("webhook.auth_installation.complete", { installationId: payload.installation.id, deliveryId });
 
     if (event === "pull_request" && payload.action === "closed") {
@@ -77,7 +90,7 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (error) {
     const isPrEvent = event === "pull_request" && payload.pull_request;
     const isCommentEvent = event === "issue_comment" && payload.issue?.pull_request;
-    if ((error instanceof MissingProviderError || error instanceof MissingModelError || error instanceof InsufficientCreditsError || error instanceof PlanError) && (isPrEvent || isCommentEvent)) {
+    if ((error instanceof MissingProviderError || error instanceof MissingModelError || error instanceof InsufficientCreditsError || error instanceof PlanError || error instanceof TokenBudgetExceededError) && (isPrEvent || isCommentEvent)) {
       const owner = payload.repository.owner.login;
       const repo = payload.repository.name;
       const pr = payload.pull_request ?? payload.issue;
@@ -85,16 +98,22 @@ export const POST: RequestHandler = async ({ request }) => {
         ? `Organization repositories require a paid Slopblock plan. Upgrade at ${GITHUB_MARKETPLACE_URL}`
         : error instanceof InsufficientCreditsError
           ? "LLM provider has insufficient credits. Add credits and re-trigger."
-          : error instanceof MissingModelError
-            ? "LLM models are not fully configured. Select all required models in settings."
-            : "No LLM provider configured. Visit slopblock settings to connect one.";
+          : error instanceof TokenBudgetExceededError
+            ? (error.fallback === "fail"
+              ? `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Merge blocked.`
+              : `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Quiz skipped.`)
+            : error instanceof MissingModelError
+              ? "LLM models are not fully configured. Select all required models in settings."
+              : "No LLM provider configured. Visit slopblock settings to connect one.";
       try {
         await setCommitStatus({
           octokit: await getInstallationOctokit(payload.installation.id),
           owner,
           repo,
           sha: pr.head.sha,
-          state: "error",
+          state: error instanceof TokenBudgetExceededError
+            ? (error.fallback === "fail" ? "failure" : "success")
+            : "error",
           description
         });
       } catch { /* best effort */ }

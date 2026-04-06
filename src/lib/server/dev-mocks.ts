@@ -83,9 +83,9 @@ export function mockSettings(installationId: string): SettingsRecord {
     questionCountMin: 2,
     questionCountMax: 3,
     quizGenerationMaxAttempts: 3,
-    llmMaxJsonAttempts: 2,
     allowBestEffortFallback: true,
     retryMode: "same_quiz",
+    allowedWrongAnswers: 0,
     skipBots: true,
     skipForks: true,
     customSystemPrompt: "",
@@ -107,6 +107,7 @@ export function mockSession(token: string): SessionRecord {
     currentQuestionIndex: 0,
     questionCount: 3,
     retryMode: "same_quiz",
+    allowedWrongAnswers: 0,
     generationModel: "anthropic/claude-sonnet-4.5",
     validationModel: "anthropic/claude-opus-4.1",
     summary: "This mock PR updates quiz generation rules and improves the dev preview flow.",
@@ -153,6 +154,117 @@ export function mockSession(token: string): SessionRecord {
           focus: "risk"
         }
       ]
+    }
+  };
+}
+
+export function mockActivityData() {
+  const now = new Date();
+  const ago = (hours: number) => new Date(now.getTime() - hours * 3600000);
+
+  return {
+    sessions: [
+      {
+        id: "sess_1",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
+        pullNumber: 142,
+        authorLogin: "alice-dev",
+        headSha: "a1b2c3d",
+        status: SessionStatus.awaiting_answer,
+        questionCount: 3,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Adds rate limiting middleware to the API gateway with Redis-backed sliding window.",
+        createdAt: ago(1),
+        updatedAt: ago(0.5)
+      },
+      {
+        id: "sess_2",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
+        pullNumber: 140,
+        authorLogin: "bob-eng",
+        headSha: "d4e5f6a",
+        status: SessionStatus.passed,
+        questionCount: 4,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Refactors authentication flow to use OIDC provider instead of custom JWT validation.",
+        createdAt: ago(6),
+        updatedAt: ago(4)
+      },
+      {
+        id: "sess_3",
+        repositoryOwner: "acme-inc",
+        repositoryName: "web-dashboard",
+        pullNumber: 87,
+        authorLogin: "carol",
+        headSha: "f7a8b9c",
+        status: SessionStatus.skipped,
+        questionCount: 0,
+        generationModel: undefined,
+        summary: undefined,
+        skipReason: "Docs-only pull request matched configured skip rules.",
+        createdAt: ago(12),
+        updatedAt: ago(12)
+      },
+      {
+        id: "sess_4",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
+        pullNumber: 138,
+        authorLogin: "alice-dev",
+        headSha: "c1d2e3f",
+        status: SessionStatus.failed,
+        questionCount: 3,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Adds WebSocket support for real-time notifications.",
+        failureMessage: "Token budget exceeded (52,400 / 50,000 tokens). Merge blocked because the token budget fallback is set to fail.",
+        createdAt: ago(24),
+        updatedAt: ago(23)
+      },
+      {
+        id: "sess_5",
+        repositoryOwner: "acme-inc",
+        repositoryName: "web-dashboard",
+        pullNumber: 85,
+        authorLogin: "dan-ops",
+        headSha: "e4f5a6b",
+        status: SessionStatus.passed,
+        questionCount: 2,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Updates deployment configuration for staging environment.",
+        createdAt: ago(48),
+        updatedAt: ago(46)
+      },
+      {
+        id: "sess_6",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
+        pullNumber: 135,
+        authorLogin: "bob-eng",
+        headSha: "b7c8d9e",
+        status: SessionStatus.passed,
+        questionCount: 5,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Implements database migration framework with rollback support.",
+        failureMessage: "Token budget exceeded (31,200 / 30,000 tokens). Quiz skipped to avoid excessive charges.",
+        createdAt: ago(72),
+        updatedAt: ago(70)
+      }
+    ],
+    sessionStats: {
+      total: 6,
+      awaiting: 1,
+      passed: 3,
+      failed: 1,
+      skipped: 1,
+      budgetExceeded: 2
+    },
+    attemptStats: {
+      totalAttempts: 8,
+      passedAttempts: 4,
+      failedAttempts: 4,
+      uniqueAuthors: 4
     }
   };
 }

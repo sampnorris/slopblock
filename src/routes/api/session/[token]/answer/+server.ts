@@ -18,14 +18,16 @@ export const POST: RequestHandler = async ({ params, request }) => {
         const question = session.quiz?.questions.find((item) => item.id === questionId);
         return count + (question && typeof answer === "string" && answer.toUpperCase() === question.correctOption ? 1 : 0);
       }, 0);
+      const allowedWrongAnswers = Math.max(0, session.allowedWrongAnswers ?? 0);
+      const wrongCount = Math.max(0, session.questionCount - correctCount);
 
       return json({
         ok: true,
-        passed: correctCount === session.questionCount,
+        passed: wrongCount <= allowedWrongAnswers,
         correctCount,
         questionCount: session.questionCount,
         attemptNumber: 1,
-        message: correctCount === session.questionCount ? "Mock quiz passed." : undefined
+        message: wrongCount <= allowedWrongAnswers ? "Mock quiz passed." : undefined
       });
     }
 

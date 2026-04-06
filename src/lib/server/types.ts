@@ -1,4 +1,5 @@
 export type RetryMode = "same_quiz" | "new_quiz" | "maintainer_rerun";
+export type TokenBudgetFallback = "pass" | "fail";
 
 export interface SlopblockConfig {
   checkName: string;
@@ -12,6 +13,7 @@ export interface SlopblockConfig {
   };
   passRule: {
     requireAllCorrect: boolean;
+    allowedWrongAnswers: number;
   };
   retryMode: RetryMode;
   contextBudget: {
@@ -35,12 +37,13 @@ export interface SlopblockConfig {
     generationModel: string;
     validationModel: string;
     skipModel: string;
-    maxJsonAttempts: number;
     baseUrl?: string;
     apiKey?: string;
   };
   customSystemPrompt?: string;
   customQuizInstructions?: string;
+  maxTokenBudget?: number;
+  tokenBudgetFallback: TokenBudgetFallback;
 }
 
 export interface ChangedFile {

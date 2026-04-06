@@ -1,12 +1,16 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
+  import { renderMarkdown } from "$lib/markdown";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const { session, actor, prUrl } = data;
+  const diffAnchorHashes = (data as any).diffAnchorHashes as Record<string, string>;
   const questions = session.questions;
   const total = questions.length;
+  const allowedWrongAnswers = Math.max(0, (session as any).allowedWrongAnswers ?? 0);
+  const requiredCorrect = Math.max(0, total - allowedWrongAnswers);
 
   let answered = $state(0);
   let correct = $state(0);
@@ -22,7 +26,8 @@
   function diffAnchorUrl(anchor: string): string {
     const base = `${prUrl}/files`;
     const clean = anchor.replace(/^[+\-~]\s*/, "").split(/[:#]/)[0];
-    return clean ? `${base}#diff-${encodeURIComponent(clean)}` : base;
+    const hash = diffAnchorHashes[clean];
+    return hash ? `${base}#diff-${hash}` : base;
   }
 
   function selectAnswer(qIndex: number, key: string) {
@@ -53,12 +58,41 @@
     return Object.fromEntries(questions.map((question, index) => [question.id, questionStates[index].selectedKey ?? ""]));
   }
 
+  function clearIncorrectAnswers() {
+    let firstIncorrect = -1;
+    for (let i = 0; i < questionStates.length; i += 1) {
+      const state = questionStates[i];
+      if (state.answered && state.isCorrect === false) {
+        questionStates[i] = { answered: false, selectedKey: null, isCorrect: null };
+        if (firstIncorrect === -1) firstIncorrect = i;
+      }
+    }
+
+    answered = questionStates.reduce((count, state) => count + (state.answered ? 1 : 0), 0);
+    correct = questionStates.reduce((count, state) => count + (state.isCorrect ? 1 : 0), 0);
+
+    if (firstIncorrect >= 0) {
+      setTimeout(() => {
+        document.getElementById(`q${firstIncorrect}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    }
+  }
+
   async function submitPass() {
     submitting = true; submitMessage = "";
     try {
       const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
       const json = await res.json();
-      if (json.ok) { if (json.passed) { window.location.reload(); } else { submitMessage = `Recorded attempt ${json.attemptNumber}. Score: ${json.correctCount} / ${json.questionCount}.`; } }
+      if (json.ok) {
+        if (json.passed) {
+          window.location.reload();
+        } else {
+          submitMessage = `Recorded attempt ${json.attemptNumber}. Score: ${json.correctCount} / ${json.questionCount}. Update the incorrect answers and submit again.`;
+          if (session.retryMode === "same_quiz") {
+            clearIncorrectAnswers();
+          }
+        }
+      }
       else { submitMessage = json.message || "Unknown error"; }
     } catch { submitMessage = "Network error, try again"; }
     finally { submitting = false; }
@@ -74,7 +108,10 @@
     finally { retrying = false; }
   }
 
-  function retrySame() { window.location.reload(); }
+  function retrySame() {
+    clearIncorrectAnswers();
+    submitMessage = "Incorrect answers were cleared. Update them and submit again.";
+  }
 
   async function submitFeedback(value: number) {
     feedbackValue = value;
@@ -129,7 +166,7 @@
         <p>{actor.login}, you passed the quiz for <strong>{session.repositoryOwner}/{session.repositoryName}#{session.pullNumber}</strong>.</p>
       </div>
       <div class="stack">
-        <div class="notice good">All questions answered correctly. The PR status has been updated.</div>
+        <div class="notice good">Passing score reached. The PR status has been updated.</div>
         <a class="button primary" href={prUrl}>Back to pull request</a>
       </div>
 
@@ -186,7 +223,7 @@
                 {/if}
               </div>
             </div>
-            <p class="question-prompt">{q.prompt}</p>
+            <div class="question-prompt markdown">{@html renderMarkdown(q.prompt)}</div>
             {#if q.diffAnchors?.length}
               <div class="diff-anchors">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -200,14 +237,14 @@
               {#each q.options as opt}
                 <button type="button" class={btnClass(i, opt.key)} onclick={() => selectAnswer(i, opt.key)}>
                   <span class="choice-key">{opt.key}</span>
-                  <span class="choice-text">{opt.text}</span>
+                  <span class="choice-text choice-markdown">{@html renderMarkdown(opt.text)}</span>
                 </button>
               {/each}
             </div>
             {#if questionStates[i].answered}
               <div class="explanation" class:good={questionStates[i].isCorrect} class:bad={!questionStates[i].isCorrect}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <span>{q.explanation}</span>
+                <span class="markdown">{@html renderMarkdown(q.explanation)}</span>
               </div>
             {/if}
           </div>
@@ -216,12 +253,12 @@
 
       {#if answered === total && total > 0}
         <div class="result-section">
-          <div class="score-card" class:pass={correct === total} class:fail={correct !== total}>
-            <span class="score-value">{correct} / {total}</span>
-            <span class="score-label">{correct === total ? "Perfect score" : "Questions correct"}</span>
-          </div>
-          <div class="stack">
-            {#if correct === total}
+            <div class="score-card" class:pass={correct >= requiredCorrect} class:fail={correct < requiredCorrect}>
+              <span class="score-value">{correct} / {total}</span>
+              <span class="score-label">{correct >= requiredCorrect ? "Passing score" : "Questions correct"}</span>
+            </div>
+            <div class="stack">
+            {#if correct >= requiredCorrect}
               <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit & pass PR"}</button>
             {:else if session.retryMode === "maintainer_rerun"}
               <button class="button" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit result"}</button>
@@ -230,7 +267,7 @@
               <button class="button" onclick={retryNew} disabled={retrying || submitting}>{retrying ? "Generating new quiz..." : "Generate new quiz"}</button>
             {:else}
               <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit result"}</button>
-              <button class="button" onclick={retrySame}>Try again (same quiz)</button>
+              <button class="button" onclick={retrySame}>Fix incorrect answers</button>
             {/if}
             {#if submitMessage}<p style="color: var(--gray-700); font-size: 13px; font-weight: 500;">{submitMessage}</p>{/if}
             <a class="button" href={prUrl}>Back to pull request</a>
@@ -254,7 +291,7 @@
         </div>
       {/if}
 
-      <div class="footer">Only the PR author can submit answers. All questions must be correct to pass.</div>
+      <div class="footer">Only the PR author can submit answers. {allowedWrongAnswers === 0 ? "All questions must be correct to pass." : `Up to ${allowedWrongAnswers} wrong ${allowedWrongAnswers === 1 ? "answer is" : "answers are"} allowed.`}</div>
     {/if}
   </main>
 </div>
@@ -306,6 +343,18 @@
   .question-status.wrong { color: var(--bad); }
 
   .question-prompt { color: var(--gray-800) !important; font-size: 14px; line-height: 1.6; margin-bottom: 4px; }
+
+  /* Markdown content styles */
+  :global(.markdown p, .choice-markdown p) { margin: 0; color: inherit; }
+  :global(.markdown p + p, .choice-markdown p + p) { margin-top: 8px; }
+  :global(.markdown ul, .markdown ol, .choice-markdown ul, .choice-markdown ol) { margin: 6px 0 0 18px; padding: 0; }
+  :global(.markdown li + li, .choice-markdown li + li) { margin-top: 3px; }
+  :global(.markdown code, .choice-markdown code) {
+    font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em; background: rgba(232, 112, 154, 0.08); padding: 0.1em 0.35em; border-radius: 4px;
+  }
+  :global(.markdown strong, .choice-markdown strong) { font-weight: 600; color: inherit; }
+  :global(.markdown em, .choice-markdown em) { font-style: italic; }
 
   .diff-anchors {
     display: flex; align-items: center; gap: 6px;

@@ -26,13 +26,15 @@ export const load: PageServerLoad = async ({ params, request, url }) => {
         questionCountMin: settings.questionCountMin,
         questionCountMax: settings.questionCountMax,
         quizGenerationMaxAttempts: settings.quizGenerationMaxAttempts,
-        llmMaxJsonAttempts: settings.llmMaxJsonAttempts,
         allowBestEffortFallback: settings.allowBestEffortFallback,
         retryMode: settings.retryMode,
         skipBots: settings.skipBots,
         skipForks: settings.skipForks,
         customSystemPrompt: settings.customSystemPrompt,
-        customQuizInstructions: settings.customQuizInstructions
+        customQuizInstructions: settings.customQuizInstructions,
+        allowedWrongAnswers: settings.allowedWrongAnswers,
+        maxTokenBudget: settings.maxTokenBudget,
+        tokenBudgetFallback: settings.tokenBudgetFallback
       }
     };
   }
@@ -60,13 +62,15 @@ export const load: PageServerLoad = async ({ params, request, url }) => {
       questionCountMin: settings.questionCountMin,
       questionCountMax: settings.questionCountMax,
       quizGenerationMaxAttempts: settings.quizGenerationMaxAttempts,
-      llmMaxJsonAttempts: settings.llmMaxJsonAttempts,
       allowBestEffortFallback: settings.allowBestEffortFallback,
       retryMode: settings.retryMode,
       skipBots: settings.skipBots,
       skipForks: settings.skipForks,
       customSystemPrompt: settings.customSystemPrompt,
-      customQuizInstructions: settings.customQuizInstructions
+      customQuizInstructions: settings.customQuizInstructions,
+      allowedWrongAnswers: settings.allowedWrongAnswers,
+      maxTokenBudget: settings.maxTokenBudget,
+      tokenBudgetFallback: settings.tokenBudgetFallback
     } : null
   };
 };

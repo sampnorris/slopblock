@@ -55,7 +55,7 @@ export const quizPayloadTool: ToolDefinition = {
       properties: {
         summary: {
           type: "string",
-          description: "A brief markdown summary of the pull request changes."
+          description: "A single plain-English sentence describing what this PR does, written for the PR author. No file names, no code, no markdown. Example: 'Adds pagination to the user list endpoint and updates the tests.'"
         },
         questions: {
           type: "array",

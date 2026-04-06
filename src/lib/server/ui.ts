@@ -1,10 +1,14 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import type { QuizQuestion } from "./types.js";
 import type { SessionRecord } from "./session-store.js";
-import { renderMarkdown } from "./markdown.js";
+import { renderMarkdown } from "../markdown.js";
 
 function hmacAnswer(questionId: string, key: string, secret: string): string {
   return createHmac("sha256", secret).update(`${questionId}:${key}`).digest("hex").slice(0, 16);
+}
+
+function sha256Hex(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 function quizSecret(): string {
@@ -15,7 +19,7 @@ function diffAnchorUrl(session: SessionRecord, anchor: string): string {
   const base = `https://github.com/${session.repositoryOwner}/${session.repositoryName}/pull/${session.pullNumber}/files`;
   const clean = anchor.replace(/^[+\-~]\s*/, "").split(/[:#]/)[0];
   if (clean) {
-    return `${base}#diff-${encodeURIComponent(clean)}`;
+    return `${base}#diff-${sha256Hex(clean)}`;
   }
   return base;
 }

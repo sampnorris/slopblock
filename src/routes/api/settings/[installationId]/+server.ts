@@ -72,7 +72,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   const questionCountMin = asOptionalNumber(body.questionCountMin);
   const questionCountMax = asOptionalNumber(body.questionCountMax);
   const quizGenerationMaxAttempts = asOptionalNumber(body.quizGenerationMaxAttempts);
-  const llmMaxJsonAttempts = asOptionalNumber(body.llmMaxJsonAttempts);
+  const allowedWrongAnswers = asOptionalNumber(body.allowedWrongAnswers);
+  const maxTokenBudget = asOptionalNumber(body.maxTokenBudget);
 
   if (questionCountMin != null && questionCountMin < 1) {
     return json({ ok: false, error: "Minimum question count must be at least 1." }, { status: 400 });
@@ -90,8 +91,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     return json({ ok: false, error: "Generation attempts must be at least 1." }, { status: 400 });
   }
 
-  if (llmMaxJsonAttempts != null && llmMaxJsonAttempts < 1) {
-    return json({ ok: false, error: "LLM JSON attempts must be at least 1." }, { status: 400 });
+  if (maxTokenBudget != null && maxTokenBudget < 1000) {
+    return json({ ok: false, error: "Token budget must be at least 1,000 tokens or empty (unlimited)." }, { status: 400 });
+  }
+
+  if (allowedWrongAnswers != null && (!Number.isInteger(allowedWrongAnswers) || allowedWrongAnswers < 0)) {
+    return json({ ok: false, error: "Allowed wrong answers must be a whole number (0 or more)." }, { status: 400 });
   }
 
   if (!existing?.llmApiKey || !llmBaseUrl) {
@@ -119,13 +124,17 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     questionCountMin,
     questionCountMax,
     quizGenerationMaxAttempts,
-    llmMaxJsonAttempts,
     allowBestEffortFallback: body.allowBestEffortFallback != null ? Boolean(body.allowBestEffortFallback) : undefined,
     retryMode: body.retryMode || undefined,
     skipBots: body.skipBots != null ? Boolean(body.skipBots) : undefined,
     skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
     customSystemPrompt: body.customSystemPrompt ?? undefined,
-    customQuizInstructions: body.customQuizInstructions ?? undefined
+    customQuizInstructions: body.customQuizInstructions ?? undefined,
+    allowedWrongAnswers: allowedWrongAnswers ?? undefined,
+    maxTokenBudget: maxTokenBudget ?? undefined,
+    tokenBudgetFallback: body.tokenBudgetFallback === "pass" || body.tokenBudgetFallback === "fail"
+      ? body.tokenBudgetFallback
+      : undefined
   });
 
   return json({ ok: true, settings: maskSettings(updated) });

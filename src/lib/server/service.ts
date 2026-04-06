@@ -1,6 +1,6 @@
 import { SessionStatus } from "@prisma/client";
 import { computeQuestionCount, initialSkipDecision } from "./heuristics.js";
-import { OpenAICompatibleClient } from "./openai.js";
+import { OpenAICompatibleClient, TokenBudgetExceededError, TokenTracker } from "./openai.js";
 import { validateQuizPayload } from "./quiz.js";
 import type { ChangedFile, QuizPayload, SkipDecision, SlopblockConfig } from "./types.js";
 import { summarizePatch } from "./util.js";
@@ -73,6 +73,10 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
       allowBestEffortFallback: settings.allowBestEffortFallback ?? config.quizGeneration.allowBestEffortFallback
     },
     retryMode: (settings.retryMode as SlopblockConfig["retryMode"]) ?? config.retryMode,
+    passRule: {
+      ...config.passRule,
+      allowedWrongAnswers: Math.max(0, Math.floor(settings.allowedWrongAnswers ?? config.passRule.allowedWrongAnswers))
+    },
     heuristics: {
       ...config.heuristics,
       skipBots: settings.skipBots ?? config.heuristics.skipBots,
@@ -84,15 +88,16 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
       baseUrl: settings.llmBaseUrl ?? config.llm.baseUrl,
       generationModel: settings.llmGenerationModel ?? config.llm.generationModel,
       validationModel: settings.llmValidationModel ?? config.llm.validationModel,
-      skipModel: settings.llmSkipModel ?? config.llm.skipModel,
-      maxJsonAttempts: settings.llmMaxJsonAttempts ?? config.llm.maxJsonAttempts
+      skipModel: settings.llmSkipModel ?? config.llm.skipModel
     },
     customSystemPrompt,
-    customQuizInstructions
+    customQuizInstructions,
+    maxTokenBudget: settings.maxTokenBudget ?? config.maxTokenBudget,
+    tokenBudgetFallback: (settings.tokenBudgetFallback as SlopblockConfig["tokenBudgetFallback"]) ?? config.tokenBudgetFallback
   };
 }
 
-function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip", trace?: TraceContext) {
+function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip", trace?: TraceContext, tokenTracker?: TokenTracker) {
   const apiKey = (config.llm.apiKey ?? process.env.SLOPBLOCK_API_KEY)?.trim();
   const baseUrl = (config.llm.baseUrl ?? process.env.SLOPBLOCK_BASE_URL)?.trim();
   const overrideModel = process.env.SLOPBLOCK_MODEL;
@@ -112,7 +117,7 @@ function llmClient(config: SlopblockConfig, purpose: "generation" | "validation"
     throw new MissingModelError(purpose);
   }
 
-  return new OpenAICompatibleClient({ apiKey, baseUrl, model, maxAttempts: config.llm.maxJsonAttempts, trace });
+  return new OpenAICompatibleClient({ apiKey, baseUrl, model, trace, tokenTracker });
 }
 
 function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
@@ -159,33 +164,49 @@ async function generateValidQuiz(params: {
   let bestQuiz: QuizPayload | undefined;
 
   for (let attempt = 0; attempt < params.maxAttempts; attempt += 1) {
-    const quiz = await params.generationClient.generateQuiz({
-      repoContext: params.repoContext,
-      diffSummary: params.diffSummary,
-      questionCount: params.questionCount,
-      validatorFeedback: feedback,
-      customSystemPrompt: params.customSystemPrompt,
-      customQuizInstructions: params.customQuizInstructions
-    });
-    const localIssues = validateQuizPayload(quiz, params.questionCount);
-    if (localIssues.length > 0) {
-      feedback = localIssues;
-      continue;
+    try {
+      const quiz = await params.generationClient.generateQuiz({
+        repoContext: params.repoContext,
+        diffSummary: params.diffSummary,
+        questionCount: params.questionCount,
+        validatorFeedback: feedback,
+        customSystemPrompt: params.customSystemPrompt,
+        customQuizInstructions: params.customQuizInstructions
+      });
+      const localIssues = validateQuizPayload(quiz, params.questionCount);
+      if (localIssues.length > 0) {
+        feedback = localIssues;
+        continue;
+      }
+
+      bestQuiz = quiz;
+
+      const validation = await params.validationClient.validateQuiz({
+        quiz,
+        repoContext: params.repoContext,
+        diffSummary: params.diffSummary,
+        expectedQuestionCount: params.questionCount
+      });
+      if (validation.valid) {
+        return quiz;
+      }
+
+      feedback = validation.issues;
+    } catch (error) {
+      // Token budget exceeded mid-generation — use best effort quiz if available
+      if (error instanceof TokenBudgetExceededError) {
+        logInfo("quiz.generation.token_budget_exceeded", {
+          tokensUsed: error.tokensUsed,
+          budget: error.budget,
+          attempt,
+          hasBestQuiz: !!bestQuiz
+        });
+        if (bestQuiz) return bestQuiz;
+        // Re-throw so the pipeline-level handler can do a graceful pass
+        throw error;
+      }
+      throw error;
     }
-
-    bestQuiz = quiz;
-
-    const validation = await params.validationClient.validateQuiz({
-      quiz,
-      repoContext: params.repoContext,
-      diffSummary: params.diffSummary,
-      expectedQuestionCount: params.questionCount
-    });
-    if (validation.valid) {
-      return quiz;
-    }
-
-    feedback = validation.issues;
   }
 
   if (bestQuiz && params.allowBestEffortFallback) {
@@ -250,7 +271,11 @@ export async function markQuizPassed(params: {
     authorLogin: session.authorLogin
   });
 
-  if (!graded.passed) {
+  const allowedWrongAnswers = Math.max(0, session.allowedWrongAnswers ?? 0);
+  const wrongCount = Math.max(0, graded.questionCount - graded.correctCount);
+  const passedWithTolerance = wrongCount <= allowedWrongAnswers;
+
+  if (!graded.passed && !passedWithTolerance) {
     return {
       ok: true,
       passed: false,
@@ -337,19 +362,31 @@ export async function requestNewQuiz(params: {
 
   const repoConfig = await loadRemoteConfig(octokit, owner, repo, session.headSha);
   const config = await applyInstallationSettings(repoConfig, session.installationId);
+  const tokenTracker = new TokenTracker(config.maxTokenBudget);
   const files = await listChangedFiles(octokit, owner, repo, session.pullNumber);
   const repoContext = await buildRemoteRepoContext(octokit, owner, repo, session.headSha, files, config);
-  const quiz = await generateValidQuiz({
-    generationClient: llmClient(config, "generation", trace),
-    validationClient: llmClient(config, "validation", trace),
-    repoContext,
-    diffSummary: diffSummary(files),
-    questionCount: computeQuestionCount(files, config),
-    maxAttempts: config.quizGeneration.maxAttempts,
-    allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
-    customSystemPrompt: config.customSystemPrompt,
-    customQuizInstructions: config.customQuizInstructions
-  });
+
+  let quiz: QuizPayload;
+  try {
+    quiz = await generateValidQuiz({
+      generationClient: llmClient(config, "generation", trace, tokenTracker),
+      validationClient: llmClient(config, "validation", trace, tokenTracker),
+      repoContext,
+      diffSummary: diffSummary(files),
+      questionCount: computeQuestionCount(files, config),
+      maxAttempts: config.quizGeneration.maxAttempts,
+      allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
+      customSystemPrompt: config.customSystemPrompt,
+      customQuizInstructions: config.customQuizInstructions
+    });
+  } catch (error) {
+    // Stamp the fallback mode on the error so the webhook handler knows
+    // whether to pass or fail the PR check.
+    if (error instanceof TokenBudgetExceededError) {
+      error.fallback = config.tokenBudgetFallback;
+    }
+    throw error;
+  }
 
   trace.end({ outcome: "quiz_generated", questionCount: quiz.questions.length });
 
@@ -441,10 +478,11 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
           pullNumber: pr.number,
           authorLogin: pr.user.login,
           headSha,
-          status: SessionStatus.quota_exceeded,
+          status: "quota_exceeded" as SessionStatus,
           currentQuestionIndex: 0,
           questionCount: 0,
           retryMode: config.retryMode,
+          allowedWrongAnswers: config.passRule.allowedWrongAnswers,
           commentId: existing?.commentId
         });
         await setCommitStatus({
@@ -498,6 +536,35 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     userId: pr.user.login
   });
 
+  // ── Cache hit: reuse existing quiz if headSha hasn't changed ──
+  if (!isManualTrigger) {
+    const cached = await getSession(owner, repo, pr.number);
+    if (
+      cached &&
+      cached.headSha === headSha &&
+      cached.quiz &&
+      cached.status === SessionStatus.awaiting_answer
+    ) {
+      logInfo("pull_request.handle.cache_hit", {
+        repository: `${owner}/${repo}`,
+        pullNumber: pr.number,
+        headSha,
+        sessionId: cached.id
+      });
+      trace.end({ outcome: "cache_hit", questionCount: cached.questionCount });
+      await setCommitStatus({
+        octokit,
+        owner,
+        repo,
+        sha: headSha,
+        state: "pending",
+        description: `${cached.questionCount} questions waiting for the PR author.`,
+        targetUrl: sessionTargetUrl(cached)
+      });
+      return;
+    }
+  }
+
   logInfo("pull_request.files.list_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
   logInfo("pull_request.files.list_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number, fileCount: files.length });
@@ -522,6 +589,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     currentQuestionIndex: 0,
     questionCount: 0,
     retryMode: config.retryMode,
+    allowedWrongAnswers: config.passRule.allowedWrongAnswers,
     generationModel: undefined,
     validationModel: undefined,
     summary: undefined,
@@ -569,25 +637,83 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     repoMapEntries: repoContext.repoMap.length,
     changedFiles: repoContext.changedFileContexts.length
   });
-  logInfo("pull_request.quiz.generate_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
-  const quiz = await generateValidQuiz({
-    generationClient: llmClient(config, "generation", trace),
-    validationClient: llmClient(config, "validation", trace),
-    repoContext,
-    diffSummary: diffSummary(files),
-    questionCount: computeQuestionCount(files, config),
-    maxAttempts: config.quizGeneration.maxAttempts,
-    allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
-    customSystemPrompt: config.customSystemPrompt,
-    customQuizInstructions: config.customQuizInstructions
+  // Create a shared token tracker so the budget applies across all LLM calls
+  const tokenTracker = new TokenTracker(config.maxTokenBudget);
+
+  logInfo("pull_request.quiz.generate_start", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    tokenBudget: config.maxTokenBudget ?? "unlimited"
   });
+
+  let quiz: QuizPayload;
+  let budgetExceeded = false;
+
+  try {
+    quiz = await generateValidQuiz({
+      generationClient: llmClient(config, "generation", trace, tokenTracker),
+      validationClient: llmClient(config, "validation", trace, tokenTracker),
+      repoContext,
+      diffSummary: diffSummary(files),
+      questionCount: computeQuestionCount(files, config),
+      maxAttempts: config.quizGeneration.maxAttempts,
+      allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
+      customSystemPrompt: config.customSystemPrompt,
+      customQuizInstructions: config.customQuizInstructions
+    });
+  } catch (error) {
+    if (error instanceof TokenBudgetExceededError) {
+      const shouldBlock = config.tokenBudgetFallback === "fail";
+
+      logInfo("pull_request.token_budget_exceeded", {
+        repository: `${owner}/${repo}`,
+        pullNumber: pr.number,
+        tokensUsed: error.tokensUsed,
+        budget: error.budget,
+        fallback: config.tokenBudgetFallback
+      });
+      budgetExceeded = true;
+
+      trace.end({ outcome: "token_budget_exceeded", tokensUsed: error.tokensUsed, budget: error.budget, fallback: config.tokenBudgetFallback });
+
+      const budgetMsg = `Token budget exceeded (${error.tokensUsed.toLocaleString()} / ${error.budget.toLocaleString()} tokens).`;
+      const existing = await getSession(owner, repo, pr.number);
+      const session = await renderAndPersistComment(octokit, {
+        ...baseSession,
+        status: shouldBlock ? SessionStatus.failed : SessionStatus.passed,
+        commentId: existing?.commentId,
+        failureMessage: shouldBlock
+          ? `${budgetMsg} Merge blocked because the token budget fallback is set to fail. Increase the budget or change the fallback to pass in settings.`
+          : `${budgetMsg} Quiz skipped to avoid excessive charges.`
+      });
+      await setCommitStatus({
+        octokit,
+        owner,
+        repo,
+        sha: headSha,
+        state: shouldBlock ? "failure" : "success",
+        description: shouldBlock
+          ? `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Merge blocked.`
+          : `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Quiz skipped.`,
+        targetUrl: sessionTargetUrl(session)
+      });
+      return;
+    }
+    throw error;
+  }
+
   logInfo("pull_request.quiz.generate_complete", {
     repository: `${owner}/${repo}`,
     pullNumber: pr.number,
-    questionCount: quiz.questions.length
+    questionCount: quiz.questions.length,
+    tokensUsed: tokenTracker.totalTokens
   });
 
-  trace.end({ outcome: "quiz_generated", questionCount: quiz.questions.length });
+  trace.end({
+    outcome: budgetExceeded ? "token_budget_exceeded" : "quiz_generated",
+    questionCount: quiz.questions.length,
+    tokensUsed: tokenTracker.totalTokens
+  });
 
   logInfo("pull_request.session.lookup_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
   const existing = await getSession(owner, repo, pr.number);
