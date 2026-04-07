@@ -1,9 +1,25 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
   import { renderMarkdown } from "$lib/markdown";
-  import { publicDemoQuiz } from "$lib/demo-quiz";
+  import { publicDemoQuiz, type DemoQuestion } from "$lib/demo-quiz";
 
-  const questions = publicDemoQuiz.questions;
+  const OPTION_KEYS = ["A", "B", "C", "D", "E"] as const;
+
+  function shuffleDemoQuestions(questions: DemoQuestion[]): DemoQuestion[] {
+    return questions.map((q) => {
+      const entries = [...q.options];
+      for (let i = entries.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [entries[i], entries[j]] = [entries[j], entries[i]];
+      }
+      const correctText = q.options.find((o) => o.key === q.correctOption)?.text;
+      const shuffled = entries.map((o, idx) => ({ key: OPTION_KEYS[idx], text: o.text }));
+      const newCorrectOption = shuffled.find((o) => o.text === correctText)?.key ?? q.correctOption;
+      return { ...q, options: shuffled, correctOption: newCorrectOption };
+    });
+  }
+
+  const questions = shuffleDemoQuestions(publicDemoQuiz.questions);
   const total = questions.length;
 
   let answered = $state(0);
