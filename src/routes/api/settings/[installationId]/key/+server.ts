@@ -3,6 +3,7 @@ import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled } from "$lib/server/dev-mocks.js";
 import { getSettings, upsertSettings } from "$lib/server/settings-store.js";
+import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
 /** Set an API key manually (for non-OAuth providers). */
 export const POST: RequestHandler = async ({ params, request }) => {
@@ -14,6 +15,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
     return json({ ok: false, message: "Not authenticated." }, { status: 401 });
+  }
+
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  if (!hasAccess) {
+    return json({ ok: false, message: "You do not have access to this installation." }, { status: 403 });
   }
 
   const body = await request.json();

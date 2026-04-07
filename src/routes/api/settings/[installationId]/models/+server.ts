@@ -3,6 +3,7 @@ import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockModels } from "$lib/server/dev-mocks.js";
 import { getSettings } from "$lib/server/settings-store.js";
+import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
 interface OpenRouterModel {
   id: string;
@@ -20,6 +21,11 @@ export const GET: RequestHandler = async ({ params, request }) => {
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
     return json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  if (!hasAccess) {
+    return json({ error: "You do not have access to this installation." }, { status: 403 });
   }
 
   const settings = await getSettings(params.installationId);

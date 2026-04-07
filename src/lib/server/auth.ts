@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SESSION_COOKIE = "slopblock_session";
 
@@ -30,7 +30,16 @@ function decodePayload<T extends Record<string, string>>(value: string | undefin
   }
 
   const [base, signature] = value.split(".");
-  if (!base || !signature || sign(base) !== signature) {
+  if (!base || !signature) {
+    return undefined;
+  }
+
+  const expected = sign(base);
+  if (expected.length !== signature.length) {
+    return undefined;
+  }
+
+  if (!timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
     return undefined;
   }
 

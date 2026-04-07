@@ -806,6 +806,9 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   });
 }
 
+/** Minimum seconds between /quiz commands on the same PR. */
+const QUIZ_COMMAND_COOLDOWN_SECONDS = 60;
+
 export async function handleQuizCommand(octokit: any, payload: any): Promise<void> {
   const owner = payload.repository.owner.login;
   const repo = payload.repository.name;
@@ -817,6 +820,36 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
     pullNumber: issueNumber,
     triggeredBy: commentAuthor,
   });
+
+  // ── Rate limit: prevent /quiz spam ──
+  const existing = await getSession(owner, repo, issueNumber);
+  if (existing?.id) {
+    const row = await (await import("./db.js")).prisma.pullRequestSession.findUnique({
+      where: { id: existing.id },
+      select: { updatedAt: true },
+    });
+    if (row?.updatedAt) {
+      const secondsSinceUpdate = (Date.now() - row.updatedAt.getTime()) / 1000;
+      if (secondsSinceUpdate < QUIZ_COMMAND_COOLDOWN_SECONDS) {
+        logInfo("quiz_command.rate_limited", {
+          repository: `${owner}/${repo}`,
+          pullNumber: issueNumber,
+          secondsSinceUpdate: Math.round(secondsSinceUpdate),
+        });
+        try {
+          await octokit.rest.reactions.createForIssueComment({
+            owner,
+            repo,
+            comment_id: payload.comment.id,
+            content: "-1",
+          });
+        } catch {
+          /* best effort */
+        }
+        return;
+      }
+    }
+  }
 
   // React to the comment to acknowledge
   try {
