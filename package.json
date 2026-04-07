@@ -26,7 +26,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "pnpm exec dotenv -e .env.local -- prisma migrate dev",
     "prisma:deploy": "pnpm exec dotenv -e .env.local -- prisma migrate deploy",
-    "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts",
+    "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts tests/util.test.ts tests/crypto.test.ts tests/markdown.test.ts tests/auth.test.ts",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check": "pnpm run typecheck && pnpm test",
     "check:quality": "pnpm run lint && pnpm run fmt:check"
