@@ -95,13 +95,13 @@ We do not sell, rent, or trade your personal data to any third party.
 
 ## 4. Data Retention
 
-| Data | Retention |
-|---|---|
-| Quiz sessions | Deleted when the PR is closed, or after 30 days of inactivity |
-| Quiz attempts | Retained indefinitely |
-| Installation settings | Retained until you uninstall the app or clear your API key |
-| Session cookies | Expire after 30 days |
-| Server logs | Governed by Vercel's retention policies |
+| Data                  | Retention                                                     |
+| --------------------- | ------------------------------------------------------------- |
+| Quiz sessions         | Deleted when the PR is closed, or after 30 days of inactivity |
+| Quiz attempts         | Retained indefinitely                                         |
+| Installation settings | Retained until you uninstall the app or clear your API key    |
+| Session cookies       | Expire after 30 days                                          |
+| Server logs           | Governed by Vercel's retention policies                       |
 
 ---
 

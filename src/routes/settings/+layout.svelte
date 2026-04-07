@@ -9,20 +9,20 @@
   const installations = $derived(data.installations);
 
   // Derive active installation from URL
-  const activeInstallationId = $derived(() => {
+  const activeInstallationId = $derived.by(() => {
     const match = page.url.pathname.match(/\/settings\/(\d+)/);
     return match ? match[1] : null;
   });
 
   // Derive active sub-page
-  const activeSubPage = $derived(() => {
+  const activeSubPage = $derived.by(() => {
     const path = page.url.pathname;
     if (path.endsWith("/activity")) return "activity";
-    if (activeInstallationId()) return "configuration";
+    if (activeInstallationId) return "configuration";
     return null;
   });
 
-  const isInstallationsPage = $derived(() => {
+  const isInstallationsPage = $derived.by(() => {
     return page.url.pathname === "/settings" || page.url.pathname === "/settings/";
   });
 </script>
@@ -35,15 +35,15 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a href="/settings" class="sidebar-link" class:active={isInstallationsPage()}>
+      <a href="/settings" class="sidebar-link" class:active={isInstallationsPage}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         Installations
       </a>
 
       {#if installations.length > 0}
         <div class="sidebar-section-label">Accounts</div>
-        {#each installations as inst}
-          {@const isActive = activeInstallationId() === String(inst.id)}
+        {#each installations as inst (inst.id)}
+          {@const isActive = activeInstallationId === String(inst.id)}
           <div class="sidebar-install" class:expanded={isActive}>
             <a href="/settings/{inst.id}" class="sidebar-install-link" class:active={isActive}>
               <img
@@ -61,7 +61,7 @@
                 <a
                   href="/settings/{inst.id}"
                   class="sidebar-sub-link"
-                  class:active={activeSubPage() === "configuration"}
+                  class:active={activeSubPage === "configuration"}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
                   Configuration
@@ -69,7 +69,7 @@
                 <a
                   href="/settings/{inst.id}/activity"
                   class="sidebar-sub-link"
-                  class:active={activeSubPage() === "activity"}
+                  class:active={activeSubPage === "activity"}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   Activity

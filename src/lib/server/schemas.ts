@@ -27,20 +27,20 @@ export const skipDecisionTool: ToolDefinition = {
         outcome: {
           type: "string",
           enum: ["skip", "quiz"],
-          description: "Whether the PR should skip the quiz or require one."
+          description: "Whether the PR should skip the quiz or require one.",
         },
         reason: {
           type: "string",
-          description: "One sentence explaining the decision."
+          description: "One sentence explaining the decision.",
         },
         certainty: {
           type: "string",
           enum: ["high", "medium", "low"],
-          description: "Confidence level of the decision."
-        }
-      }
-    }
-  }
+          description: "Confidence level of the decision.",
+        },
+      },
+    },
+  },
 };
 
 export const quizPayloadTool: ToolDefinition = {
@@ -55,23 +55,32 @@ export const quizPayloadTool: ToolDefinition = {
       properties: {
         summary: {
           type: "string",
-          description: "A single plain-English sentence describing what this PR does, written for the PR author. No file names, no code, no markdown. Example: 'Adds pagination to the user list endpoint and updates the tests.'"
+          description:
+            "A single plain-English sentence describing what this PR does, written for the PR author. No file names, no code, no markdown. Example: 'Adds pagination to the user list endpoint and updates the tests.'",
         },
         questions: {
           type: "array",
           description: "The quiz questions.",
           items: {
             type: "object",
-            required: ["id", "prompt", "options", "correctOption", "explanation", "diffAnchors", "focus"],
+            required: [
+              "id",
+              "prompt",
+              "options",
+              "correctOption",
+              "explanation",
+              "diffAnchors",
+              "focus",
+            ],
             additionalProperties: false,
             properties: {
               id: {
                 type: "string",
-                description: "Unique question identifier, e.g. q1, q2."
+                description: "Unique question identifier, e.g. q1, q2.",
               },
               prompt: {
                 type: "string",
-                description: "The question text in markdown."
+                description: "The question text in markdown.",
               },
               options: {
                 type: "array",
@@ -84,40 +93,40 @@ export const quizPayloadTool: ToolDefinition = {
                     key: {
                       type: "string",
                       enum: ["A", "B", "C"],
-                      description: "Option letter."
+                      description: "Option letter.",
                     },
                     text: {
                       type: "string",
-                      description: "Option text in markdown."
-                    }
-                  }
-                }
+                      description: "Option text in markdown.",
+                    },
+                  },
+                },
               },
               correctOption: {
                 type: "string",
                 enum: ["A", "B", "C"],
-                description: "The key of the correct option."
+                description: "The key of the correct option.",
               },
               explanation: {
                 type: "string",
-                description: "Markdown explanation of why the correct answer is right."
+                description: "Markdown explanation of why the correct answer is right.",
               },
               diffAnchors: {
                 type: "array",
                 description: "Changed file paths or symbols this question references.",
-                items: { type: "string" }
+                items: { type: "string" },
               },
               focus: {
                 type: "string",
                 enum: ["behavior", "risk", "implementation"],
-                description: "The category of this question."
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+                description: "The category of this question.",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export const quizValidationTool: ToolDefinition = {
@@ -132,14 +141,14 @@ export const quizValidationTool: ToolDefinition = {
       properties: {
         valid: {
           type: "boolean",
-          description: "Whether the quiz passes validation."
+          description: "Whether the quiz passes validation.",
         },
         issues: {
           type: "array",
           description: "List of serious structural or factual errors found. Empty array if valid.",
-          items: { type: "string" }
-        }
-      }
-    }
-  }
+          items: { type: "string" },
+        },
+      },
+    },
+  },
 };

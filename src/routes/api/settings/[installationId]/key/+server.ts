@@ -21,7 +21,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
   const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
 
   if (!apiKey || !baseUrl) {
-    return json({ ok: false, message: "Manual connections require both an API key and base URL." }, { status: 400 });
+    return json(
+      { ok: false, message: "Manual connections require both an API key and base URL." },
+      { status: 400 },
+    );
   }
 
   const existing = await getSettings(params.installationId);
@@ -37,7 +40,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     questionCountMax: existing?.questionCountMax,
     retryMode: existing?.retryMode,
     skipBots: existing?.skipBots,
-    skipForks: existing?.skipForks
+    skipForks: existing?.skipForks,
   });
 
   return json({ ok: true });

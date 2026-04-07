@@ -9,13 +9,13 @@ await build({
   format: "cjs",
   outdir: "dist",
   outExtension: {
-    ".js": ".cjs"
+    ".js": ".cjs",
   },
   platform: "node",
   target: "node20",
   sourcemap: true,
   logLevel: "info",
   banner: {
-    js: '#!/usr/bin/env node'
-  }
+    js: "#!/usr/bin/env node",
+  },
 });

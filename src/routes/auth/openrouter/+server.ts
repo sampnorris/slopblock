@@ -14,7 +14,10 @@ export const POST: RequestHandler = async ({ request }) => {
   const body = await request.json();
   const { code, codeVerifier, installationId } = body;
   if (!code || !codeVerifier || !installationId) {
-    return json({ ok: false, message: "Missing code, codeVerifier, or installationId." }, { status: 400 });
+    return json(
+      { ok: false, message: "Missing code, codeVerifier, or installationId." },
+      { status: 400 },
+    );
   }
 
   // Exchange code for API key with OpenRouter
@@ -24,13 +27,16 @@ export const POST: RequestHandler = async ({ request }) => {
     body: JSON.stringify({
       code,
       code_verifier: codeVerifier,
-      code_challenge_method: "S256"
-    })
+      code_challenge_method: "S256",
+    }),
   });
 
-  const exchangeJson = await exchangeRes.json() as { key?: string; error?: string };
+  const exchangeJson = (await exchangeRes.json()) as { key?: string; error?: string };
   if (!exchangeJson.key) {
-    return json({ ok: false, message: exchangeJson.error ?? "Failed to exchange code for API key." }, { status: 400 });
+    return json(
+      { ok: false, message: exchangeJson.error ?? "Failed to exchange code for API key." },
+      { status: 400 },
+    );
   }
 
   // Store encrypted
@@ -47,7 +53,7 @@ export const POST: RequestHandler = async ({ request }) => {
     questionCountMax: existing?.questionCountMax,
     retryMode: existing?.retryMode,
     skipBots: existing?.skipBots,
-    skipForks: existing?.skipForks
+    skipForks: existing?.skipForks,
   });
 
   return json({ ok: true });

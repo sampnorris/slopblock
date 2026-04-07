@@ -7,22 +7,22 @@ const DEFAULT_CONFIG: SlopblockConfig = {
   checkName: "slopblock",
   questionCount: {
     min: 2,
-    max: 5
+    max: 5,
   },
   quizGeneration: {
     maxAttempts: 3,
-    allowBestEffortFallback: true
+    allowBestEffortFallback: true,
   },
   passRule: {
     requireAllCorrect: true,
-    allowedWrongAnswers: 0
+    allowedWrongAnswers: 0,
   },
   retryMode: "same_quiz",
   contextBudget: {
     maxRepoFiles: 250,
     maxRepoMapEntries: 120,
     maxSnippetFiles: 12,
-    maxSnippetChars: 12000
+    maxSnippetChars: 12000,
   },
   heuristics: {
     tinyChangeMaxLines: 4,
@@ -39,7 +39,7 @@ const DEFAULT_CONFIG: SlopblockConfig = {
       "poetry.lock",
       "Cargo.lock",
       "go.mod",
-      "go.sum"
+      "go.sum",
     ],
     riskyGlobs: [
       "auth/",
@@ -48,17 +48,17 @@ const DEFAULT_CONFIG: SlopblockConfig = {
       "infra/",
       ".github/workflows/",
       "api/",
-      "src/routes/api/"
+      "src/routes/api/",
     ],
     skipForkPullRequests: true,
-    skipBots: true
+    skipBots: true,
   },
   llm: {
     generationModel: "anthropic/claude-sonnet-4.5",
     validationModel: "anthropic/claude-opus-4.1",
-    skipModel: "anthropic/claude-sonnet-4.5"
+    skipModel: "anthropic/claude-sonnet-4.5",
   },
-  tokenBudgetFallback: "pass"
+  tokenBudgetFallback: "pass",
 };
 
 function mergeArrays<T>(base: T[], override: unknown): T[] {
@@ -87,8 +87,14 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
   return {
     checkName: typeof raw.checkName === "string" ? raw.checkName : DEFAULT_CONFIG.checkName,
     questionCount: {
-      min: typeof questionCount.min === "number" ? questionCount.min : DEFAULT_CONFIG.questionCount.min,
-      max: typeof questionCount.max === "number" ? questionCount.max : DEFAULT_CONFIG.questionCount.max
+      min:
+        typeof questionCount.min === "number"
+          ? questionCount.min
+          : DEFAULT_CONFIG.questionCount.min,
+      max:
+        typeof questionCount.max === "number"
+          ? questionCount.max
+          : DEFAULT_CONFIG.questionCount.max,
     },
     quizGeneration: {
       maxAttempts:
@@ -98,17 +104,19 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
       allowBestEffortFallback:
         typeof quizGeneration.allowBestEffortFallback === "boolean"
           ? quizGeneration.allowBestEffortFallback
-          : DEFAULT_CONFIG.quizGeneration.allowBestEffortFallback
+          : DEFAULT_CONFIG.quizGeneration.allowBestEffortFallback,
     },
     passRule: {
       requireAllCorrect:
         typeof passRule.requireAllCorrect === "boolean"
           ? passRule.requireAllCorrect
           : DEFAULT_CONFIG.passRule.requireAllCorrect,
-      allowedWrongAnswers
+      allowedWrongAnswers,
     },
     retryMode:
-      raw.retryMode === "same_quiz" || raw.retryMode === "new_quiz" || raw.retryMode === "maintainer_rerun"
+      raw.retryMode === "same_quiz" ||
+      raw.retryMode === "new_quiz" ||
+      raw.retryMode === "maintainer_rerun"
         ? raw.retryMode
         : DEFAULT_CONFIG.retryMode,
     contextBudget: {
@@ -127,24 +135,32 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
       maxSnippetChars:
         typeof contextBudget.maxSnippetChars === "number"
           ? contextBudget.maxSnippetChars
-          : DEFAULT_CONFIG.contextBudget.maxSnippetChars
+          : DEFAULT_CONFIG.contextBudget.maxSnippetChars,
     },
     heuristics: {
       tinyChangeMaxLines:
         typeof heuristics.tinyChangeMaxLines === "number"
           ? heuristics.tinyChangeMaxLines
           : DEFAULT_CONFIG.heuristics.tinyChangeMaxLines,
-      tinyCopyExtensions: mergeArrays(DEFAULT_CONFIG.heuristics.tinyCopyExtensions, heuristics.tinyCopyExtensions),
+      tinyCopyExtensions: mergeArrays(
+        DEFAULT_CONFIG.heuristics.tinyCopyExtensions,
+        heuristics.tinyCopyExtensions,
+      ),
       docsGlobs: mergeArrays(DEFAULT_CONFIG.heuristics.docsGlobs, heuristics.docsGlobs),
       testGlobs: mergeArrays(DEFAULT_CONFIG.heuristics.testGlobs, heuristics.testGlobs),
-      dependencyFiles: mergeArrays(DEFAULT_CONFIG.heuristics.dependencyFiles, heuristics.dependencyFiles),
+      dependencyFiles: mergeArrays(
+        DEFAULT_CONFIG.heuristics.dependencyFiles,
+        heuristics.dependencyFiles,
+      ),
       riskyGlobs: mergeArrays(DEFAULT_CONFIG.heuristics.riskyGlobs, heuristics.riskyGlobs),
       skipForkPullRequests:
         typeof heuristics.skipForkPullRequests === "boolean"
           ? heuristics.skipForkPullRequests
           : DEFAULT_CONFIG.heuristics.skipForkPullRequests,
       skipBots:
-        typeof heuristics.skipBots === "boolean" ? heuristics.skipBots : DEFAULT_CONFIG.heuristics.skipBots
+        typeof heuristics.skipBots === "boolean"
+          ? heuristics.skipBots
+          : DEFAULT_CONFIG.heuristics.skipBots,
     },
     llm: {
       model: typeof llm.model === "string" ? llm.model : undefined,
@@ -167,12 +183,12 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
             ? llm.model
             : DEFAULT_CONFIG.llm.skipModel,
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : undefined,
-      apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined
+      apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined,
     },
     tokenBudgetFallback:
       raw.tokenBudgetFallback === "pass" || raw.tokenBudgetFallback === "fail"
         ? raw.tokenBudgetFallback
-        : DEFAULT_CONFIG.tokenBudgetFallback
+        : DEFAULT_CONFIG.tokenBudgetFallback,
   };
 }
 
@@ -184,7 +200,10 @@ export function loadConfigFromString(contents: string | undefined): SlopblockCon
   return parseConfig((YAML.parse(contents) as Record<string, unknown>) ?? {});
 }
 
-export function loadConfig(configPath: string, workspace = process.env.GITHUB_WORKSPACE ?? process.cwd()): SlopblockConfig {
+export function loadConfig(
+  configPath: string,
+  workspace = process.env.GITHUB_WORKSPACE ?? process.cwd(),
+): SlopblockConfig {
   const fullPath = join(workspace, configPath);
   if (!existsSync(fullPath)) {
     return DEFAULT_CONFIG;

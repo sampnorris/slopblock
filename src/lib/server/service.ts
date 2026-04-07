@@ -7,18 +7,29 @@ import { summarizePatch } from "./util.js";
 import { buildRemoteRepoContext } from "./remote-repo-context.js";
 import { renderSessionComment } from "./render.js";
 import { deleteSession, getSession, type SessionRecord, upsertSession } from "./session-store.js";
-import { listChangedFiles, setCommitStatus, sessionTargetUrl, upsertIssueComment } from "./github-service.js";
+import {
+  listChangedFiles,
+  setCommitStatus,
+  sessionTargetUrl,
+  upsertIssueComment,
+} from "./github-service.js";
 import { logInfo } from "./log.js";
 import { loadRemoteConfig } from "./remote-config.js";
 import { getSettings } from "./settings-store.js";
-import { countQuizGenerationsToday, FREE_PLAN_DAILY_QUIZ_LIMIT, isPaidPlan } from "./marketplace-store.js";
+import {
+  countQuizGenerationsToday,
+  FREE_PLAN_DAILY_QUIZ_LIMIT,
+  isPaidPlan,
+} from "./marketplace-store.js";
 import { createQuizAttempt, gradeQuizAnswers } from "./attempt-store.js";
 import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 import { createTrace, type TraceContext } from "./langfuse.js";
 
 export class MissingProviderError extends Error {
   constructor() {
-    super("No LLM provider configured. Connect OpenRouter or provide an API key and base URL in /settings.");
+    super(
+      "No LLM provider configured. Connect OpenRouter or provide an API key and base URL in /settings.",
+    );
     this.name = "MissingProviderError";
   }
 }
@@ -46,41 +57,52 @@ function diffSummary(files: ChangedFile[]): string {
         `additions: ${file.additions}`,
         `deletions: ${file.deletions}`,
         "patch:",
-        summarizePatch(file.patch, 40)
+        summarizePatch(file.patch, 40),
       ].join("\n");
     })
     .join("\n\n");
 }
 
-async function applyInstallationSettings(config: SlopblockConfig, installationId: number): Promise<SlopblockConfig> {
+async function applyInstallationSettings(
+  config: SlopblockConfig,
+  installationId: number,
+): Promise<SlopblockConfig> {
   const settings = await getSettings(String(installationId));
   if (!settings) return config;
 
   const paid = settings.marketplacePlan === "paid";
 
   // Custom prompts are a paid feature — silently ignore them on free plan
-  const customSystemPrompt = paid ? (settings.customSystemPrompt ?? config.customSystemPrompt) : config.customSystemPrompt;
-  const customQuizInstructions = paid ? (settings.customQuizInstructions ?? config.customQuizInstructions) : config.customQuizInstructions;
+  const customSystemPrompt = paid
+    ? (settings.customSystemPrompt ?? config.customSystemPrompt)
+    : config.customSystemPrompt;
+  const customQuizInstructions = paid
+    ? (settings.customQuizInstructions ?? config.customQuizInstructions)
+    : config.customQuizInstructions;
 
   return {
     ...config,
     questionCount: {
       min: settings.questionCountMin ?? config.questionCount.min,
-      max: settings.questionCountMax ?? config.questionCount.max
+      max: settings.questionCountMax ?? config.questionCount.max,
     },
     quizGeneration: {
       maxAttempts: settings.quizGenerationMaxAttempts ?? config.quizGeneration.maxAttempts,
-      allowBestEffortFallback: settings.allowBestEffortFallback ?? config.quizGeneration.allowBestEffortFallback
+      allowBestEffortFallback:
+        settings.allowBestEffortFallback ?? config.quizGeneration.allowBestEffortFallback,
     },
     retryMode: (settings.retryMode as SlopblockConfig["retryMode"]) ?? config.retryMode,
     passRule: {
       ...config.passRule,
-      allowedWrongAnswers: Math.max(0, Math.floor(settings.allowedWrongAnswers ?? config.passRule.allowedWrongAnswers))
+      allowedWrongAnswers: Math.max(
+        0,
+        Math.floor(settings.allowedWrongAnswers ?? config.passRule.allowedWrongAnswers),
+      ),
     },
     heuristics: {
       ...config.heuristics,
       skipBots: settings.skipBots ?? config.heuristics.skipBots,
-      skipForkPullRequests: settings.skipForks ?? config.heuristics.skipForkPullRequests
+      skipForkPullRequests: settings.skipForks ?? config.heuristics.skipForkPullRequests,
     },
     llm: {
       ...config.llm,
@@ -88,26 +110,33 @@ async function applyInstallationSettings(config: SlopblockConfig, installationId
       baseUrl: settings.llmBaseUrl ?? config.llm.baseUrl,
       generationModel: settings.llmGenerationModel ?? config.llm.generationModel,
       validationModel: settings.llmValidationModel ?? config.llm.validationModel,
-      skipModel: settings.llmSkipModel ?? config.llm.skipModel
+      skipModel: settings.llmSkipModel ?? config.llm.skipModel,
     },
     customSystemPrompt,
     customQuizInstructions,
     maxTokenBudget: settings.maxTokenBudget ?? config.maxTokenBudget,
-    tokenBudgetFallback: (settings.tokenBudgetFallback as SlopblockConfig["tokenBudgetFallback"]) ?? config.tokenBudgetFallback
+    tokenBudgetFallback:
+      (settings.tokenBudgetFallback as SlopblockConfig["tokenBudgetFallback"]) ??
+      config.tokenBudgetFallback,
   };
 }
 
-function llmClient(config: SlopblockConfig, purpose: "generation" | "validation" | "skip", trace?: TraceContext, tokenTracker?: TokenTracker) {
+function llmClient(
+  config: SlopblockConfig,
+  purpose: "generation" | "validation" | "skip",
+  trace?: TraceContext,
+  tokenTracker?: TokenTracker,
+) {
   const apiKey = (config.llm.apiKey ?? process.env.SLOPBLOCK_API_KEY)?.trim();
   const baseUrl = (config.llm.baseUrl ?? process.env.SLOPBLOCK_BASE_URL)?.trim();
   const overrideModel = process.env.SLOPBLOCK_MODEL;
   const model =
     overrideModel ??
     (purpose === "generation"
-      ? process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel
+      ? (process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel)
       : purpose === "validation"
-        ? process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel
-        : process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel);
+        ? (process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel)
+        : (process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel));
 
   if (!apiKey || !baseUrl) {
     throw new MissingProviderError();
@@ -122,14 +151,13 @@ function llmClient(config: SlopblockConfig, purpose: "generation" | "validation"
 
 function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
   const overrideModel = process.env.SLOPBLOCK_MODEL;
-  const model = (
+  const model =
     overrideModel ??
     (purpose === "generation"
-      ? process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel
+      ? (process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel)
       : purpose === "validation"
-        ? process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel
-        : process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel)
-  );
+        ? (process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel)
+        : (process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel));
 
   if (!model?.trim()) {
     throw new MissingModelError(purpose);
@@ -138,14 +166,18 @@ function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" 
   return model;
 }
 
-async function maybeSkip(client: OpenAICompatibleClient, heuristic: SkipDecision, files: ChangedFile[]) {
+async function maybeSkip(
+  client: OpenAICompatibleClient,
+  heuristic: SkipDecision,
+  files: ChangedFile[],
+) {
   if (heuristic.outcome === "skip" || heuristic.certainty !== "low") {
     return heuristic;
   }
 
   return await client.evaluateBorderlineSkip({
     changedFiles: files.map((file) => file.filename),
-    diffSummary: diffSummary(files)
+    diffSummary: diffSummary(files),
   });
 }
 
@@ -171,7 +203,7 @@ async function generateValidQuiz(params: {
         questionCount: params.questionCount,
         validatorFeedback: feedback,
         customSystemPrompt: params.customSystemPrompt,
-        customQuizInstructions: params.customQuizInstructions
+        customQuizInstructions: params.customQuizInstructions,
       });
       const localIssues = validateQuizPayload(quiz, params.questionCount);
       if (localIssues.length > 0) {
@@ -185,7 +217,7 @@ async function generateValidQuiz(params: {
         quiz,
         repoContext: params.repoContext,
         diffSummary: params.diffSummary,
-        expectedQuestionCount: params.questionCount
+        expectedQuestionCount: params.questionCount,
       });
       if (validation.valid) {
         return quiz;
@@ -199,7 +231,7 @@ async function generateValidQuiz(params: {
           tokensUsed: error.tokensUsed,
           budget: error.budget,
           attempt,
-          hasBestQuiz: !!bestQuiz
+          hasBestQuiz: !!bestQuiz,
         });
         if (bestQuiz) return bestQuiz;
         // Re-throw so the pipeline-level handler can do a graceful pass
@@ -212,12 +244,14 @@ async function generateValidQuiz(params: {
   if (bestQuiz && params.allowBestEffortFallback) {
     logInfo("quiz.generation.using_best_attempt", {
       feedbackIssues: feedback.length,
-      questionCount: bestQuiz.questions.length
+      questionCount: bestQuiz.questions.length,
     });
     return bestQuiz;
   }
 
-  throw new Error(`Quiz generation failed after ${params.maxAttempts} attempts: ${feedback.join("; ")}`);
+  throw new Error(
+    `Quiz generation failed after ${params.maxAttempts} attempts: ${feedback.join("; ")}`,
+  );
 }
 
 async function renderAndPersistComment(octokit: any, session: SessionRecord) {
@@ -227,7 +261,7 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
     pullNumber: base.pullNumber,
     commentId: base.commentId,
     status: base.status,
-    currentQuestionIndex: base.currentQuestionIndex
+    currentQuestionIndex: base.currentQuestionIndex,
   });
   const body = renderSessionComment(base);
   const commentId = await upsertIssueComment({
@@ -236,7 +270,7 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
     repo: base.repositoryName,
     issueNumber: base.pullNumber,
     commentId: base.commentId,
-    body
+    body,
   });
 
   const updated = await upsertSession({ ...base, commentId });
@@ -246,7 +280,7 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
     pullNumber: updated.pullNumber,
     commentId,
     status: updated.status,
-    currentQuestionIndex: updated.currentQuestionIndex
+    currentQuestionIndex: updated.currentQuestionIndex,
   });
   return updated;
 }
@@ -255,7 +289,14 @@ export async function markQuizPassed(params: {
   octokit: any;
   session: SessionRecord;
   answers: Record<string, unknown>;
-}): Promise<{ ok: boolean; message?: string; passed?: boolean; correctCount?: number; questionCount?: number; attemptNumber?: number }> {
+}): Promise<{
+  ok: boolean;
+  message?: string;
+  passed?: boolean;
+  correctCount?: number;
+  questionCount?: number;
+  attemptNumber?: number;
+}> {
   const { octokit, session } = params;
 
   const graded = gradeQuizAnswers(session, params.answers);
@@ -268,7 +309,7 @@ export async function markQuizPassed(params: {
     questionCount: graded.questionCount,
     correctCount: graded.correctCount,
     passed: graded.passed,
-    authorLogin: session.authorLogin
+    authorLogin: session.authorLogin,
   });
 
   const allowedWrongAnswers = Math.max(0, session.allowedWrongAnswers ?? 0);
@@ -281,7 +322,7 @@ export async function markQuizPassed(params: {
       passed: false,
       correctCount: graded.correctCount,
       questionCount: graded.questionCount,
-      attemptNumber
+      attemptNumber,
     };
   }
 
@@ -292,19 +333,19 @@ export async function markQuizPassed(params: {
       passed: true,
       correctCount: graded.correctCount,
       questionCount: graded.questionCount,
-      attemptNumber
+      attemptNumber,
     };
   }
 
   logInfo("session.quiz.passed", {
     repository: `${session.repositoryOwner}/${session.repositoryName}`,
-    pullNumber: session.pullNumber
+    pullNumber: session.pullNumber,
   });
 
   const passed = await renderAndPersistComment(octokit, {
     ...session,
     status: SessionStatus.passed,
-    failureMessage: undefined
+    failureMessage: undefined,
   });
 
   await setCommitStatus({
@@ -314,7 +355,7 @@ export async function markQuizPassed(params: {
     sha: session.headSha,
     state: "success",
     description: "PR author passed the slopblock quiz.",
-    targetUrl: sessionTargetUrl(passed)
+    targetUrl: sessionTargetUrl(passed),
   });
 
   return {
@@ -322,7 +363,7 @@ export async function markQuizPassed(params: {
     passed: true,
     correctCount: graded.correctCount,
     questionCount: graded.questionCount,
-    attemptNumber
+    attemptNumber,
   };
 }
 
@@ -336,7 +377,7 @@ export async function requestNewQuiz(params: {
 
   logInfo("session.quiz.retry_new", {
     repository: `${owner}/${repo}`,
-    pullNumber: session.pullNumber
+    pullNumber: session.pullNumber,
   });
 
   await setCommitStatus({
@@ -345,7 +386,7 @@ export async function requestNewQuiz(params: {
     repo,
     sha: session.headSha,
     state: "pending",
-    description: "Generating new quiz..."
+    description: "Generating new quiz...",
   });
 
   const trace = createTrace({
@@ -354,17 +395,24 @@ export async function requestNewQuiz(params: {
       repository: `${owner}/${repo}`,
       pullNumber: session.pullNumber,
       headSha: session.headSha,
-      installationId: session.installationId
+      installationId: session.installationId,
     },
     sessionId: `${owner}/${repo}#${session.pullNumber}`,
-    userId: session.authorLogin
+    userId: session.authorLogin,
   });
 
   const repoConfig = await loadRemoteConfig(octokit, owner, repo, session.headSha);
   const config = await applyInstallationSettings(repoConfig, session.installationId);
   const tokenTracker = new TokenTracker(config.maxTokenBudget);
   const files = await listChangedFiles(octokit, owner, repo, session.pullNumber);
-  const repoContext = await buildRemoteRepoContext(octokit, owner, repo, session.headSha, files, config);
+  const repoContext = await buildRemoteRepoContext(
+    octokit,
+    owner,
+    repo,
+    session.headSha,
+    files,
+    config,
+  );
 
   let quiz: QuizPayload;
   try {
@@ -377,7 +425,7 @@ export async function requestNewQuiz(params: {
       maxAttempts: config.quizGeneration.maxAttempts,
       allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
       customSystemPrompt: config.customSystemPrompt,
-      customQuizInstructions: config.customQuizInstructions
+      customQuizInstructions: config.customQuizInstructions,
     });
   } catch (error) {
     // Stamp the fallback mode on the error so the webhook handler knows
@@ -400,7 +448,7 @@ export async function requestNewQuiz(params: {
     summary: quiz.summary,
     failureMessage: undefined,
     quiz,
-    traceId: trace.traceId || undefined
+    traceId: trace.traceId || undefined,
   });
 
   await setCommitStatus({
@@ -410,7 +458,7 @@ export async function requestNewQuiz(params: {
     sha: session.headSha,
     state: "pending",
     description: `${quiz.questions.length} questions waiting for the PR author.`,
-    targetUrl: sessionTargetUrl(updated)
+    targetUrl: sessionTargetUrl(updated),
   });
 
   return { ok: true };
@@ -422,14 +470,17 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     repository: payload.repository?.full_name,
     pullNumber: payload.pull_request?.number,
     draft: payload.pull_request?.draft,
-    headSha: payload.pull_request?.head?.sha
+    headSha: payload.pull_request?.head?.sha,
   });
   const isManualTrigger = payload.action === "quiz_command";
-  if (!isManualTrigger && !["opened", "reopened", "ready_for_review", "synchronize"].includes(payload.action)) {
+  if (
+    !isManualTrigger &&
+    !["opened", "reopened", "ready_for_review", "synchronize"].includes(payload.action)
+  ) {
     logInfo("pull_request.handle.ignored_action", {
       action: payload.action,
       repository: payload.repository?.full_name,
-      pullNumber: payload.pull_request?.number
+      pullNumber: payload.pull_request?.number,
     });
     return;
   }
@@ -438,13 +489,23 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   const owner = payload.repository.owner.login;
   const repo = payload.repository.name;
   const headSha = pr.head.sha;
-  logInfo("pull_request.config.load_start", { repository: `${owner}/${repo}`, pullNumber: pr.number, headSha });
+  logInfo("pull_request.config.load_start", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    headSha,
+  });
   const repoConfig = await loadRemoteConfig(octokit, owner, repo, headSha);
   const config = await applyInstallationSettings(repoConfig, payload.installation.id);
-  logInfo("pull_request.config.load_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+  logInfo("pull_request.config.load_complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+  });
 
   if (pr.draft && !isManualTrigger) {
-    logInfo("pull_request.handle.ignored_draft", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+    logInfo("pull_request.handle.ignored_draft", {
+      repository: `${owner}/${repo}`,
+      pullNumber: pr.number,
+    });
     return;
   }
 
@@ -467,7 +528,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
           repository: `${owner}/${repo}`,
           pullNumber: pr.number,
           generationsToday,
-          limit: FREE_PLAN_DAILY_QUIZ_LIMIT
+          limit: FREE_PLAN_DAILY_QUIZ_LIMIT,
         });
         const existing = await getSession(owner, repo, pr.number);
         const session = await renderAndPersistComment(octokit, {
@@ -483,7 +544,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
           questionCount: 0,
           retryMode: config.retryMode,
           allowedWrongAnswers: config.passRule.allowedWrongAnswers,
-          commentId: existing?.commentId
+          commentId: existing?.commentId,
         });
         await setCommitStatus({
           octokit,
@@ -492,7 +553,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
           sha: headSha,
           state: "success",
           description: `Free plan limit reached (${FREE_PLAN_DAILY_QUIZ_LIMIT}/day). Upgrade for unlimited quizzes.`,
-          targetUrl: sessionTargetUrl(session)
+          targetUrl: sessionTargetUrl(session),
         });
         return;
       }
@@ -506,7 +567,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
       repo,
       sha: headSha,
       state: "success",
-      description: "Bot-authored pull request skipped by configuration."
+      description: "Bot-authored pull request skipped by configuration.",
     });
     return;
   }
@@ -518,7 +579,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
       repo,
       sha: headSha,
       state: "success",
-      description: "Fork pull requests are skipped by configuration."
+      description: "Fork pull requests are skipped by configuration.",
     });
     return;
   }
@@ -530,10 +591,10 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
       repository: `${owner}/${repo}`,
       pullNumber: pr.number,
       headSha,
-      installationId: payload.installation.id
+      installationId: payload.installation.id,
     },
     sessionId: `${owner}/${repo}#${pr.number}`,
-    userId: pr.user.login
+    userId: pr.user.login,
   });
 
   // ── Cache hit: reuse existing quiz if headSha hasn't changed ──
@@ -549,7 +610,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
         repository: `${owner}/${repo}`,
         pullNumber: pr.number,
         headSha,
-        sessionId: cached.id
+        sessionId: cached.id,
       });
       trace.end({ outcome: "cache_hit", questionCount: cached.questionCount });
       await setCommitStatus({
@@ -559,15 +620,22 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
         sha: headSha,
         state: "pending",
         description: `${cached.questionCount} questions waiting for the PR author.`,
-        targetUrl: sessionTargetUrl(cached)
+        targetUrl: sessionTargetUrl(cached),
       });
       return;
     }
   }
 
-  logInfo("pull_request.files.list_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+  logInfo("pull_request.files.list_start", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+  });
   const files = await listChangedFiles(octokit, owner, repo, pr.number);
-  logInfo("pull_request.files.list_complete", { repository: `${owner}/${repo}`, pullNumber: pr.number, fileCount: files.length });
+  logInfo("pull_request.files.list_complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    fileCount: files.length,
+  });
   const skipClient = llmClient(config, "skip", trace);
   const skipDecision = await maybeSkip(skipClient, initialSkipDecision(files, config), files);
   logInfo("pull_request.skip.decision", {
@@ -575,7 +643,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     pullNumber: pr.number,
     outcome: skipDecision.outcome,
     certainty: skipDecision.certainty,
-    reason: skipDecision.reason
+    reason: skipDecision.reason,
   });
   const baseSession: SessionRecord = {
     installationId: payload.installation.id,
@@ -597,7 +665,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     failureMessage: undefined,
     quiz: undefined,
     commentId: undefined,
-    traceId: trace.traceId || undefined
+    traceId: trace.traceId || undefined,
   };
 
   if (skipDecision.outcome === "skip") {
@@ -605,7 +673,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     const session = await renderAndPersistComment(octokit, {
       ...baseSession,
       status: SessionStatus.skipped,
-      skipReason: skipDecision.reason
+      skipReason: skipDecision.reason,
     });
     await setCommitStatus({
       octokit,
@@ -614,28 +682,35 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
       sha: headSha,
       state: "success",
       description: skipDecision.reason,
-      targetUrl: sessionTargetUrl(session)
+      targetUrl: sessionTargetUrl(session),
     });
     return;
   }
 
-  logInfo("pull_request.status.pending_generation", { repository: `${owner}/${repo}`, pullNumber: pr.number, headSha });
+  logInfo("pull_request.status.pending_generation", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+    headSha,
+  });
   await setCommitStatus({
     octokit,
     owner,
     repo,
     sha: headSha,
     state: "pending",
-    description: "Generating diff-grounded quiz."
+    description: "Generating diff-grounded quiz.",
   });
 
-  logInfo("pull_request.context.build_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+  logInfo("pull_request.context.build_start", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+  });
   const repoContext = await buildRemoteRepoContext(octokit, owner, repo, headSha, files, config);
   logInfo("pull_request.context.build_complete", {
     repository: `${owner}/${repo}`,
     pullNumber: pr.number,
     repoMapEntries: repoContext.repoMap.length,
-    changedFiles: repoContext.changedFileContexts.length
+    changedFiles: repoContext.changedFileContexts.length,
   });
   // Create a shared token tracker so the budget applies across all LLM calls
   const tokenTracker = new TokenTracker(config.maxTokenBudget);
@@ -643,7 +718,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   logInfo("pull_request.quiz.generate_start", {
     repository: `${owner}/${repo}`,
     pullNumber: pr.number,
-    tokenBudget: config.maxTokenBudget ?? "unlimited"
+    tokenBudget: config.maxTokenBudget ?? "unlimited",
   });
 
   let quiz: QuizPayload;
@@ -659,7 +734,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
       maxAttempts: config.quizGeneration.maxAttempts,
       allowBestEffortFallback: config.quizGeneration.allowBestEffortFallback,
       customSystemPrompt: config.customSystemPrompt,
-      customQuizInstructions: config.customQuizInstructions
+      customQuizInstructions: config.customQuizInstructions,
     });
   } catch (error) {
     if (error instanceof TokenBudgetExceededError) {
@@ -670,11 +745,16 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
         pullNumber: pr.number,
         tokensUsed: error.tokensUsed,
         budget: error.budget,
-        fallback: config.tokenBudgetFallback
+        fallback: config.tokenBudgetFallback,
       });
       budgetExceeded = true;
 
-      trace.end({ outcome: "token_budget_exceeded", tokensUsed: error.tokensUsed, budget: error.budget, fallback: config.tokenBudgetFallback });
+      trace.end({
+        outcome: "token_budget_exceeded",
+        tokensUsed: error.tokensUsed,
+        budget: error.budget,
+        fallback: config.tokenBudgetFallback,
+      });
 
       const budgetMsg = `Token budget exceeded (${error.tokensUsed.toLocaleString()} / ${error.budget.toLocaleString()} tokens).`;
       const existing = await getSession(owner, repo, pr.number);
@@ -684,7 +764,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
         commentId: existing?.commentId,
         failureMessage: shouldBlock
           ? `${budgetMsg} Merge blocked because the token budget fallback is set to fail. Increase the budget or change the fallback to pass in settings.`
-          : `${budgetMsg} Quiz skipped to avoid excessive charges.`
+          : `${budgetMsg} Quiz skipped to avoid excessive charges.`,
       });
       await setCommitStatus({
         octokit,
@@ -695,7 +775,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
         description: shouldBlock
           ? `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Merge blocked.`
           : `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Quiz skipped.`,
-        targetUrl: sessionTargetUrl(session)
+        targetUrl: sessionTargetUrl(session),
       });
       return;
     }
@@ -706,21 +786,24 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     repository: `${owner}/${repo}`,
     pullNumber: pr.number,
     questionCount: quiz.questions.length,
-    tokensUsed: tokenTracker.totalTokens
+    tokensUsed: tokenTracker.totalTokens,
   });
 
   trace.end({
     outcome: budgetExceeded ? "token_budget_exceeded" : "quiz_generated",
     questionCount: quiz.questions.length,
-    tokensUsed: tokenTracker.totalTokens
+    tokensUsed: tokenTracker.totalTokens,
   });
 
-  logInfo("pull_request.session.lookup_start", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+  logInfo("pull_request.session.lookup_start", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+  });
   const existing = await getSession(owner, repo, pr.number);
   logInfo("pull_request.session.lookup_complete", {
     repository: `${owner}/${repo}`,
     pullNumber: pr.number,
-    foundExisting: Boolean(existing)
+    foundExisting: Boolean(existing),
   });
   const session = await renderAndPersistComment(octokit, {
     ...baseSession,
@@ -729,7 +812,7 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     generationModel: llmModel(config, "generation"),
     validationModel: llmModel(config, "validation"),
     summary: quiz.summary,
-    quiz
+    quiz,
   });
 
   await setCommitStatus({
@@ -739,9 +822,12 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     sha: headSha,
     state: "pending",
     description: `${quiz.questions.length} questions waiting for the PR author.`,
-    targetUrl: sessionTargetUrl(session)
+    targetUrl: sessionTargetUrl(session),
   });
-  logInfo("pull_request.handle.complete", { repository: `${owner}/${repo}`, pullNumber: pr.number });
+  logInfo("pull_request.handle.complete", {
+    repository: `${owner}/${repo}`,
+    pullNumber: pr.number,
+  });
 }
 
 export async function handleQuizCommand(octokit: any, payload: any): Promise<void> {
@@ -753,7 +839,7 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
   logInfo("quiz_command.received", {
     repository: `${owner}/${repo}`,
     pullNumber: issueNumber,
-    triggeredBy: commentAuthor
+    triggeredBy: commentAuthor,
   });
 
   // React to the comment to acknowledge
@@ -762,15 +848,17 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
       owner,
       repo,
       comment_id: payload.comment.id,
-      content: "eyes"
+      content: "eyes",
     });
-  } catch { /* best effort */ }
+  } catch {
+    /* best effort */
+  }
 
   // Fetch the PR details (issue_comment only gives us issue data)
   const { data: pr } = await octokit.rest.pulls.get({
     owner,
     repo,
-    pull_number: issueNumber
+    pull_number: issueNumber,
   });
 
   // Build a synthetic payload matching what handlePullRequestWebhook expects
@@ -778,7 +866,7 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
     action: "quiz_command",
     pull_request: pr,
     repository: payload.repository,
-    installation: payload.installation
+    installation: payload.installation,
   };
 
   await handlePullRequestWebhook(octokit, syntheticPayload);
@@ -789,9 +877,11 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
       owner,
       repo,
       comment_id: payload.comment.id,
-      content: "rocket"
+      content: "rocket",
     });
-  } catch { /* best effort */ }
+  } catch {
+    /* best effort */
+  }
 }
 
 export async function handlePullRequestClosed(payload: any): Promise<void> {
@@ -802,13 +892,13 @@ export async function handlePullRequestClosed(payload: any): Promise<void> {
   logInfo("pull_request.closed", {
     repository: `${owner}/${repo}`,
     pullNumber,
-    merged: payload.pull_request.merged
+    merged: payload.pull_request.merged,
   });
 
   const deleted = await deleteSession(owner, repo, pullNumber);
   logInfo("pull_request.closed.session_cleanup", {
     repository: `${owner}/${repo}`,
     pullNumber,
-    deleted
+    deleted,
   });
 }

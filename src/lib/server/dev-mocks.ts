@@ -27,33 +27,33 @@ export function mockInstallations() {
       account: {
         login: "acme-inc",
         avatar_url: mockAvatar("A", "#d4507e"),
-        type: "Organization"
-      }
+        type: "Organization",
+      },
     },
     {
       id: 202,
       account: {
         login: "alice-dev",
         avatar_url: mockAvatar("D", "#7c3aed"),
-        type: "User"
-      }
+        type: "User",
+      },
     },
     {
       id: 303,
       account: {
         login: "bob-corp",
         avatar_url: mockAvatar("B", "#059669"),
-        type: "Organization"
-      }
+        type: "Organization",
+      },
     },
     {
       id: 404,
       account: {
         login: "carol",
         avatar_url: mockAvatar("C", "#b45309"),
-        type: "User"
-      }
-    }
+        type: "User",
+      },
+    },
   ];
 }
 
@@ -64,11 +64,14 @@ export function mockSettings(installationId: string): SettingsRecord {
   // 404 = carol (User, paid)
   const planMap: Record<string, { accountType: string; marketplacePlan: "free" | "paid" }> = {
     "101": { accountType: "Organization", marketplacePlan: "paid" },
-    "202": { accountType: "User",         marketplacePlan: "free" },
+    "202": { accountType: "User", marketplacePlan: "free" },
     "303": { accountType: "Organization", marketplacePlan: "free" },
-    "404": { accountType: "User",         marketplacePlan: "paid" }
+    "404": { accountType: "User", marketplacePlan: "paid" },
   };
-  const { accountType, marketplacePlan } = planMap[installationId] ?? { accountType: "User", marketplacePlan: "free" };
+  const { accountType, marketplacePlan } = planMap[installationId] ?? {
+    accountType: "User",
+    marketplacePlan: "free",
+  };
 
   return {
     installationId,
@@ -89,7 +92,7 @@ export function mockSettings(installationId: string): SettingsRecord {
     skipBots: true,
     skipForks: true,
     customSystemPrompt: "",
-    customQuizInstructions: ""
+    customQuizInstructions: "",
   };
 }
 
@@ -120,12 +123,12 @@ export function mockSession(token: string): SessionRecord {
           options: [
             { key: "A", text: "Questions now use exactly `3` options." },
             { key: "B", text: "Questions now use exactly `5` options." },
-            { key: "C", text: "Questions can have any number of options." }
+            { key: "C", text: "Questions can have any number of options." },
           ],
           correctOption: "A",
           explanation: "The quiz was updated to require exactly 3 options per question.",
           diffAnchors: ["src/lib/server/openai.ts", "src/lib/server/quiz.ts"],
-          focus: "behavior"
+          focus: "behavior",
         },
         {
           id: "q2",
@@ -133,28 +136,35 @@ export function mockSession(token: string): SessionRecord {
           options: [
             { key: "A", text: "Generate a brand new quiz after every wrong answer." },
             { key: "B", text: "Explain mistakes and retry the same quiz." },
-            { key: "C", text: "Only a maintainer can trigger any retry." }
+            { key: "C", text: "Only a maintainer can trigger any retry." },
           ],
           correctOption: "B",
           explanation: "The default retry behavior is the same-quiz mode that shows explanations.",
-          diffAnchors: ["src/lib/server/config.ts", "src/routes/settings/[installationId]/+page.svelte"],
-          focus: "implementation"
+          diffAnchors: [
+            "src/lib/server/config.ts",
+            "src/routes/settings/[installationId]/+page.svelte",
+          ],
+          focus: "implementation",
         },
         {
           id: "q3",
           prompt: "Why do these dev mocks exist?",
           options: [
-            { key: "A", text: "To let local pages open without real GitHub auth, app installs, or database state." },
+            {
+              key: "A",
+              text: "To let local pages open without real GitHub auth, app installs, or database state.",
+            },
             { key: "B", text: "To permanently replace production data with static fixtures." },
-            { key: "C", text: "To disable all validation logic in development." }
+            { key: "C", text: "To disable all validation logic in development." },
           ],
           correctOption: "A",
-          explanation: "The mocks are dev-only and keep local preview flows usable without live integrations.",
+          explanation:
+            "The mocks are dev-only and keep local preview flows usable without live integrations.",
           diffAnchors: ["src/lib/server/dev-mocks.ts"],
-          focus: "risk"
-        }
-      ]
-    }
+          focus: "risk",
+        },
+      ],
+    },
   };
 }
 
@@ -174,9 +184,10 @@ export function mockActivityData() {
         status: SessionStatus.awaiting_answer,
         questionCount: 3,
         generationModel: "anthropic/claude-sonnet-4.5",
-        summary: "Adds rate limiting middleware to the API gateway with Redis-backed sliding window.",
+        summary:
+          "Adds rate limiting middleware to the API gateway with Redis-backed sliding window.",
         createdAt: ago(1),
-        updatedAt: ago(0.5)
+        updatedAt: ago(0.5),
       },
       {
         id: "sess_2",
@@ -188,9 +199,10 @@ export function mockActivityData() {
         status: SessionStatus.passed,
         questionCount: 4,
         generationModel: "anthropic/claude-sonnet-4.5",
-        summary: "Refactors authentication flow to use OIDC provider instead of custom JWT validation.",
+        summary:
+          "Refactors authentication flow to use OIDC provider instead of custom JWT validation.",
         createdAt: ago(6),
-        updatedAt: ago(4)
+        updatedAt: ago(4),
       },
       {
         id: "sess_3",
@@ -205,7 +217,7 @@ export function mockActivityData() {
         summary: undefined,
         skipReason: "Docs-only pull request matched configured skip rules.",
         createdAt: ago(12),
-        updatedAt: ago(12)
+        updatedAt: ago(12),
       },
       {
         id: "sess_4",
@@ -218,9 +230,10 @@ export function mockActivityData() {
         questionCount: 3,
         generationModel: "anthropic/claude-sonnet-4.5",
         summary: "Adds WebSocket support for real-time notifications.",
-        failureMessage: "Token budget exceeded (52,400 / 50,000 tokens). Merge blocked because the token budget fallback is set to fail.",
+        failureMessage:
+          "Token budget exceeded (52,400 / 50,000 tokens). Merge blocked because the token budget fallback is set to fail.",
         createdAt: ago(24),
-        updatedAt: ago(23)
+        updatedAt: ago(23),
       },
       {
         id: "sess_5",
@@ -234,7 +247,7 @@ export function mockActivityData() {
         generationModel: "anthropic/claude-sonnet-4.5",
         summary: "Updates deployment configuration for staging environment.",
         createdAt: ago(48),
-        updatedAt: ago(46)
+        updatedAt: ago(46),
       },
       {
         id: "sess_6",
@@ -247,10 +260,11 @@ export function mockActivityData() {
         questionCount: 5,
         generationModel: "anthropic/claude-sonnet-4.5",
         summary: "Implements database migration framework with rollback support.",
-        failureMessage: "Token budget exceeded (31,200 / 30,000 tokens). Quiz skipped to avoid excessive charges.",
+        failureMessage:
+          "Token budget exceeded (31,200 / 30,000 tokens). Quiz skipped to avoid excessive charges.",
         createdAt: ago(72),
-        updatedAt: ago(70)
-      }
+        updatedAt: ago(70),
+      },
     ],
     sessionStats: {
       total: 6,
@@ -258,14 +272,14 @@ export function mockActivityData() {
       passed: 3,
       failed: 1,
       skipped: 1,
-      budgetExceeded: 2
+      budgetExceeded: 2,
     },
     attemptStats: {
       totalAttempts: 8,
       passedAttempts: 4,
       failedAttempts: 4,
-      uniqueAuthors: 4
-    }
+      uniqueAuthors: 4,
+    },
   };
 }
 
@@ -273,6 +287,6 @@ export function mockModels() {
   return [
     { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5", contextLength: 200000 },
     { id: "anthropic/claude-opus-4.1", name: "Claude Opus 4.1", contextLength: 200000 },
-    { id: "openai/gpt-4o", name: "GPT-4o", contextLength: 128000 }
+    { id: "openai/gpt-4o", name: "GPT-4o", contextLength: 128000 },
   ];
 }

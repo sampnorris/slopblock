@@ -28,8 +28,8 @@ export const load: PageServerLoad = async ({ params }) => {
         customQuizInstructions: settings.customQuizInstructions,
         allowedWrongAnswers: settings.allowedWrongAnswers,
         maxTokenBudget: settings.maxTokenBudget,
-        tokenBudgetFallback: settings.tokenBudgetFallback
-      }
+        tokenBudgetFallback: settings.tokenBudgetFallback,
+      },
     };
   }
 
@@ -41,27 +41,31 @@ export const load: PageServerLoad = async ({ params }) => {
     installationId: params.installationId,
     hasApiKey: !!settings?.llmApiKey,
     provider: settings?.llmApiKey
-      ? (settings.llmBaseUrl?.includes("openrouter") ? "openrouter" : "manual")
+      ? settings.llmBaseUrl?.includes("openrouter")
+        ? "openrouter"
+        : "manual"
       : "none",
     marketplacePlan: settings?.marketplacePlan ?? "free",
     accountType: settings?.accountType ?? "User",
-    settings: settings ? {
-      llmBaseUrl: settings.llmBaseUrl,
-      llmGenerationModel: settings.llmGenerationModel,
-      llmValidationModel: settings.llmValidationModel,
-      llmSkipModel: settings.llmSkipModel,
-      questionCountMin: settings.questionCountMin,
-      questionCountMax: settings.questionCountMax,
-      quizGenerationMaxAttempts: settings.quizGenerationMaxAttempts,
-      allowBestEffortFallback: settings.allowBestEffortFallback,
-      retryMode: settings.retryMode,
-      skipBots: settings.skipBots,
-      skipForks: settings.skipForks,
-      customSystemPrompt: settings.customSystemPrompt,
-      customQuizInstructions: settings.customQuizInstructions,
-      allowedWrongAnswers: settings.allowedWrongAnswers,
-      maxTokenBudget: settings.maxTokenBudget,
-      tokenBudgetFallback: settings.tokenBudgetFallback
-    } : null
+    settings: settings
+      ? {
+          llmBaseUrl: settings.llmBaseUrl,
+          llmGenerationModel: settings.llmGenerationModel,
+          llmValidationModel: settings.llmValidationModel,
+          llmSkipModel: settings.llmSkipModel,
+          questionCountMin: settings.questionCountMin,
+          questionCountMax: settings.questionCountMax,
+          quizGenerationMaxAttempts: settings.quizGenerationMaxAttempts,
+          allowBestEffortFallback: settings.allowBestEffortFallback,
+          retryMode: settings.retryMode,
+          skipBots: settings.skipBots,
+          skipForks: settings.skipForks,
+          customSystemPrompt: settings.customSystemPrompt,
+          customQuizInstructions: settings.customQuizInstructions,
+          allowedWrongAnswers: settings.allowedWrongAnswers,
+          maxTokenBudget: settings.maxTokenBudget,
+          tokenBudgetFallback: settings.tokenBudgetFallback,
+        }
+      : null,
   };
 };

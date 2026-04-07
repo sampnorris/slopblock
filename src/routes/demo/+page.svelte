@@ -141,7 +141,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Diff
         </div>
-        <div class="diff-block">{#each publicDemoQuiz.diff as line}<div class="diff-line {diffLineClass(line)}"><span class="diff-prefix">{diffPrefix(line)}</span><span>{diffContent(line)}</span></div>{/each}</div>
+        <div class="diff-block">{#each publicDemoQuiz.diff as line, i (`${i}-${line}`)}<div class="diff-line {diffLineClass(line)}"><span class="diff-prefix">{diffPrefix(line)}</span><span>{diffContent(line)}</span></div>{/each}</div>
       </div>
 
       <div class="progress-bar">
@@ -149,7 +149,7 @@
       </div>
 
       <div class="stack">
-        {#each questions as q, i}
+        {#each questions as q, i (q.id)}
           <div class="question-block" class:answered={questionStates[i].answered} id="demo-q{i}">
             <div class="question-header">
               <span class="question-number">{i + 1}</span>
@@ -169,14 +169,14 @@
 
             <div class="diff-anchors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              {#each q.diffAnchors as anchor, ai}
+              {#each q.diffAnchors as anchor, ai (`${anchor}-${ai}`)}
                 {#if ai > 0}<span class="anchor-sep">,</span>{/if}
                 <span class="anchor-text">{anchor}</span>
               {/each}
             </div>
 
             <div class="answers">
-              {#each q.options as opt}
+              {#each q.options as opt (opt.key)}
                 <button type="button" class={btnClass(i, opt.key)} onclick={() => selectAnswer(i, opt.key)}>
                   <span class="choice-key">{opt.key}</span>
                   <span class="choice-text choice-markdown">{@html renderMarkdown(opt.text)}</span>

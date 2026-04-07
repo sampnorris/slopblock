@@ -18,13 +18,16 @@ function maskSettings(settings: any) {
   return {
     ...settings,
     llmApiKey: undefined, // never expose, even masked
-    hasApiKey: !!settings.llmApiKey
+    hasApiKey: !!settings.llmApiKey,
   };
 }
 
 export const GET: RequestHandler = async ({ params, request }) => {
   if (devMocksEnabled()) {
-    return json({ settings: { ...mockSettings(params.installationId), llmApiKey: undefined }, hasApiKey: true });
+    return json({
+      settings: { ...mockSettings(params.installationId), llmApiKey: undefined },
+      hasApiKey: true,
+    });
   }
 
   const cookieHeader = request.headers.get("cookie") ?? undefined;
@@ -51,8 +54,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
         ...body,
         accountLogin: body.accountLogin ?? mockActor().login,
         llmApiKey: undefined,
-        hasApiKey: true
-      }
+        hasApiKey: true,
+      },
     });
   }
 
@@ -65,9 +68,15 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   const body = await request.json();
   const existing = await getSettings(params.installationId);
 
-  const llmBaseUrl = isNonEmptyString(body.llmBaseUrl) ? body.llmBaseUrl.trim() : existing?.llmBaseUrl;
-  const llmGenerationModel = isNonEmptyString(body.llmGenerationModel) ? body.llmGenerationModel.trim() : undefined;
-  const llmValidationModel = isNonEmptyString(body.llmValidationModel) ? body.llmValidationModel.trim() : undefined;
+  const llmBaseUrl = isNonEmptyString(body.llmBaseUrl)
+    ? body.llmBaseUrl.trim()
+    : existing?.llmBaseUrl;
+  const llmGenerationModel = isNonEmptyString(body.llmGenerationModel)
+    ? body.llmGenerationModel.trim()
+    : undefined;
+  const llmValidationModel = isNonEmptyString(body.llmValidationModel)
+    ? body.llmValidationModel.trim()
+    : undefined;
   const llmSkipModel = isNonEmptyString(body.llmSkipModel) ? body.llmSkipModel.trim() : undefined;
   const questionCountMin = asOptionalNumber(body.questionCountMin);
   const questionCountMax = asOptionalNumber(body.questionCountMax);
@@ -76,15 +85,24 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   const maxTokenBudget = asOptionalNumber(body.maxTokenBudget);
 
   if (questionCountMin != null && questionCountMin < 1) {
-    return json({ ok: false, error: "Minimum question count must be at least 1." }, { status: 400 });
+    return json(
+      { ok: false, error: "Minimum question count must be at least 1." },
+      { status: 400 },
+    );
   }
 
   if (questionCountMax != null && questionCountMax < 1) {
-    return json({ ok: false, error: "Maximum question count must be at least 1." }, { status: 400 });
+    return json(
+      { ok: false, error: "Maximum question count must be at least 1." },
+      { status: 400 },
+    );
   }
 
   if (questionCountMin != null && questionCountMax != null && questionCountMin > questionCountMax) {
-    return json({ ok: false, error: "Minimum question count cannot exceed the maximum." }, { status: 400 });
+    return json(
+      { ok: false, error: "Minimum question count cannot exceed the maximum." },
+      { status: 400 },
+    );
   }
 
   if (quizGenerationMaxAttempts != null && quizGenerationMaxAttempts < 1) {
@@ -92,24 +110,39 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   }
 
   if (maxTokenBudget != null && maxTokenBudget < 1000) {
-    return json({ ok: false, error: "Token budget must be at least 1,000 tokens or empty (unlimited)." }, { status: 400 });
+    return json(
+      { ok: false, error: "Token budget must be at least 1,000 tokens or empty (unlimited)." },
+      { status: 400 },
+    );
   }
 
-  if (allowedWrongAnswers != null && (!Number.isInteger(allowedWrongAnswers) || allowedWrongAnswers < 0)) {
-    return json({ ok: false, error: "Allowed wrong answers must be a whole number (0 or more)." }, { status: 400 });
+  if (
+    allowedWrongAnswers != null &&
+    (!Number.isInteger(allowedWrongAnswers) || allowedWrongAnswers < 0)
+  ) {
+    return json(
+      { ok: false, error: "Allowed wrong answers must be a whole number (0 or more)." },
+      { status: 400 },
+    );
   }
 
   if (!existing?.llmApiKey || !llmBaseUrl) {
     return json(
-      { ok: false, error: "Connect OpenRouter or provide an API key and base URL before saving settings." },
-      { status: 400 }
+      {
+        ok: false,
+        error: "Connect OpenRouter or provide an API key and base URL before saving settings.",
+      },
+      { status: 400 },
     );
   }
 
   if (!llmGenerationModel || !llmValidationModel || !llmSkipModel) {
     return json(
-      { ok: false, error: "Select generation, validation, and skip models before saving settings." },
-      { status: 400 }
+      {
+        ok: false,
+        error: "Select generation, validation, and skip models before saving settings.",
+      },
+      { status: 400 },
     );
   }
 
@@ -124,7 +157,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     questionCountMin,
     questionCountMax,
     quizGenerationMaxAttempts,
-    allowBestEffortFallback: body.allowBestEffortFallback != null ? Boolean(body.allowBestEffortFallback) : undefined,
+    allowBestEffortFallback:
+      body.allowBestEffortFallback != null ? Boolean(body.allowBestEffortFallback) : undefined,
     retryMode: body.retryMode || undefined,
     skipBots: body.skipBots != null ? Boolean(body.skipBots) : undefined,
     skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
@@ -132,9 +166,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     customQuizInstructions: body.customQuizInstructions ?? undefined,
     allowedWrongAnswers: allowedWrongAnswers ?? undefined,
     maxTokenBudget: maxTokenBudget ?? undefined,
-    tokenBudgetFallback: body.tokenBudgetFallback === "pass" || body.tokenBudgetFallback === "fail"
-      ? body.tokenBudgetFallback
-      : undefined
+    tokenBudgetFallback:
+      body.tokenBudgetFallback === "pass" || body.tokenBudgetFallback === "fail"
+        ? body.tokenBudgetFallback
+        : undefined,
   });
 
   return json({ ok: true, settings: maskSettings(updated) });

@@ -60,13 +60,13 @@ function fromRow(row: any): SettingsRecord {
     customQuizInstructions: row.customQuizInstructions ?? undefined,
     maxTokenBudget: (row as any).maxTokenBudget ?? undefined,
     tokenBudgetFallback: (row as any).tokenBudgetFallback ?? undefined,
-    allowedWrongAnswers: (row as any).allowedWrongAnswers ?? undefined
+    allowedWrongAnswers: (row as any).allowedWrongAnswers ?? undefined,
   };
 }
 
 export async function getSettings(installationId: string): Promise<SettingsRecord | undefined> {
   const row = await prisma.installationSettings.findUnique({
-    where: { installationId }
+    where: { installationId },
   });
   return row ? fromRow(row) : undefined;
 }
@@ -74,7 +74,7 @@ export async function getSettings(installationId: string): Promise<SettingsRecor
 export async function hasApiKey(installationId: string): Promise<boolean> {
   const row = await prisma.installationSettings.findUnique({
     where: { installationId },
-    select: { llmApiKeyEncrypted: true }
+    select: { llmApiKeyEncrypted: true },
   });
   return !!row?.llmApiKeyEncrypted;
 }
@@ -82,7 +82,7 @@ export async function hasApiKey(installationId: string): Promise<boolean> {
 export async function clearApiKey(installationId: string): Promise<void> {
   await prisma.installationSettings.updateMany({
     where: { installationId },
-    data: { llmApiKeyEncrypted: null, llmBaseUrl: null }
+    data: { llmApiKeyEncrypted: null, llmBaseUrl: null },
   });
 }
 
@@ -113,14 +113,16 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       customQuizInstructions: input.customQuizInstructions,
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
-      allowedWrongAnswers: input.allowedWrongAnswers ?? null
+      allowedWrongAnswers: input.allowedWrongAnswers ?? null,
     } as any,
     update: {
       accountLogin: input.accountLogin,
       accountType: input.accountType,
       // Only update plan fields if explicitly provided
       ...(input.marketplacePlan !== undefined ? { marketplacePlan: input.marketplacePlan } : {}),
-      ...(input.marketplacePlanId !== undefined ? { marketplacePlanId: input.marketplacePlanId } : {}),
+      ...(input.marketplacePlanId !== undefined
+        ? { marketplacePlanId: input.marketplacePlanId }
+        : {}),
       // Only update key if explicitly provided (undefined means keep existing)
       ...(encryptedKey !== undefined ? { llmApiKeyEncrypted: encryptedKey } : {}),
       llmBaseUrl: input.llmBaseUrl,
@@ -138,8 +140,8 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       customQuizInstructions: input.customQuizInstructions,
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
-      allowedWrongAnswers: input.allowedWrongAnswers ?? null
-    } as any
+      allowedWrongAnswers: input.allowedWrongAnswers ?? null,
+    } as any,
   });
   return fromRow(row);
 }

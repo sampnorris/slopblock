@@ -6,7 +6,19 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 export function isTextPath(path: string): boolean {
-  const blocked = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".woff", ".woff2"];
+  const blocked = [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".woff",
+    ".woff2",
+  ];
   return !blocked.some((suffix) => path.toLowerCase().endsWith(suffix));
 }
 
@@ -35,10 +47,7 @@ export function summarizePatch(patch: string | undefined, maxLines = 20): string
   if (!patch) {
     return "";
   }
-  return patch
-    .split("\n")
-    .slice(0, maxLines)
-    .join("\n");
+  return patch.split("\n").slice(0, maxLines).join("\n");
 }
 
 export function normalizeWhitespace(value: string): string {
@@ -66,9 +75,15 @@ export function extractIdentifiers(input: string): string[] {
     "type",
     "interface",
     "public",
-    "private"
+    "private",
   ]);
-  return [...new Set((input.match(/\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g) ?? []).filter((word) => !stop.has(word)).slice(0, 40))];
+  return [
+    ...new Set(
+      (input.match(/\b[A-Za-z_][A-Za-z0-9_]{2,}\b/g) ?? [])
+        .filter((word) => !stop.has(word))
+        .slice(0, 40),
+    ),
+  ];
 }
 
 export function base64Json(data: unknown): string {

@@ -2,12 +2,13 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
-const TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    throw new Error("Missing ENCRYPTION_KEY environment variable. Generate one with: openssl rand -hex 32");
+    throw new Error(
+      "Missing ENCRYPTION_KEY environment variable. Generate one with: openssl rand -hex 32",
+    );
   }
   const buf = Buffer.from(key, "hex");
   if (buf.length !== 32) {

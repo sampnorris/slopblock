@@ -20,12 +20,12 @@ heuristics:
   skipBots: true
   docsGlobs:
     - docs/
-    - '**/*.md'
-    - '**/*.mdx'
+    - "**/*.md"
+    - "**/*.mdx"
   testGlobs:
     - tests/
-    - '**/*.test.'
-    - '**/*.spec.'
+    - "**/*.test."
+    - "**/*.spec."
   riskyGlobs:
     - auth/
     - api/

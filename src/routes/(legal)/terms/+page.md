@@ -3,6 +3,7 @@ title: Terms of Service
 ---
 
 <svelte:head>
+
   <title>Terms of Service — SlopBlock</title>
 </svelte:head>
 

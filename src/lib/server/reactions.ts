@@ -3,7 +3,7 @@ export const REACTION_OPTIONS = [
   { content: "heart", emoji: "❤️" },
   { content: "rocket", emoji: "🚀" },
   { content: "eyes", emoji: "👀" },
-  { content: "hooray", emoji: "🎉" }
+  { content: "hooray", emoji: "🎉" },
 ] as const;
 
 export function reactionIndexForContent(content: string): number {

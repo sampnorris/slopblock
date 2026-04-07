@@ -6,15 +6,15 @@ const config = {
   extensions: [".svelte", ".md"],
   preprocess: [
     mdsvex({
-      extensions: [".md"]
-    })
+      extensions: [".md"],
+    }),
   ],
   kit: {
     adapter: adapter(),
     alias: {
-      "$lib/*": "src/lib/*"
-    }
-  }
+      "$lib/*": "src/lib/*",
+    },
+  },
 };
 
 export default config;

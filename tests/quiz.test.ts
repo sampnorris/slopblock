@@ -28,27 +28,27 @@ const session: SessionRecord = {
         prompt: "One?",
         options: [
           { key: "A", text: "A" },
-          { key: "B", text: "B" }
+          { key: "B", text: "B" },
         ],
         correctOption: "A",
         explanation: "because",
         diffAnchors: [],
-        focus: "behavior"
+        focus: "behavior",
       },
       {
         id: "q2",
         prompt: "Two?",
         options: [
           { key: "A", text: "A" },
-          { key: "B", text: "B" }
+          { key: "B", text: "B" },
         ],
         correctOption: "B",
         explanation: "because",
         diffAnchors: [],
-        focus: "risk"
-      }
-    ]
-  }
+        focus: "risk",
+      },
+    ],
+  },
 };
 
 test("normalizeQuizPayload converts string options into keyed options", () => {
@@ -60,15 +60,15 @@ test("normalizeQuizPayload converts string options into keyed options", () => {
         options: ["first", "second", "third"],
         correctOption: "second",
         explanation: "because",
-        diffAnchors: ["src/file.ts"]
-      }
-    ]
+        diffAnchors: ["src/file.ts"],
+      },
+    ],
   });
 
   assert.equal(quiz.questions.length, 1);
   assert.deepEqual(
     quiz.questions[0].options.map((option) => option.key),
-    ["A", "B", "C"]
+    ["A", "B", "C"],
   );
   assert.equal(quiz.questions[0].correctOption, "B");
 });
@@ -84,14 +84,14 @@ test("validateQuizPayload rejects questions with more than 3 options", () => {
           { key: "A", text: "first" },
           { key: "B", text: "second" },
           { key: "C", text: "third" },
-          { key: "D", text: "fourth" }
+          { key: "D", text: "fourth" },
         ],
         correctOption: "A",
         explanation: "because",
         diffAnchors: [],
-        focus: "behavior"
-      }
-    ]
+        focus: "behavior",
+      },
+    ],
   });
 
   assert.ok(issues.some((issue) => issue.includes("exactly 3 options")));
@@ -108,16 +108,16 @@ test("validateQuizPayload rejects the wrong question count", () => {
           options: [
             { key: "A", text: "first" },
             { key: "B", text: "second" },
-            { key: "C", text: "third" }
+            { key: "C", text: "third" },
           ],
           correctOption: "A",
           explanation: "because",
           diffAnchors: [],
-          focus: "behavior"
-        }
-      ]
+          focus: "behavior",
+        },
+      ],
     },
-    2
+    2,
   );
 
   assert.ok(issues.some((issue) => issue.includes("exactly 2 questions")));
@@ -126,7 +126,7 @@ test("validateQuizPayload rejects the wrong question count", () => {
 test("validateQuizPayload rejects empty or malformed questions", () => {
   const issues = validateQuizPayload({
     summary: "summary",
-    questions: []
+    questions: [],
   });
 
   assert.ok(issues.some((issue) => issue.includes("did not contain any valid questions")));

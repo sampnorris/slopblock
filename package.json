@@ -2,31 +2,35 @@
   "name": "slopblock",
   "version": "0.2.0",
   "description": "GitHub App for diff-grounded PR comprehension quizzes",
-  "packageManager": "pnpm@10.33.0",
-  "type": "module",
+  "keywords": [
+    "github-app",
+    "llm",
+    "pull-request",
+    "quiz"
+  ],
+  "license": "CC-BY-NC-4.0",
   "bin": {
     "slopblock": "dist/cli.cjs"
   },
+  "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "build:cli": "node ./scripts/build.mjs",
     "preview": "vite preview",
+    "lint": "oxlint -c .oxlintrc.json",
+    "lint:fix": "oxlint -c .oxlintrc.json --fix",
+    "fmt": "oxfmt -c .oxfmtrc.json",
+    "fmt:check": "oxfmt -c .oxfmtrc.json --check",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "pnpm exec dotenv -e .env.local -- prisma migrate dev",
     "prisma:deploy": "pnpm exec dotenv -e .env.local -- prisma migrate deploy",
     "test": "node --import tsx --test tests/config.test.ts tests/heuristics.test.ts tests/quiz.test.ts tests/app-render.test.ts",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check": "pnpm run typecheck && pnpm test"
+    "check": "pnpm run typecheck && pnpm test",
+    "check:quality": "pnpm run lint && pnpm run fmt:check"
   },
-  "keywords": [
-    "github-app",
-    "pull-request",
-    "llm",
-    "quiz"
-  ],
-  "license": "CC-BY-NC-4.0",
   "dependencies": {
     "@octokit/app": "^16.1.0",
     "@prisma/client": "^6.6.0",
@@ -42,11 +46,14 @@
     "dotenv-cli": "^8.0.0",
     "esbuild": "^0.25.10",
     "mdsvex": "^0.12.7",
+    "oxfmt": "^0.43.0",
+    "oxlint": "^1.58.0",
     "prisma": "^6.6.0",
     "svelte": "^5.55.1",
     "svelte-check": "^4.4.6",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vite": "^8.0.3"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

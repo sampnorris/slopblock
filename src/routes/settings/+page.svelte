@@ -51,7 +51,7 @@
       </div>
     {:else}
       <div class="install-list">
-        {#each installations as inst, i}
+        {#each installations as inst, i (inst.id)}
           <a
             class="install-card"
             href="/settings/{inst.id}"

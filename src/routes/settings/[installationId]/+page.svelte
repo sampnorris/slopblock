@@ -310,7 +310,7 @@
             <div class="field"><label for="genModel">Generation Model</label><input id="genModel" list="model-list" bind:value={llmGenerationModel} placeholder="Select or enter a model" /><span class="hint">Creates the quiz content. Pick your strongest diff-reasoning model.</span></div>
             <div class="field"><label for="valModel">Validation Model</label><input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" /><span class="hint">Reviews the generated quiz for grounding and structural issues.</span></div>
             <div class="field"><label for="skipModel">Skip Evaluation Model</label><input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" /><span class="hint">Decides whether an obvious PR can skip the quiz entirely.</span></div>
-            <datalist id="model-list">{#each defaultModels as m}<option value={m}></option>{/each}</datalist>
+            <datalist id="model-list">{#each defaultModels as m (m)}<option value={m}></option>{/each}</datalist>
           {/if}
         </section>
 

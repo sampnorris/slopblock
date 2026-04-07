@@ -1,6 +1,6 @@
 import type { QuizPayload, QuizValidation, RepoContext, SkipDecision } from "./types.js";
 import type { ToolDefinition } from "./schemas.js";
-import type { TraceContext, GenerationParams } from "./langfuse.js";
+import type { TraceContext } from "./langfuse.js";
 import { getChatPrompt } from "./langfuse.js";
 import { skipDecisionTool, quizPayloadTool, quizValidationTool } from "./schemas.js";
 import { normalizeQuizPayload } from "./quiz.js";
@@ -75,7 +75,9 @@ export class TokenBudgetExceededError extends Error {
   public fallback: "pass" | "fail" = "pass";
 
   constructor(tokensUsed: number, budget: number) {
-    super(`Token budget exceeded: ${tokensUsed.toLocaleString()} tokens used, budget is ${budget.toLocaleString()}.`);
+    super(
+      `Token budget exceeded: ${tokensUsed.toLocaleString()} tokens used, budget is ${budget.toLocaleString()}.`,
+    );
     this.name = "TokenBudgetExceededError";
     this.tokensUsed = tokensUsed;
     this.budget = budget;
@@ -94,9 +96,15 @@ export class TokenTracker {
     this._budget = budget && budget > 0 ? budget : undefined;
   }
 
-  get totalTokens(): number { return this._totalTokens; }
-  get budget(): number | undefined { return this._budget; }
-  get hasBudget(): boolean { return this._budget !== undefined; }
+  get totalTokens(): number {
+    return this._totalTokens;
+  }
+  get budget(): number | undefined {
+    return this._budget;
+  }
+  get hasBudget(): boolean {
+    return this._budget !== undefined;
+  }
 
   /** Record tokens from a completed LLM call. Throws if budget is exceeded. */
   record(promptTokens: number, completionTokens: number): void {
@@ -134,7 +142,7 @@ export class OpenAICompatibleClient {
     const body: Record<string, unknown> = {
       model: this.options.model,
       temperature,
-      messages
+      messages,
     };
 
     if (tool) {
@@ -146,15 +154,17 @@ export class OpenAICompatibleClient {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${this.options.apiKey}`
+        authorization: `Bearer ${this.options.apiKey}`,
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
       const text = await response.text();
       if (response.status === 402) {
-        throw new InsufficientCreditsError(`LLM provider returned 402: insufficient credits. ${text}`);
+        throw new InsufficientCreditsError(
+          `LLM provider returned 402: insufficient credits. ${text}`,
+        );
       }
       throw new Error(`LLM request failed: ${response.status} ${text}`);
     }
@@ -193,7 +203,8 @@ export class OpenAICompatibleClient {
     const candidate = fenced?.[1] ?? value;
     const firstBrace = candidate.indexOf("{");
     const firstBracket = candidate.indexOf("[");
-    const start = [firstBrace, firstBracket].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? 0;
+    const start =
+      [firstBrace, firstBracket].filter((index) => index >= 0).sort((a, b) => a - b)[0] ?? 0;
     const cleaned = candidate.slice(start).trim();
     return JSON.parse(cleaned) as T;
   }
@@ -209,14 +220,14 @@ export class OpenAICompatibleClient {
     messages: Message[],
     tool: ToolDefinition,
     temperature = 0.2,
-    generationName = "llm-call"
+    generationName = "llm-call",
   ): Promise<T> {
     const trace = this.options.trace;
     const gen = trace?.generation({
       name: generationName,
       model: this.options.model,
       input: messages,
-      modelParameters: { temperature }
+      modelParameters: { temperature },
     });
 
     // First attempt: tool calling
@@ -235,7 +246,10 @@ export class OpenAICompatibleClient {
       // Check if this looks like a tool-support error vs a real failure
       const msg = toolError instanceof Error ? toolError.message : String(toolError);
       const isToolUnsupported =
-        msg.includes("tool") || msg.includes("function") || msg.includes("400") || msg.includes("422");
+        msg.includes("tool") ||
+        msg.includes("function") ||
+        msg.includes("400") ||
+        msg.includes("422");
 
       if (!isToolUnsupported) {
         gen?.end({ error: String(toolError) });
@@ -270,8 +284,8 @@ export class OpenAICompatibleClient {
           {
             role: "user",
             content:
-              "Your previous response was not valid JSON. Reply again using only strict JSON with no markdown fences, explanation, or prose."
-          }
+              "Your previous response was not valid JSON. Reply again using only strict JSON with no markdown fences, explanation, or prose.",
+          },
         ];
       }
     }
@@ -300,19 +314,19 @@ export class OpenAICompatibleClient {
               output: {
                 outcome: "skip or quiz",
                 reason: "one sentence",
-                certainty: "high, medium, or low"
+                certainty: "high, medium, or low",
               },
               changedFiles: input.changedFiles,
-              diffSummary: truncate(input.diffSummary, 5000)
+              diffSummary: truncate(input.diffSummary, 5000),
             },
             null,
-            2
-          )
-        }
+            2,
+          ),
+        },
       ],
       skipDecisionTool,
       0,
-      "borderline-skip"
+      "borderline-skip",
     );
   }
 
@@ -328,13 +342,16 @@ export class OpenAICompatibleClient {
       "You generate strict JSON for a merge-gating PR quiz. Use repository context only as background. Every question must be answerable from the diff and changed behavior only. Prefer behavior and risk questions, but include implementation detail if it helps prove understanding. Multiple choice only.";
 
     const langfusePrompt = await getChatPrompt("quiz-generation", {
-      customSystemPrompt: input.customSystemPrompt ?? ""
+      customSystemPrompt: input.customSystemPrompt ?? "",
     });
     const baseSystemPrompt = langfusePrompt?.messages[0]?.content ?? fallbackSystemPrompt;
 
     // If LangFuse didn't handle the custom prompt (e.g. template didn't include the variable),
     // append it manually as a fallback
-    const hasCustomInPrompt = langfusePrompt && input.customSystemPrompt && baseSystemPrompt.includes(input.customSystemPrompt);
+    const hasCustomInPrompt =
+      langfusePrompt &&
+      input.customSystemPrompt &&
+      baseSystemPrompt.includes(input.customSystemPrompt);
     const systemPrompt =
       !hasCustomInPrompt && input.customSystemPrompt
         ? `${baseSystemPrompt}\n\nAdditional instructions from the repository owner:\n${input.customSystemPrompt}`
@@ -350,10 +367,10 @@ export class OpenAICompatibleClient {
       "Use inline code markdown for identifiers, symbols, file paths, commands, and literals when relevant.",
       "Return JSON with summary and questions.",
       "Each question needs id, prompt, options, correctOption, explanation, diffAnchors, and focus.",
-      "options must be an array of objects shaped exactly like {\"key\":\"A\",\"text\":\"option text\"}.",
+      'options must be an array of objects shaped exactly like {"key":"A","text":"option text"}.',
       "correctOption must be a single option key letter: A, B, or C.",
       "diffAnchors should reference changed file paths or changed symbols.",
-      "If prior validator feedback is present, fix those issues instead of repeating them."
+      "If prior validator feedback is present, fix those issues instead of repeating them.",
     ];
 
     if (input.customQuizInstructions) {
@@ -364,7 +381,7 @@ export class OpenAICompatibleClient {
       [
         {
           role: "system",
-          content: cacheable(systemPrompt)
+          content: cacheable(systemPrompt),
         },
         {
           role: "user",
@@ -374,16 +391,16 @@ export class OpenAICompatibleClient {
               questionCount: input.questionCount,
               repoContext: input.repoContext,
               diffSummary: truncate(input.diffSummary, 14000),
-              validatorFeedback: input.validatorFeedback ?? []
+              validatorFeedback: input.validatorFeedback ?? [],
             },
             null,
-            2
-          )
-        }
+            2,
+          ),
+        },
       ],
       quizPayloadTool,
       0.2,
-      "quiz-generation"
+      "quiz-generation",
     );
 
     return normalizeQuizPayload(rawQuiz);
@@ -420,25 +437,25 @@ export class OpenAICompatibleClient {
                 "Only mark invalid if options are duplicated or structurally broken.",
                 "Do NOT reject for minor distractor speculation.",
                 "Do NOT reject for slightly imprecise wording.",
-                "When in doubt, mark valid."
+                "When in doubt, mark valid.",
               ],
               expectedQuestionCount: input.expectedQuestionCount,
               output: {
                 valid: true,
-                issues: ["only list serious structural or factual errors"]
+                issues: ["only list serious structural or factual errors"],
               },
               quiz: input.quiz,
               repoContext: input.repoContext,
-              diffSummary: truncate(input.diffSummary, 10000)
+              diffSummary: truncate(input.diffSummary, 10000),
             },
             null,
-            2
-          )
-        }
+            2,
+          ),
+        },
       ],
       quizValidationTool,
       0,
-      "quiz-validation"
+      "quiz-validation",
     );
   }
 }

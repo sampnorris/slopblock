@@ -149,7 +149,7 @@
       </div>
     {:else}
       <div class="session-list">
-        {#each sessions as session, i}
+        {#each sessions as session, i (session.id)}
           <div class="session-row" style="animation-delay: {i * 40}ms">
             <div class="session-status-col">
               <span class="status-badge {statusClass(session.status)}">{statusLabel(session.status)}</span>

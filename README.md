@@ -87,21 +87,21 @@ Clone this repo and create a Vercel project from it.
 
 These are the infrastructure variables required by the deployment. LLM provider/model configuration is handled through the settings UI, not environment variables.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string (pooled) |
-| `DATABASE_URL_UNPOOLED` | Yes | PostgreSQL connection string (direct, for migrations) |
-| `ENCRYPTION_KEY` | Yes | 32-byte hex string for AES-256-GCM encryption of stored API keys |
-| `GITHUB_APP_ID` | Yes | Your GitHub App's ID |
-| `GITHUB_APP_PRIVATE_KEY` | Yes | Your GitHub App's RSA private key |
-| `GITHUB_WEBHOOK_SECRET` | Yes | Secret for verifying webhook signatures |
-| `GITHUB_CLIENT_ID` | Yes | GitHub OAuth Client ID (for settings dashboard login) |
-| `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth Client Secret |
-| `APP_BASE_URL` | No | Public URL of your deployment (falls back to Vercel's auto-detected URL) |
-| `SESSION_SECRET` | No | Session cookie signing key (falls back to `GITHUB_WEBHOOK_SECRET`) |
-| `LANGFUSE_SECRET_KEY` | No | LangFuse tracing secret key (observability, disabled if absent) |
-| `LANGFUSE_PUBLIC_KEY` | No | LangFuse tracing public key |
-| `LANGFUSE_BASE_URL` | No | LangFuse endpoint (defaults to `https://cloud.langfuse.com`) |
+| Variable                 | Required | Description                                                              |
+| ------------------------ | -------- | ------------------------------------------------------------------------ |
+| `DATABASE_URL`           | Yes      | PostgreSQL connection string (pooled)                                    |
+| `DATABASE_URL_UNPOOLED`  | Yes      | PostgreSQL connection string (direct, for migrations)                    |
+| `ENCRYPTION_KEY`         | Yes      | 32-byte hex string for AES-256-GCM encryption of stored API keys         |
+| `GITHUB_APP_ID`          | Yes      | Your GitHub App's ID                                                     |
+| `GITHUB_APP_PRIVATE_KEY` | Yes      | Your GitHub App's RSA private key                                        |
+| `GITHUB_WEBHOOK_SECRET`  | Yes      | Secret for verifying webhook signatures                                  |
+| `GITHUB_CLIENT_ID`       | Yes      | GitHub OAuth Client ID (for settings dashboard login)                    |
+| `GITHUB_CLIENT_SECRET`   | Yes      | GitHub OAuth Client Secret                                               |
+| `APP_BASE_URL`           | No       | Public URL of your deployment (falls back to Vercel's auto-detected URL) |
+| `SESSION_SECRET`         | No       | Session cookie signing key (falls back to `GITHUB_WEBHOOK_SECRET`)       |
+| `LANGFUSE_SECRET_KEY`    | No       | LangFuse tracing secret key (observability, disabled if absent)          |
+| `LANGFUSE_PUBLIC_KEY`    | No       | LangFuse tracing public key                                              |
+| `LANGFUSE_BASE_URL`      | No       | LangFuse endpoint (defaults to `https://cloud.langfuse.com`)             |
 
 There are also optional `SLOPBLOCK_*` env vars (`SLOPBLOCK_API_KEY`, `SLOPBLOCK_BASE_URL`, `SLOPBLOCK_MODEL`, etc.) that act as operator-level overrides or fallbacks for the LLM configuration. These are not needed for normal operation since LLM settings are managed through the dashboard.
 
@@ -149,6 +149,9 @@ SLOPBLOCK_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context 
 ### Checks
 
 ```bash
+pnpm run lint
+pnpm run fmt:check
+pnpm run check:quality
 pnpm run check
 ```
 

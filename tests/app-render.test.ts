@@ -32,12 +32,12 @@ const baseSession: SessionRecord = {
           { key: "A", text: "Use `foo()`" },
           { key: "B", text: "Option B" },
           { key: "C", text: "Option C" },
-          { key: "D", text: "Option D" }
+          { key: "D", text: "Option D" },
         ],
         correctOption: "A",
         explanation: "Because `foo()` is now called.",
         diffAnchors: ["src/a.ts"],
-        focus: "behavior"
+        focus: "behavior",
       },
       {
         id: "q2",
@@ -45,15 +45,15 @@ const baseSession: SessionRecord = {
         options: [
           { key: "A", text: "Another A" },
           { key: "B", text: "Another B" },
-          { key: "C", text: "Another C" }
+          { key: "C", text: "Another C" },
         ],
         correctOption: "B",
         explanation: "Because.",
         diffAnchors: [],
-        focus: "risk"
-      }
-    ]
-  }
+        focus: "risk",
+      },
+    ],
+  },
 };
 
 test("renderSessionComment links to the quiz UI", () => {
@@ -86,7 +86,10 @@ test("sessionAnswerUrl falls back to Vercel deployment URL", () => {
   delete process.env.VERCEL_URL;
 
   try {
-    assert.equal(sessionAnswerUrl({ ...baseSession, id: "session-123" }), "https://slopblock.vercel.app/session/session-123");
+    assert.equal(
+      sessionAnswerUrl({ ...baseSession, id: "session-123" }),
+      "https://slopblock.vercel.app/session/session-123",
+    );
   } finally {
     if (originalAppBaseUrl === undefined) {
       delete process.env.APP_BASE_URL;
@@ -109,7 +112,7 @@ test("sessionAnswerUrl falls back to Vercel deployment URL", () => {
 test("renderSessionComment shows passed state", () => {
   const output = renderSessionComment({
     ...baseSession,
-    status: SessionStatus.passed
+    status: SessionStatus.passed,
   });
   assert.match(output, /Passed/);
   assert.match(output, /abcdef1/);
@@ -121,7 +124,7 @@ test("renderSessionComment shows skipped state", () => {
   const output = renderSessionComment({
     ...baseSession,
     status: SessionStatus.skipped,
-    skipReason: "Docs-only change."
+    skipReason: "Docs-only change.",
   });
   assert.match(output, /Skipped/);
   assert.match(output, /Docs-only change/);

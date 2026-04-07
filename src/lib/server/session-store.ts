@@ -48,19 +48,23 @@ function fromRow(row: any): SessionRecord {
     failureMessage: row.failureMessage ?? undefined,
     commentId: row.commentId ? Number(row.commentId) : undefined,
     quiz: (row.quiz as QuizPayload | null) ?? undefined,
-    traceId: row.traceId ?? undefined
+    traceId: row.traceId ?? undefined,
   };
 }
 
-export async function getSession(owner: string, repo: string, pullNumber: number): Promise<SessionRecord | undefined> {
+export async function getSession(
+  owner: string,
+  repo: string,
+  pullNumber: number,
+): Promise<SessionRecord | undefined> {
   const row = await prisma.pullRequestSession.findUnique({
     where: {
       repositoryOwner_repositoryName_pullNumber: {
         repositoryOwner: owner,
         repositoryName: repo,
-        pullNumber
-      }
-    }
+        pullNumber,
+      },
+    },
   });
 
   return row ? fromRow(row) : undefined;
@@ -71,16 +75,20 @@ export async function getSessionById(id: string): Promise<SessionRecord | undefi
   return row ? fromRow(row) : undefined;
 }
 
-export async function deleteSession(owner: string, repo: string, pullNumber: number): Promise<boolean> {
+export async function deleteSession(
+  owner: string,
+  repo: string,
+  pullNumber: number,
+): Promise<boolean> {
   try {
     await prisma.pullRequestSession.delete({
       where: {
         repositoryOwner_repositoryName_pullNumber: {
           repositoryOwner: owner,
           repositoryName: repo,
-          pullNumber
-        }
-      }
+          pullNumber,
+        },
+      },
     });
     return true;
   } catch {
@@ -117,7 +125,7 @@ export interface SessionStats {
 export async function listSessionsByInstallation(
   installationId: string,
   limit = 50,
-  offset = 0
+  offset = 0,
 ): Promise<SessionListItem[]> {
   const rows = await prisma.pullRequestSession.findMany({
     where: { installationId },
@@ -138,8 +146,8 @@ export async function listSessionsByInstallation(
       skipReason: true,
       failureMessage: true,
       createdAt: true,
-      updatedAt: true
-    }
+      updatedAt: true,
+    },
   });
 
   return rows.map((r) => ({
@@ -147,7 +155,7 @@ export async function listSessionsByInstallation(
     generationModel: r.generationModel ?? undefined,
     summary: r.summary ?? undefined,
     skipReason: r.skipReason ?? undefined,
-    failureMessage: r.failureMessage ?? undefined
+    failureMessage: r.failureMessage ?? undefined,
   }));
 }
 
@@ -155,7 +163,7 @@ export async function getSessionStats(installationId: string): Promise<SessionSt
   const counts = await prisma.pullRequestSession.groupBy({
     by: ["status"],
     where: { installationId },
-    _count: true
+    _count: true,
   });
 
   const map = Object.fromEntries(counts.map((c) => [c.status, c._count]));
@@ -164,8 +172,8 @@ export async function getSessionStats(installationId: string): Promise<SessionSt
   const budgetExceeded = await prisma.pullRequestSession.count({
     where: {
       installationId,
-      failureMessage: { contains: "Token budget exceeded" }
-    }
+      failureMessage: { contains: "Token budget exceeded" },
+    },
   });
 
   return {
@@ -174,7 +182,7 @@ export async function getSessionStats(installationId: string): Promise<SessionSt
     passed: map[SessionStatus.passed] ?? 0,
     failed: map[SessionStatus.failed] ?? 0,
     skipped: map[SessionStatus.skipped] ?? 0,
-    budgetExceeded
+    budgetExceeded,
   };
 }
 
@@ -185,8 +193,8 @@ export async function deleteStaleSessions(olderThanDays: number): Promise<number
   const result = await prisma.pullRequestSession.deleteMany({
     where: {
       updatedAt: { lt: cutoff },
-      status: { in: [SessionStatus.passed, SessionStatus.skipped, SessionStatus.failed] }
-    }
+      status: { in: [SessionStatus.passed, SessionStatus.skipped, SessionStatus.failed] },
+    },
   });
 
   return result.count;
@@ -198,8 +206,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       repositoryOwner_repositoryName_pullNumber: {
         repositoryOwner: input.repositoryOwner,
         repositoryName: input.repositoryName,
-        pullNumber: input.pullNumber
-      }
+        pullNumber: input.pullNumber,
+      },
     },
     create: {
       installationId: String(input.installationId),
@@ -221,7 +229,7 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : undefined,
       quiz: input.quiz as unknown as object | undefined,
-      traceId: input.traceId
+      traceId: input.traceId,
     } as any,
     update: {
       installationId: String(input.installationId),
@@ -240,8 +248,8 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : null,
       quiz: input.quiz as unknown as object | undefined,
-      traceId: input.traceId ?? null
-    } as any
+      traceId: input.traceId ?? null,
+    } as any,
   });
 
   return fromRow(row);

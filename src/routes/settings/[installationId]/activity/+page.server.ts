@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ params }) => {
       installationId: params.installationId,
       sessions: mock.sessions,
       sessionStats: mock.sessionStats,
-      attemptStats: mock.attemptStats
+      attemptStats: mock.attemptStats,
     };
   }
 
@@ -19,13 +19,13 @@ export const load: PageServerLoad = async ({ params }) => {
   const [sessions, sessionStats, attemptStats] = await Promise.all([
     listSessionsByInstallation(params.installationId),
     getSessionStats(params.installationId),
-    getAttemptStats(params.installationId)
+    getAttemptStats(params.installationId),
   ]);
 
   return {
     installationId: params.installationId,
     sessions,
     sessionStats,
-    attemptStats
+    attemptStats,
   };
 };

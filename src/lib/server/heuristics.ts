@@ -44,7 +44,9 @@ function isTinyCopyChange(files: ChangedFile[], config: SlopblockConfig): boolea
     return false;
   }
 
-  return files.every((file) => config.heuristics.tinyCopyExtensions.some((extension) => file.filename.endsWith(extension)));
+  return files.every((file) =>
+    config.heuristics.tinyCopyExtensions.some((extension) => file.filename.endsWith(extension)),
+  );
 }
 
 function touchesRiskyPaths(files: ChangedFile[], config: SlopblockConfig): boolean {
@@ -73,23 +75,43 @@ export function initialSkipDecision(files: ChangedFile[], config: SlopblockConfi
   }
 
   if (isDocsOnly(files, config)) {
-    return { outcome: "skip", reason: "Docs-only pull request matched configured skip rules.", certainty: "high" };
+    return {
+      outcome: "skip",
+      reason: "Docs-only pull request matched configured skip rules.",
+      certainty: "high",
+    };
   }
 
   if (isTestsOnly(files, config)) {
-    return { outcome: "skip", reason: "Tests-only pull request matched configured skip rules.", certainty: "high" };
+    return {
+      outcome: "skip",
+      reason: "Tests-only pull request matched configured skip rules.",
+      certainty: "high",
+    };
   }
 
   if (isDependencyOnly(files, config)) {
-    return { outcome: "skip", reason: "Dependency-only pull request matched configured skip rules.", certainty: "high" };
+    return {
+      outcome: "skip",
+      reason: "Dependency-only pull request matched configured skip rules.",
+      certainty: "high",
+    };
   }
 
   if (isTinyCopyChange(files, config)) {
-    return { outcome: "skip", reason: "Tiny copy-only change matched configured skip rules.", certainty: "high" };
+    return {
+      outcome: "skip",
+      reason: "Tiny copy-only change matched configured skip rules.",
+      certainty: "high",
+    };
   }
 
   if (files.every(isWhitespaceOrFormattingOnly)) {
-    return { outcome: "skip", reason: "Formatting-only pull request matched configured skip rules.", certainty: "high" };
+    return {
+      outcome: "skip",
+      reason: "Formatting-only pull request matched configured skip rules.",
+      certainty: "high",
+    };
   }
 
   const totalLines = files.reduce((sum, file) => sum + file.additions + file.deletions, 0);
@@ -97,9 +119,13 @@ export function initialSkipDecision(files: ChangedFile[], config: SlopblockConfi
     return {
       outcome: "quiz",
       reason: "Small diff, but not confidently obvious enough to skip without model review.",
-      certainty: "low"
+      certainty: "low",
     };
   }
 
-  return { outcome: "quiz", reason: "Diff is substantial enough to require a quiz.", certainty: "high" };
+  return {
+    outcome: "quiz",
+    reason: "Diff is substantial enough to require a quiz.",
+    certainty: "high",
+  };
 }

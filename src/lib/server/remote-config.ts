@@ -9,14 +9,14 @@ export async function loadRemoteConfig(
   owner: string,
   repo: string,
   ref: string,
-  configPath = ".github/slopblock.yml"
+  configPath = ".github/slopblock.yml",
 ) {
   try {
     const { data } = await octokit.rest.repos.getContent({
       owner,
       repo,
       path: configPath,
-      ref
+      ref,
     });
 
     if (Array.isArray(data) || data.type !== "file" || typeof data.content !== "string") {

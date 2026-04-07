@@ -25,7 +25,11 @@ function diffAnchorUrl(session: SessionRecord, anchor: string): string {
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function modelBadge(label: string, value?: string): string {
@@ -236,13 +240,22 @@ export function renderLoginPage(session: SessionRecord): string {
           Continue with GitHub
         </a>
       </div>
-    `
+    `,
   );
 }
 
-function renderQuestionBlock(question: QuizQuestion, index: number, total: number, session: SessionRecord, hashes: Record<string, string>): string {
+function renderQuestionBlock(
+  question: QuizQuestion,
+  index: number,
+  total: number,
+  session: SessionRecord,
+  hashes: Record<string, string>,
+): string {
   const anchors = (question.diffAnchors ?? [])
-    .map((a) => `<a href="${escapeHtml(diffAnchorUrl(session, a))}" target="_blank">${escapeHtml(a)}</a>`)
+    .map(
+      (a) =>
+        `<a href="${escapeHtml(diffAnchorUrl(session, a))}" target="_blank">${escapeHtml(a)}</a>`,
+    )
     .join(", ");
 
   const options = question.options
@@ -252,7 +265,7 @@ function renderQuestionBlock(question: QuizQuestion, index: number, total: numbe
           <span class="choice-key">${escapeHtml(opt.key)}</span>
           <span class="choice-text choice-markdown">${renderMarkdown(opt.text)}</span>
         </button>
-      `
+      `,
     )
     .join("");
 
@@ -296,7 +309,7 @@ export function renderQuizPage(session: SessionRecord, actorLogin: string): stri
           <div class="notice good">All questions answered correctly. The PR status has been updated.</div>
           <a class="button primary" href="${escapeHtml(prUrl)}">Back to pull request</a>
         </div>
-      `
+      `,
     );
   }
 
@@ -497,7 +510,7 @@ export function renderQuizPage(session: SessionRecord, actorLogin: string): stri
       </div>
       <div class="footer">Only the PR author can submit answers. All questions must be correct to pass.</div>
     `,
-    script
+    script,
   );
 }
 
@@ -513,6 +526,6 @@ export function renderErrorPage(title: string, message: string): string {
       </div>
       <h1>${escapeHtml(title)}</h1>
       <p>${escapeHtml(message)}</p>
-    `
+    `,
   );
 }

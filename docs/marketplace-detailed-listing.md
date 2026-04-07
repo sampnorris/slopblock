@@ -19,11 +19,13 @@
 ## Getting Started
 
 **Pricing:**
+
 - Personal accounts: free.
 - Organizations: see GitHub Marketplace for pricing.
 - Open source: contact us if you need an exception.
 
 **Setup:**
+
 1. Install SlopBlock from the GitHub Marketplace.
 2. Sign in to the settings dashboard and connect an LLM provider.
 3. Open a PR. If the change is worth checking, SlopBlock posts a quiz link. Pass it to unblock the merge.
@@ -31,9 +33,11 @@
 ## Example Prompts
 
 Trigger manually with a PR comment:
+
 - `/quiz` to generate or regenerate a quiz on any open PR.
 
 Example quiz questions:
+
 - "What does the new `validateSession()` guard do when the token is expired?"
 - "Which edge case is NOT handled by the updated retry logic?"
 - "What is the risk if this migration runs against production with existing rows?"

@@ -18,7 +18,7 @@ export function getGitHubApp(): App {
   if (!globalThis.__slopblockApp) {
     globalThis.__slopblockApp = new App({
       appId: requiredEnv("GITHUB_APP_ID"),
-      privateKey: requiredEnv("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n")
+      privateKey: requiredEnv("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n"),
     });
   }
 
@@ -29,11 +29,11 @@ export async function getInstallationOctokit(installationId: number) {
   const app = getGitHubApp();
   const installationAuthentication = (await app.octokit.auth({
     type: "installation",
-    installationId
+    installationId,
   })) as { token: string };
 
   return new Octokit({
-    auth: installationAuthentication.token
+    auth: installationAuthentication.token,
   });
 }
 

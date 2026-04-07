@@ -46,11 +46,13 @@ function parseCookies(header: string | undefined): Record<string, string> {
     header.split(";").map((part) => {
       const [key, ...rest] = part.trim().split("=");
       return [key, decodeURIComponent(rest.join("="))];
-    })
+    }),
   );
 }
 
-export function getSessionActor(req: { headers: { cookie?: string } }): { login: string } | undefined {
+export function getSessionActor(req: {
+  headers: { cookie?: string };
+}): { login: string } | undefined {
   const cookies = parseCookies(req.headers.cookie);
   return decodePayload<{ login: string }>(cookies[SESSION_COOKIE]);
 }
@@ -64,7 +66,9 @@ export function buildOAuthState(sessionId: string): string {
   return encodePayload({ sessionId, nonce: randomBytes(8).toString("hex") });
 }
 
-export function readOAuthState(value: string | undefined): { sessionId: string; nonce: string; returnTo?: string } | undefined {
+export function readOAuthState(
+  value: string | undefined,
+): { sessionId: string; nonce: string; returnTo?: string } | undefined {
   return decodePayload<{ sessionId: string; nonce: string; returnTo?: string }>(value);
 }
 
@@ -90,9 +94,9 @@ export async function exchangeCodeForLogin(code: string): Promise<string> {
     method: "POST",
     headers: {
       accept: "application/json",
-      "content-type": "application/json"
+      "content-type": "application/json",
     },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code })
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
   });
   const tokenJson = (await tokenResponse.json()) as { access_token?: string; error?: string };
   if (!tokenJson.access_token) {
@@ -103,8 +107,8 @@ export async function exchangeCodeForLogin(code: string): Promise<string> {
     headers: {
       authorization: `Bearer ${tokenJson.access_token}`,
       accept: "application/vnd.github+json",
-      "user-agent": "slopblock"
-    }
+      "user-agent": "slopblock",
+    },
   });
   const userJson = (await userResponse.json()) as { login?: string };
   if (!userJson.login) {

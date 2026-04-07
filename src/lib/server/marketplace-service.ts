@@ -28,7 +28,7 @@ export async function handleMarketplacePurchase(payload: any): Promise<void> {
     accountType: account?.type,
     planName: plan?.name,
     planId: plan?.id,
-    monthlyPriceCents: plan?.monthly_price_in_cents
+    monthlyPriceCents: plan?.monthly_price_in_cents,
   });
 
   if (!account?.login || !installationId) {
@@ -43,11 +43,7 @@ export async function handleMarketplacePurchase(payload: any): Promise<void> {
     return;
   }
 
-  if (
-    action === "purchased" ||
-    action === "changed" ||
-    action === "pending_change_cancelled"
-  ) {
+  if (action === "purchased" || action === "changed" || action === "pending_change_cancelled") {
     // purchased: new subscription
     // changed: plan upgrade or downgrade, or billing cycle change
     // pending_change_cancelled: a scheduled downgrade was cancelled — revert to current paid plan
@@ -58,7 +54,7 @@ export async function handleMarketplacePurchase(payload: any): Promise<void> {
       accountLogin: account.login,
       accountType: account.type ?? "User",
       marketplacePlan: resolvedPlan,
-      marketplacePlanId: plan?.id
+      marketplacePlanId: plan?.id,
     });
     return;
   }
@@ -68,7 +64,7 @@ export async function handleMarketplacePurchase(payload: any): Promise<void> {
     // We do not apply it yet — we wait for the `changed` event when it takes effect.
     logInfo("marketplace.purchase.pending_change_deferred", {
       accountLogin: account.login,
-      pendingPlanName: payload.previous_marketplace_purchase?.plan?.name
+      pendingPlanName: payload.previous_marketplace_purchase?.plan?.name,
     });
     return;
   }

@@ -16,7 +16,7 @@ export const load: LayoutServerLoad = async ({ request, url }) => {
   if (devMocksEnabled()) {
     return {
       actor: mockActor(),
-      installations: mockInstallations()
+      installations: mockInstallations(),
     };
   }
 
@@ -35,8 +35,8 @@ export const load: LayoutServerLoad = async ({ request, url }) => {
         account: {
           login: (installation.account as any)?.login ?? "unknown",
           avatar_url: (installation.account as any)?.avatar_url ?? "",
-          type: (installation.account as any)?.type ?? "User"
-        }
+          type: (installation.account as any)?.type ?? "User",
+        },
       });
     }
   } catch {
@@ -45,6 +45,6 @@ export const load: LayoutServerLoad = async ({ request, url }) => {
 
   return {
     actor: { login: actor.login },
-    installations
+    installations,
   };
 };

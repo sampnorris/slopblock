@@ -17,9 +17,6 @@ export const GET: RequestHandler = async ({ request }) => {
     return json({ ok: true, deleted, staleDays: STALE_DAYS });
   } catch (error) {
     logError("cron.cleanup.failed", error, {});
-    return json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    return json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 };

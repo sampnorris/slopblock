@@ -1,7 +1,7 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
-import { devMocksEnabled, mockActor, mockSession } from "$lib/server/dev-mocks.js";
+import { devMocksEnabled, mockSession } from "$lib/server/dev-mocks.js";
 import { getInstallationOctokit } from "$lib/server/github-app.js";
 import { getSessionById } from "$lib/server/session-store.js";
 import { markQuizPassed, requestNewQuiz } from "$lib/server/service.js";
@@ -16,7 +16,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       const answers = body?.answers;
       const correctCount = Object.entries(answers ?? {}).reduce((count, [questionId, answer]) => {
         const question = session.quiz?.questions.find((item) => item.id === questionId);
-        return count + (question && typeof answer === "string" && answer.toUpperCase() === question.correctOption ? 1 : 0);
+        return (
+          count +
+          (question && typeof answer === "string" && answer.toUpperCase() === question.correctOption
+            ? 1
+            : 0)
+        );
       }, 0);
       const allowedWrongAnswers = Math.max(0, session.allowedWrongAnswers ?? 0);
       const wrongCount = Math.max(0, session.questionCount - correctCount);
@@ -27,7 +32,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         correctCount,
         questionCount: session.questionCount,
         attemptNumber: 1,
-        message: wrongCount <= allowedWrongAnswers ? "Mock quiz passed." : undefined
+        message: wrongCount <= allowedWrongAnswers ? "Mock quiz passed." : undefined,
       });
     }
 
@@ -51,7 +56,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 
   if (actor.login !== session.authorLogin) {
-    return json({ ok: false, message: "Only the PR author can interact with this quiz." }, { status: 403 });
+    return json(
+      { ok: false, message: "Only the PR author can interact with this quiz." },
+      { status: 403 },
+    );
   }
 
   const body = await request.json();
@@ -68,7 +76,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
       const result = await markQuizPassed({ octokit, session, answers });
       return json(result);
     } catch (error) {
-      return json({ ok: false, message: error instanceof Error ? error.message : "Failed to grade quiz." }, { status: 400 });
+      return json(
+        { ok: false, message: error instanceof Error ? error.message : "Failed to grade quiz." },
+        { status: 400 },
+      );
     }
   }
 

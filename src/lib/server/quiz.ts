@@ -7,7 +7,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 }
 
-function normalizeOptionKey(value: unknown, index: number): QuizQuestion["options"][number]["key"] | undefined {
+function normalizeOptionKey(
+  value: unknown,
+  index: number,
+): QuizQuestion["options"][number]["key"] | undefined {
   if (typeof value === "string") {
     const candidate = value.trim().toUpperCase();
     if (OPTION_KEYS.includes(candidate as (typeof OPTION_KEYS)[number])) {
@@ -29,7 +32,14 @@ function normalizeOptionText(value: unknown): string | undefined {
     return undefined;
   }
 
-  const candidates = [record.text, record.value, record.option, record.content, record.body, record.description];
+  const candidates = [
+    record.text,
+    record.value,
+    record.option,
+    record.content,
+    record.body,
+    record.description,
+  ];
   for (const candidate of candidates) {
     if (typeof candidate === "string") {
       const text = normalizeWhitespace(candidate);
@@ -52,7 +62,7 @@ function normalizeOptions(value: unknown): QuizQuestion["options"] {
       if (typeof option === "string") {
         return {
           key: OPTION_KEYS[index],
-          text: normalizeWhitespace(option)
+          text: normalizeWhitespace(option),
         };
       }
 
@@ -73,7 +83,10 @@ function normalizeOptions(value: unknown): QuizQuestion["options"] {
     .slice(0, OPTION_KEYS.length);
 }
 
-function normalizeCorrectOption(value: unknown, options: QuizQuestion["options"]): QuizQuestion["correctOption"] | undefined {
+function normalizeCorrectOption(
+  value: unknown,
+  options: QuizQuestion["options"],
+): QuizQuestion["correctOption"] | undefined {
   if (typeof value === "number") {
     const index = value > 0 ? value - 1 : value;
     return options[index]?.key;
@@ -86,7 +99,9 @@ function normalizeCorrectOption(value: unknown, options: QuizQuestion["options"]
       return options.find((option) => option.key === asKey)?.key;
     }
 
-    return options.find((option) => normalizeWhitespace(option.text) === normalizeWhitespace(candidate))?.key;
+    return options.find(
+      (option) => normalizeWhitespace(option.text) === normalizeWhitespace(candidate),
+    )?.key;
   }
 
   return undefined;
@@ -101,24 +116,32 @@ function normalizeQuestion(value: unknown, index: number): QuizQuestion | undefi
   const prompt = typeof record.prompt === "string" ? normalizeWhitespace(record.prompt) : "";
   const options = normalizeOptions(record.options);
   const correctOption = normalizeCorrectOption(record.correctOption, options);
-  const explanation = typeof record.explanation === "string" ? normalizeWhitespace(record.explanation) : "";
+  const explanation =
+    typeof record.explanation === "string" ? normalizeWhitespace(record.explanation) : "";
   const diffAnchors = Array.isArray(record.diffAnchors)
-    ? record.diffAnchors.filter((anchor): anchor is string => typeof anchor === "string" && Boolean(normalizeWhitespace(anchor)))
+    ? record.diffAnchors.filter(
+        (anchor): anchor is string =>
+          typeof anchor === "string" && Boolean(normalizeWhitespace(anchor)),
+      )
     : [];
-  const focus = record.focus === "behavior" || record.focus === "risk" || record.focus === "implementation" ? record.focus : "behavior";
+  const focus =
+    record.focus === "behavior" || record.focus === "risk" || record.focus === "implementation"
+      ? record.focus
+      : "behavior";
 
   if (!prompt || options.length < 3 || !correctOption) {
     return undefined;
   }
 
   return {
-    id: typeof record.id === "string" && normalizeWhitespace(record.id) ? record.id : `q${index + 1}`,
+    id:
+      typeof record.id === "string" && normalizeWhitespace(record.id) ? record.id : `q${index + 1}`,
     prompt,
     options,
     correctOption,
     explanation: explanation || "Correct answer verified against the diff.",
     diffAnchors,
-    focus
+    focus,
   };
 }
 
@@ -126,12 +149,15 @@ export function normalizeQuizPayload(value: unknown): QuizPayload {
   const record = asRecord(value) ?? {};
   const summary = typeof record.summary === "string" ? normalizeWhitespace(record.summary) : "";
   const questions = Array.isArray(record.questions)
-    ? record.questions.map((question, index) => normalizeQuestion(question, index)).filter((question): question is QuizQuestion => Boolean(question))
+    ? record.questions
+        .map((question, index) => normalizeQuestion(question, index))
+        .filter((question): question is QuizQuestion => Boolean(question))
     : [];
 
   return {
-    summary: summary || "Review the questions below about the changed behavior in this pull request.",
-    questions
+    summary:
+      summary || "Review the questions below about the changed behavior in this pull request.",
+    questions,
   };
 }
 
@@ -141,7 +167,10 @@ export function validateQuizPayload(quiz: QuizPayload, expectedQuestionCount?: n
     issues.push("Quiz summary is empty.");
   }
 
-  if (typeof expectedQuestionCount === "number" && quiz.questions.length !== expectedQuestionCount) {
+  if (
+    typeof expectedQuestionCount === "number" &&
+    quiz.questions.length !== expectedQuestionCount
+  ) {
     issues.push(`Quiz must contain exactly ${expectedQuestionCount} questions.`);
   }
 
@@ -160,12 +189,16 @@ export function validateQuizPayload(quiz: QuizPayload, expectedQuestionCount?: n
     if (optionKeys.size !== question.options.length) {
       issues.push(`Question ${index + 1} contains duplicate option keys.`);
     }
-    const optionTexts = new Set(question.options.map((option) => normalizeWhitespace(option.text).toLowerCase()));
+    const optionTexts = new Set(
+      question.options.map((option) => normalizeWhitespace(option.text).toLowerCase()),
+    );
     if (optionTexts.size !== question.options.length) {
       issues.push(`Question ${index + 1} contains duplicate option text.`);
     }
     if (!question.options.some((option) => option.key === question.correctOption)) {
-      issues.push(`Question ${index + 1} has a correct option that does not exist in the options list.`);
+      issues.push(
+        `Question ${index + 1} has a correct option that does not exist in the options list.`,
+      );
     }
   });
 

@@ -7,7 +7,8 @@ function appBaseUrl(): string | undefined {
     return baseUrl.replace(/\/$/, "");
   }
 
-  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  const vercelUrl =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
   if (!vercelUrl) {
     return undefined;
   }
@@ -24,12 +25,17 @@ export function sessionAppUrl(session: SessionRecord): string | undefined {
   return `${baseUrl}/session/${session.id}`;
 }
 
-export async function listChangedFiles(octokit: any, owner: string, repo: string, pullNumber: number) {
+export async function listChangedFiles(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+) {
   return await octokit.paginate(octokit.rest.pulls.listFiles, {
     owner,
     repo,
     pull_number: pullNumber,
-    per_page: 100
+    per_page: 100,
   });
 }
 
@@ -50,7 +56,7 @@ export async function setCommitStatus(params: {
     state: params.state,
     context: params.context ?? "slopblock",
     description: params.description.slice(0, 140),
-    target_url: params.targetUrl
+    target_url: params.targetUrl,
   });
 }
 
@@ -68,7 +74,7 @@ export async function upsertIssueComment(params: {
         owner: params.owner,
         repo: params.repo,
         comment_id: params.commentId,
-        body: params.body
+        body: params.body,
       });
       return params.commentId;
     } catch (error: any) {
@@ -83,19 +89,25 @@ export async function upsertIssueComment(params: {
     owner: params.owner,
     repo: params.repo,
     issue_number: params.issueNumber,
-    body: params.body
+    body: params.body,
   });
   return created.data.id;
 }
 
-export async function ensureCommentReactions(octokit: any, owner: string, repo: string, commentId: number, count: number) {
+export async function ensureCommentReactions(
+  octokit: any,
+  owner: string,
+  repo: string,
+  commentId: number,
+  count: number,
+) {
   for (const reaction of REACTION_OPTIONS.slice(0, count)) {
     try {
       await octokit.rest.reactions.createForIssueComment({
         owner,
         repo,
         comment_id: commentId,
-        content: reaction.content
+        content: reaction.content,
       });
     } catch {
       // Ignore duplicates and permission quirks.
@@ -103,12 +115,17 @@ export async function ensureCommentReactions(octokit: any, owner: string, repo: 
   }
 }
 
-export async function deleteIssueCommentReaction(octokit: any, owner: string, repo: string, reactionId: number) {
+export async function deleteIssueCommentReaction(
+  octokit: any,
+  owner: string,
+  repo: string,
+  reactionId: number,
+) {
   try {
     await octokit.rest.reactions.deleteForIssueComment({
       owner,
       repo,
-      reaction_id: reactionId
+      reaction_id: reactionId,
     });
   } catch {
     // Best-effort cleanup only.

@@ -29,14 +29,14 @@ export const GET: RequestHandler = async ({ params, request }) => {
 
   try {
     const res = await fetch("https://openrouter.ai/api/v1/models", {
-      headers: { authorization: `Bearer ${settings.llmApiKey}` }
+      headers: { authorization: `Bearer ${settings.llmApiKey}` },
     });
 
     if (!res.ok) {
       return json({ models: [], source: "error", message: `OpenRouter returned ${res.status}` });
     }
 
-    const data = await res.json() as { data: OpenRouterModel[] };
+    const data = (await res.json()) as { data: OpenRouterModel[] };
     const models = data.data
       .filter((m) => m.id && m.name)
       .map((m) => ({
@@ -44,7 +44,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
         name: m.name,
         contextLength: m.context_length,
         promptPrice: m.pricing?.prompt,
-        completionPrice: m.pricing?.completion
+        completionPrice: m.pricing?.completion,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
 

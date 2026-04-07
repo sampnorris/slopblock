@@ -14,8 +14,8 @@ test("initialSkipDecision skips docs-only pull requests", () => {
       additions: 3,
       deletions: 1,
       changes: 4,
-      patch: "@@\n-old\n+new\n"
-    }
+      patch: "@@\n-old\n+new\n",
+    },
   ];
 
   const result = initialSkipDecision(files, config);
@@ -30,8 +30,8 @@ test("initialSkipDecision flags small non-obvious diffs for borderline review", 
       additions: 1,
       deletions: 1,
       changes: 2,
-      patch: "@@\n-export const enabled = false;\n+export const enabled = true;\n"
-    }
+      patch: "@@\n-export const enabled = false;\n+export const enabled = true;\n",
+    },
   ];
 
   const result = initialSkipDecision(files, config);
@@ -47,8 +47,8 @@ test("computeQuestionCount increases for risky or larger diffs", () => {
       additions: 40,
       deletions: 10,
       changes: 50,
-      patch: "@@\n-old\n+new\n"
-    }
+      patch: "@@\n-old\n+new\n",
+    },
   ];
 
   const count = computeQuestionCount(files, config);

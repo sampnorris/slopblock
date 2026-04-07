@@ -30,15 +30,24 @@ async function main(): Promise<void> {
 
   if (command === "quiz") {
     const diffSummary = await readFile(readArg("--diff") ?? "fixtures/diff.txt", "utf8");
-    const repoContext = JSON.parse(await readFile(readArg("--context") ?? "fixtures/context.json", "utf8"));
+    const repoContext = JSON.parse(
+      await readFile(readArg("--context") ?? "fixtures/context.json", "utf8"),
+    );
     const questionCount = Number(readArg("--questions") ?? "3");
     const quiz = await client.generateQuiz({ diffSummary, repoContext, questionCount });
-    const validation = await client.validateQuiz({ quiz, repoContext, diffSummary, expectedQuestionCount: questionCount });
+    const validation = await client.validateQuiz({
+      quiz,
+      repoContext,
+      diffSummary,
+      expectedQuestionCount: questionCount,
+    });
     process.stdout.write(`${JSON.stringify({ quiz, validation }, null, 2)}\n`);
     return;
   }
 
-  process.stdout.write("Usage: slopblock <skip|quiz> [--diff path] [--files path] [--context path] [--questions n]\n");
+  process.stdout.write(
+    "Usage: slopblock <skip|quiz> [--diff path] [--files path] [--context path] [--questions n]\n",
+  );
 }
 
 main().catch((error: unknown) => {

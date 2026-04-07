@@ -116,7 +116,7 @@
       >
         <span class="option-label">{emptyLabel}</span>
       </button>
-      {#each filtered as opt, i}
+      {#each filtered as opt, i (opt.value)}
         <button
           type="button"
           class="option"

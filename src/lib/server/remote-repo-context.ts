@@ -53,7 +53,7 @@ async function fetchTreeShaAndPaths(
   owner: string,
   repo: string,
   headSha: string,
-  limit: number
+  limit: number,
 ): Promise<{ treeSha: string; paths: string[] }> {
   const commit = await octokit.rest.git.getCommit({ owner, repo, commit_sha: headSha });
   const treeSha = commit.data.tree.sha as string;
@@ -61,18 +61,27 @@ async function fetchTreeShaAndPaths(
     owner,
     repo,
     tree_sha: treeSha,
-    recursive: "true"
+    recursive: "true",
   });
 
   const paths = (tree.data.tree ?? [])
-    .filter((entry: any) => entry.type === "blob" && typeof entry.path === "string" && isTextPath(entry.path))
+    .filter(
+      (entry: any) =>
+        entry.type === "blob" && typeof entry.path === "string" && isTextPath(entry.path),
+    )
     .slice(0, limit)
     .map((entry: any) => entry.path as string);
 
   return { treeSha, paths };
 }
 
-async function fetchFileText(octokit: any, owner: string, repo: string, path: string, ref: string): Promise<string | undefined> {
+async function fetchFileText(
+  octokit: any,
+  owner: string,
+  repo: string,
+  path: string,
+  ref: string,
+): Promise<string | undefined> {
   try {
     const { data } = await octokit.rest.repos.getContent({ owner, repo, path, ref });
     if (Array.isArray(data) || data.type !== "file" || typeof data.content !== "string") {
@@ -88,7 +97,11 @@ async function fetchFileText(octokit: any, owner: string, repo: string, path: st
 // Diff-focused context: extract only changed hunks + surrounding lines
 // ---------------------------------------------------------------------------
 
-function extractDiffContext(fullContent: string, patch: string | undefined, surroundingLines = 5): string {
+function extractDiffContext(
+  fullContent: string,
+  patch: string | undefined,
+  surroundingLines = 5,
+): string {
   if (!patch || !fullContent) {
     // No patch available (e.g., new file) — fall back to truncated full content
     return truncate(fullContent, 3000);
@@ -125,7 +138,11 @@ function extractDiffContext(fullContent: string, patch: string | undefined, surr
   // Expand changed lines with surrounding context
   const includedLines = new Set<number>();
   for (const lineNum of changedLineNumbers) {
-    for (let i = Math.max(0, lineNum - surroundingLines); i <= Math.min(lines.length - 1, lineNum + surroundingLines); i++) {
+    for (
+      let i = Math.max(0, lineNum - surroundingLines);
+      i <= Math.min(lines.length - 1, lineNum + surroundingLines);
+      i++
+    ) {
       includedLines.add(i);
     }
   }
@@ -157,7 +174,7 @@ function findRelatedSnippets(
   changedFiles: ChangedFile[],
   repoMap: string[],
   allFileContents: Map<string, string>,
-  config: SlopblockConfig
+  config: SlopblockConfig,
 ): RepoContext["relatedSnippets"] {
   // Collect identifiers mentioned in the diffs
   const diffIdentifiers = new Set<string>();
@@ -184,7 +201,9 @@ function findRelatedSnippets(
     const content = allFileContents.get(file.filename);
     if (!content) continue;
     // Match common import patterns: import ... from "path", require("path")
-    const importMatches = content.matchAll(/(?:from\s+["']([^"']+)["']|require\s*\(\s*["']([^"']+)["']\s*\))/g);
+    const importMatches = content.matchAll(
+      /(?:from\s+["']([^"']+)["']|require\s*\(\s*["']([^"']+)["']\s*\))/g,
+    );
     for (const match of importMatches) {
       const importPath = match[1] || match[2];
       if (importPath && !importPath.startsWith(".")) continue; // skip node_modules
@@ -217,7 +236,7 @@ function findRelatedSnippets(
     snippets.push({
       path: importedPath,
       reason: `Imported by changed file; defines: ${matchingIds.slice(0, 5).join(", ")}`,
-      snippet
+      snippet,
     });
     totalChars += snippet.length;
   }
@@ -241,7 +260,7 @@ function findRelatedSnippets(
     snippets.push({
       path: candidate,
       reason: `References: ${matchingIds.slice(0, 5).join(", ")}`,
-      snippet
+      snippet,
     });
     totalChars += snippet.length;
   }
@@ -251,7 +270,7 @@ function findRelatedSnippets(
 
 function resolveImportPath(dir: string, importPath: string, repoMap: string[]): string | undefined {
   // Normalize the import path relative to the importing file's directory
-  const parts = [...(dir ? dir.split("/") : [])];
+  const parts = dir ? dir.split("/") : [];
   for (const segment of importPath.split("/")) {
     if (segment === "..") parts.pop();
     else if (segment !== ".") parts.push(segment);
@@ -259,7 +278,18 @@ function resolveImportPath(dir: string, importPath: string, repoMap: string[]): 
   const base = parts.join("/");
 
   // Try exact match and common extensions
-  const extensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", "/index.ts", "/index.js", "/index.tsx"];
+  const extensions = [
+    "",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    "/index.ts",
+    "/index.js",
+    "/index.tsx",
+  ];
   for (const ext of extensions) {
     const candidate = base + ext;
     if (repoMap.includes(candidate)) return candidate;
@@ -305,10 +335,14 @@ export async function buildRemoteRepoContext(
   repo: string,
   headSha: string,
   changedFiles: ChangedFile[],
-  config: SlopblockConfig
+  config: SlopblockConfig,
 ): Promise<RepoContext> {
   const { treeSha, paths: repoMap } = await fetchTreeShaAndPaths(
-    octokit, owner, repo, headSha, config.contextBudget.maxRepoMapEntries
+    octokit,
+    owner,
+    repo,
+    headSha,
+    config.contextBudget.maxRepoMapEntries,
   );
 
   // Check cache
@@ -327,7 +361,7 @@ export async function buildRemoteRepoContext(
     changedFileContexts.push({
       path: file.filename,
       summary: `status=${file.status} additions=${file.additions} deletions=${file.deletions}`,
-      content: extractDiffContext(content, file.patch)
+      content: extractDiffContext(content, file.patch),
     });
   }
 
@@ -338,7 +372,9 @@ export async function buildRemoteRepoContext(
     .slice(0, config.contextBudget.maxRepoFiles);
 
   // Batch-fetch related file contents (only if we have identifiers to look for)
-  const diffHasIdentifiers = changedFiles.some((f) => f.patch && extractIdentifiers(f.patch).length > 0);
+  const diffHasIdentifiers = changedFiles.some(
+    (f) => f.patch && extractIdentifiers(f.patch).length > 0,
+  );
   if (diffHasIdentifiers) {
     // Fetch in parallel with concurrency limit
     const CONCURRENCY = 8;
@@ -348,7 +384,7 @@ export async function buildRemoteRepoContext(
         batch.map(async (p) => {
           const text = await fetchFileText(octokit, owner, repo, p, headSha);
           return [p, text] as const;
-        })
+        }),
       );
       for (const [p, text] of results) {
         if (text) allFileContents.set(p, text);
@@ -361,7 +397,7 @@ export async function buildRemoteRepoContext(
   const context: RepoContext = {
     repoMap,
     changedFileContexts,
-    relatedSnippets
+    relatedSnippets,
   };
 
   setCachedContext(cacheKey, context);

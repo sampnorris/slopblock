@@ -21,7 +21,7 @@ export interface PlanRecord {
 export async function isPaidPlan(installationId: string): Promise<boolean> {
   const row = await prisma.installationSettings.findUnique({
     where: { installationId },
-    select: { marketplacePlan: true }
+    select: { marketplacePlan: true },
   });
   return row?.marketplacePlan === "paid";
 }
@@ -37,8 +37,8 @@ export async function getPlan(installationId: string): Promise<PlanRecord | unde
       accountLogin: true,
       accountType: true,
       marketplacePlan: true,
-      marketplacePlanId: true
-    }
+      marketplacePlanId: true,
+    },
   });
 
   if (!row) return undefined;
@@ -48,7 +48,7 @@ export async function getPlan(installationId: string): Promise<PlanRecord | unde
     accountLogin: row.accountLogin,
     accountType: row.accountType,
     marketplacePlan: (row.marketplacePlan as MarketplacePlan) ?? "free",
-    marketplacePlanId: row.marketplacePlanId ?? undefined
+    marketplacePlanId: row.marketplacePlanId ?? undefined,
   };
 }
 
@@ -63,14 +63,14 @@ export async function upsertPlan(input: PlanRecord): Promise<void> {
       accountLogin: input.accountLogin,
       accountType: input.accountType,
       marketplacePlan: input.marketplacePlan,
-      marketplacePlanId: input.marketplacePlanId ?? null
+      marketplacePlanId: input.marketplacePlanId ?? null,
     },
     update: {
       accountLogin: input.accountLogin,
       accountType: input.accountType,
       marketplacePlan: input.marketplacePlan,
-      marketplacePlanId: input.marketplacePlanId ?? null
-    }
+      marketplacePlanId: input.marketplacePlanId ?? null,
+    },
   });
 
   logInfo("marketplace.plan.upserted", {
@@ -78,7 +78,7 @@ export async function upsertPlan(input: PlanRecord): Promise<void> {
     accountLogin: input.accountLogin,
     accountType: input.accountType,
     plan: input.marketplacePlan,
-    planId: input.marketplacePlanId
+    planId: input.marketplacePlanId,
   });
 }
 
@@ -88,7 +88,7 @@ export async function upsertPlan(input: PlanRecord): Promise<void> {
 export async function downgradeToFree(installationId: string): Promise<void> {
   await prisma.installationSettings.updateMany({
     where: { installationId },
-    data: { marketplacePlan: "free", marketplacePlanId: null }
+    data: { marketplacePlan: "free", marketplacePlanId: null },
   });
 
   logInfo("marketplace.plan.downgraded_to_free", { installationId });
@@ -107,8 +107,8 @@ export async function countQuizGenerationsToday(installationId: string): Promise
       installationId: String(installationId),
       createdAt: { gte: startOfDay },
       status: {
-        notIn: [SessionStatus.quota_exceeded, SessionStatus.skipped]
-      }
-    }
+        notIn: [SessionStatus.quota_exceeded, SessionStatus.skipped],
+      },
+    },
   });
 }

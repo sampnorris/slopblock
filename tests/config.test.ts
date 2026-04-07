@@ -40,8 +40,8 @@ test("loadConfig merges overrides", () => {
       "  validationModel: model-b",
       "  skipModel: model-c",
       "heuristics:",
-      "  skipBots: false"
-    ].join("\n")
+      "  skipBots: false",
+    ].join("\n"),
   );
 
   const config = loadConfig(".github/slopblock.yml", workspace);
@@ -59,12 +59,14 @@ test("loadConfig merges overrides", () => {
 });
 
 test("installation config values remain available for provider selection", () => {
-  const config = loadConfigFromStringForTest([
-    "llm:",
-    "  baseUrl: https://openrouter.ai/api/v1",
-    "  apiKey: openrouter-key",
-    "  generationModel: anthropic/claude-sonnet-4.5"
-  ].join("\n"));
+  const config = loadConfigFromStringForTest(
+    [
+      "llm:",
+      "  baseUrl: https://openrouter.ai/api/v1",
+      "  apiKey: openrouter-key",
+      "  generationModel: anthropic/claude-sonnet-4.5",
+    ].join("\n"),
+  );
 
   assert.equal(config.llm.baseUrl, "https://openrouter.ai/api/v1");
   assert.equal(config.llm.apiKey, "openrouter-key");
@@ -72,12 +74,9 @@ test("installation config values remain available for provider selection", () =>
 });
 
 test("loadConfig keeps explicit blank model values instead of defaulting", () => {
-  const config = loadConfigFromStringForTest([
-    "llm:",
-    "  generationModel: ''",
-    "  validationModel: ''",
-    "  skipModel: ''"
-  ].join("\n"));
+  const config = loadConfigFromStringForTest(
+    ["llm:", "  generationModel: ''", "  validationModel: ''", "  skipModel: ''"].join("\n"),
+  );
 
   assert.equal(config.llm.generationModel, "");
   assert.equal(config.llm.validationModel, "");

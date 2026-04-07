@@ -10,13 +10,17 @@ function sha256Hex(input: string): string {
 }
 
 export const load: PageServerLoad = async ({ params, request }) => {
-  const session = devMocksEnabled() ? mockSession(params.token) : await getSessionById(params.token);
+  const session = devMocksEnabled()
+    ? mockSession(params.token)
+    : await getSessionById(params.token);
   if (!session) {
     error(404, "This quiz link is no longer valid.");
   }
 
   const cookieHeader = request.headers.get("cookie") ?? undefined;
-  const actor = devMocksEnabled() ? mockActor() : getSessionActor({ headers: { cookie: cookieHeader } } as any);
+  const actor = devMocksEnabled()
+    ? mockActor()
+    : getSessionActor({ headers: { cookie: cookieHeader } } as any);
 
   const prUrl = `https://github.com/${session.repositoryOwner}/${session.repositoryName}/pull/${session.pullNumber}`;
   const questions = session.quiz?.questions ?? [];
@@ -46,15 +50,17 @@ export const load: PageServerLoad = async ({ params, request }) => {
       validationModel: session.validationModel,
       summary: session.summary,
       traceId: session.traceId,
-      questions: actor ? questions.map((q) => ({
-        id: q.id,
-        prompt: q.prompt,
-        options: q.options,
-        correctOption: q.correctOption,
-        explanation: q.explanation,
-        diffAnchors: q.diffAnchors,
-        focus: q.focus
-      })) : [],
+      questions: actor
+        ? questions.map((q) => ({
+            id: q.id,
+            prompt: q.prompt,
+            options: q.options,
+            correctOption: q.correctOption,
+            explanation: q.explanation,
+            diffAnchors: q.diffAnchors,
+            focus: q.focus,
+          }))
+        : [],
     },
     actor: actor ? { login: actor.login } : null,
     prUrl,

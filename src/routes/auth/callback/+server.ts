@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ url }) => {
     status: 302,
     headers: {
       location,
-      "set-cookie": cookie
-    }
+      "set-cookie": cookie,
+    },
   });
 };

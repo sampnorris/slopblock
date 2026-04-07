@@ -23,7 +23,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 
   if (actor.login !== session.authorLogin) {
-    return json({ ok: false, message: "Only the PR author can provide feedback." }, { status: 403 });
+    return json(
+      { ok: false, message: "Only the PR author can provide feedback." },
+      { status: 403 },
+    );
   }
 
   const body = await request.json();
@@ -41,7 +44,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
   await submitFeedbackScore({
     traceId: session.traceId,
     value,
-    comment: typeof body?.comment === "string" ? body.comment : undefined
+    comment: typeof body?.comment === "string" ? body.comment : undefined,
   });
 
   return json({ ok: true });

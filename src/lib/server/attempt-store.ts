@@ -8,7 +8,10 @@ export interface GradedQuizAttempt {
   passed: boolean;
 }
 
-export function gradeQuizAnswers(session: SessionRecord, rawAnswers: Record<string, unknown>): GradedQuizAttempt {
+export function gradeQuizAnswers(
+  session: SessionRecord,
+  rawAnswers: Record<string, unknown>,
+): GradedQuizAttempt {
   const questions = session.quiz?.questions ?? [];
 
   if (questions.length === 0) {
@@ -35,7 +38,7 @@ export function gradeQuizAnswers(session: SessionRecord, rawAnswers: Record<stri
     answers,
     questionCount: questions.length,
     correctCount,
-    passed: correctCount === questions.length
+    passed: correctCount === questions.length,
   };
 }
 
@@ -53,19 +56,22 @@ export async function getAttemptStats(installationId: string): Promise<AttemptSt
     prisma.quizAttempt.groupBy({
       by: ["authorLogin"],
       where: { installationId },
-      _count: true
-    })
+      _count: true,
+    }),
   ]);
 
   return {
     totalAttempts: total,
     passedAttempts: passed,
     failedAttempts: total - passed,
-    uniqueAuthors: authors.length
+    uniqueAuthors: authors.length,
   };
 }
 
-export async function createQuizAttempt(session: SessionRecord, graded: GradedQuizAttempt): Promise<{ attemptNumber: number }> {
+export async function createQuizAttempt(
+  session: SessionRecord,
+  graded: GradedQuizAttempt,
+): Promise<{ attemptNumber: number }> {
   const sessionId = session.id;
 
   return await prisma.$transaction(async (tx) => {
@@ -76,8 +82,8 @@ export async function createQuizAttempt(session: SessionRecord, graded: GradedQu
           : {
               repositoryOwner: session.repositoryOwner,
               repositoryName: session.repositoryName,
-              pullNumber: session.pullNumber
-            }
+              pullNumber: session.pullNumber,
+            },
       })) + 1;
 
     await tx.quizAttempt.create({
@@ -97,8 +103,8 @@ export async function createQuizAttempt(session: SessionRecord, graded: GradedQu
         questionCount: graded.questionCount,
         correctCount: graded.correctCount,
         passed: graded.passed,
-        answers: graded.answers
-      }
+        answers: graded.answers,
+      },
     });
 
     return { attemptNumber };
