@@ -5,6 +5,11 @@ title: Privacy Policy
 <svelte:head>
 
   <title>Privacy Policy — SlopBlock</title>
+  <meta name="description" content="SlopBlock's privacy policy. Learn how we handle your GitHub data, pull request diffs, and quiz responses. No data is sold or shared with third parties." />
+  <meta property="og:title" content="Privacy Policy — SlopBlock" />
+  <meta property="og:description" content="SlopBlock's privacy policy. Learn how we handle your GitHub data, pull request diffs, and quiz responses." />
+  <meta name="twitter:title" content="Privacy Policy — SlopBlock" />
+  <meta name="twitter:description" content="SlopBlock's privacy policy. Learn how we handle your GitHub data, pull request diffs, and quiz responses." />
 </svelte:head>
 
 # Privacy Policy

@@ -4,6 +4,12 @@
  * Import from "$lib/constants" so every reference stays in sync.
  */
 
+// ── Site ────────────────────────────────────────────────────────────
+export const SITE_URL = "https://slopblock.pro";
+export const SITE_NAME = "SlopBlock";
+export const SITE_DESCRIPTION =
+  "SlopBlock gates pull request merges behind a short quiz based on the actual diff. If the PR matters, the author has to prove they understand the code before it ships.";
+
 // ── Contact ─────────────────────────────────────────────────────────
 export const CONTACT_EMAIL = "samuel@samscript.dev";
 

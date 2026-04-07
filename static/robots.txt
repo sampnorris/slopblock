@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /session/
+Disallow: /settings/
+
+Sitemap: https://slopblock.pro/sitemap.xml

@@ -1,13 +1,39 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-  import { GITHUB_APP_INSTALL_URL, GITHUB_APP_URL } from "$lib/constants";
+  import { GITHUB_APP_INSTALL_URL, GITHUB_APP_URL, SITE_URL, SITE_NAME } from "$lib/constants";
 
   let { data } = $props();
   let activeTab: "solo" | "team" = $state("solo");
+
+  const pageTitle = "SlopBlock — Quiz PR Authors on Their Own Diffs Before Merge";
+  const pageDescription =
+    "SlopBlock is a GitHub App that gates pull request merges behind a short comprehension quiz based on the actual diff. Stop rubber-stamping AI-generated code.";
+
+  const softwareJsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: SITE_NAME,
+    url: SITE_URL,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Web",
+    description: pageDescription,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  });
 </script>
 
 <svelte:head>
-  <title>SlopBlock</title>
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={pageDescription} />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={pageDescription} />
+  {@html `<script type="application/ld+json">${softwareJsonLd}</script>`}
 </svelte:head>
 
 <div class="lp">
