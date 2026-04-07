@@ -45,28 +45,40 @@ export const publicDemoQuiz = {
       options: [
         {
           key: "A",
-          text: "An answers object keyed by question ID must be present in the request body.",
+          text: "A `score` number pre-calculated by the client must be included in the request body.",
         },
-        { key: "B", text: "A score number must already be calculated on the client." },
-        { key: "C", text: "A passed: true flag must be sent with the answers." },
+        {
+          key: "B",
+          text: "An `answers` object keyed by question ID must be present in the request body.",
+        },
+        {
+          key: "C",
+          text: "A `passed: true` flag must accompany the answers in the request body.",
+        },
       ],
-      correctOption: "A",
+      correctOption: "B",
       explanation:
         "The route now rejects requests that do not include an answers object for grading.",
       diffAnchors: ["src/routes/api/session/[token]/answer/+server.ts"],
     },
     {
       id: "q2",
-      prompt: "Why does the handler wrap markQuizPassed(...) in a try/catch?",
+      prompt: "Why does the handler wrap `markQuizPassed(...)` in a try/catch?",
       options: [
         {
           key: "A",
-          text: "So grading errors can be turned into a 400 JSON response instead of crashing the request.",
+          text: "So the handler can suppress failures and still return `ok: true` to the client.",
         },
-        { key: "B", text: "So the server can retry grading up to three times." },
-        { key: "C", text: "So the handler can swallow failures and still return ok: true." },
+        {
+          key: "B",
+          text: "So the server can retry the `markQuizPassed` call up to three times on failure.",
+        },
+        {
+          key: "C",
+          text: "So grading errors are returned as a 400 JSON response instead of crashing the request.",
+        },
       ],
-      correctOption: "A",
+      correctOption: "C",
       explanation:
         "Validation and grading failures are returned as explicit client-visible errors with status 400.",
       diffAnchors: ["src/routes/api/session/[token]/answer/+server.ts"],
@@ -77,13 +89,16 @@ export const publicDemoQuiz = {
       options: [
         {
           key: "A",
-          text: "They now fail fast with an error message instead of slipping through to grading.",
+          text: "They are rejected early with a 400 error before reaching the grading logic.",
         },
         {
           key: "B",
-          text: "They automatically generate default answers for the missing questions.",
+          text: "They are filled in with default answers by the server before grading proceeds.",
         },
-        { key: "C", text: "They are accepted, but the score is capped at 50 percent." },
+        {
+          key: "C",
+          text: "They are accepted by the endpoint but the resulting score is capped at 50%.",
+        },
       ],
       correctOption: "A",
       explanation:

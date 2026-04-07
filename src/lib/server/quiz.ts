@@ -107,6 +107,42 @@ function normalizeCorrectOption(
   return undefined;
 }
 
+/**
+ * Fisher-Yates shuffle (in-place) of an options array. After shuffling,
+ * the options are re-keyed A, B, C, ... in their new order and the
+ * `correctOption` is updated to reflect the new key of the correct answer.
+ */
+function shuffleOptions(question: QuizQuestion): QuizQuestion {
+  const entries = [...question.options];
+
+  // Fisher-Yates shuffle
+  for (let i = entries.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [entries[i], entries[j]] = [entries[j], entries[i]];
+  }
+
+  // Find the original correct answer text before re-keying
+  const correctText = question.options.find(
+    (option) => option.key === question.correctOption,
+  )?.text;
+
+  // Re-key options in their new shuffled order
+  const shuffled = entries.map((option, idx) => ({
+    key: OPTION_KEYS[idx],
+    text: option.text,
+  }));
+
+  // Update correctOption to the new key
+  const newCorrectOption =
+    shuffled.find((option) => option.text === correctText)?.key ?? question.correctOption;
+
+  return {
+    ...question,
+    options: shuffled,
+    correctOption: newCorrectOption,
+  };
+}
+
 function normalizeQuestion(value: unknown, index: number): QuizQuestion | undefined {
   const record = asRecord(value);
   if (!record) {
@@ -152,6 +188,7 @@ export function normalizeQuizPayload(value: unknown): QuizPayload {
     ? record.questions
         .map((question, index) => normalizeQuestion(question, index))
         .filter((question): question is QuizQuestion => Boolean(question))
+        .map(shuffleOptions)
     : [];
 
   return {

@@ -66,11 +66,63 @@ test("normalizeQuizPayload converts string options into keyed options", () => {
   });
 
   assert.equal(quiz.questions.length, 1);
+  // After shuffling, keys are always A, B, C in order
   assert.deepEqual(
     quiz.questions[0].options.map((option) => option.key),
     ["A", "B", "C"],
   );
-  assert.equal(quiz.questions[0].correctOption, "B");
+  // The correct option key should point to the option with text "second"
+  const correctKey = quiz.questions[0].correctOption;
+  const correctOption = quiz.questions[0].options.find((o) => o.key === correctKey);
+  assert.equal(correctOption?.text, "second");
+  // All three texts should still be present
+  const texts = new Set(quiz.questions[0].options.map((o) => o.text));
+  assert.ok(texts.has("first"));
+  assert.ok(texts.has("second"));
+  assert.ok(texts.has("third"));
+});
+
+test("normalizeQuizPayload shuffles options and correctOption tracks correctly", () => {
+  // Run normalization many times; if shuffling is working, the correct option
+  // should not always land on the same key.
+  const correctKeys = new Set<string>();
+  for (let i = 0; i < 50; i++) {
+    const quiz = normalizeQuizPayload({
+      summary: "summary",
+      questions: [
+        {
+          prompt: "What changed?",
+          options: [
+            { key: "A", text: "alpha" },
+            { key: "B", text: "beta" },
+            { key: "C", text: "gamma" },
+          ],
+          correctOption: "A",
+          explanation: "because",
+          diffAnchors: ["src/file.ts"],
+        },
+      ],
+    });
+
+    const q = quiz.questions[0];
+    // correctOption must always point to the "alpha" text regardless of position
+    const correctOption = q.options.find((o) => o.key === q.correctOption);
+    assert.equal(correctOption?.text, "alpha", "correctOption must track the correct text");
+
+    // Keys are always A, B, C in order
+    assert.deepEqual(
+      q.options.map((o) => o.key),
+      ["A", "B", "C"],
+    );
+
+    correctKeys.add(q.correctOption);
+  }
+
+  // With 50 runs and 3 positions, it's astronomically unlikely all land on the same key
+  assert.ok(
+    correctKeys.size > 1,
+    `Expected correct answer to appear in multiple positions, but only saw: ${[...correctKeys].join(", ")}`,
+  );
 });
 
 test("validateQuizPayload rejects questions with more than 3 options", () => {

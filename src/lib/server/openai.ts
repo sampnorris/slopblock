@@ -371,6 +371,8 @@ export class OpenAICompatibleClient {
       "correctOption must be a single option key letter: A, B, or C.",
       "diffAnchors should reference changed file paths or changed symbols.",
       "If prior validator feedback is present, fix those issues instead of repeating them.",
+      "CRITICAL: All three options must be written at the same level of specificity and detail. If the correct answer mentions a specific function name, file, or behavior, the distractors must also reference specific (but wrong) function names, files, or behaviors. Never make the correct answer obviously longer, more detailed, or more concrete than the distractors.",
+      "Vary which key (A, B, or C) is the correct answer across questions. Do not default to A.",
     ];
 
     if (input.customQuizInstructions) {
