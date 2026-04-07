@@ -1,7 +1,8 @@
 <script lang="ts">
   import SlopBlockLogo from "$lib/components/SlopBlockLogo.svelte";
-  import { GITHUB_APP_INSTALL_URL, GITHUB_APP_URL, GITHUB_REPO_URL } from "$lib/constants";
+  import { GITHUB_APP_INSTALL_URL, GITHUB_APP_URL } from "$lib/constants";
 
+  let { data } = $props();
   let activeTab: "solo" | "team" = $state("solo");
 </script>
 
@@ -43,9 +44,15 @@
         >
           Install on GitHub
         </a>
-        <a class="btn btn-ghost" href="/settings">
-          Open Settings
-        </a>
+        {#if data.isLoggedIn}
+          <a class="btn btn-ghost" href="/settings">
+            Open Settings
+          </a>
+        {:else}
+          <a class="btn btn-ghost" href="/demo">
+            Try Demo
+          </a>
+        {/if}
       </div>
     </div>
   </section>
