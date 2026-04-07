@@ -243,13 +243,8 @@
         >
           View on GitHub
         </a>
-        <a
-          class="btn btn-ghost"
-          href={GITHUB_REPO_URL}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Documentation
+        <a class="btn btn-ghost" href="/demo">
+          Try Demo
         </a>
       </div>
     </div>
