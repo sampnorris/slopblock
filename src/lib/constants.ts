@@ -20,11 +20,10 @@ export const GITHUB_REPO_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO
 export const GITHUB_ISSUES_URL = `${GITHUB_REPO_URL}/issues`;
 export const GITHUB_PROFILE_URL = `https://github.com/${GITHUB_OWNER}`;
 
-// ── GitHub App / Marketplace ────────────────────────────────────────
+// ── GitHub App ──────────────────────────────────────────────────────
 export const GITHUB_APP_SLUG = "slopblock-quiz";
 export const GITHUB_APP_URL = `https://github.com/apps/${GITHUB_APP_SLUG}`;
 export const GITHUB_APP_INSTALL_URL = `${GITHUB_APP_URL}/installations/new`;
-export const GITHUB_MARKETPLACE_URL = "https://github.com/marketplace/slopblock-quiz";
 
 // ── Donations ───────────────────────────────────────────────────────
 export const BUY_ME_A_COFFEE_URL = "https://buymeacoffee.com/samscript";

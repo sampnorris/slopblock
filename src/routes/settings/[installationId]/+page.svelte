@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GITHUB_MARKETPLACE_URL } from "$lib/constants";
+  import { BUY_ME_A_COFFEE_URL } from "$lib/constants";
   import type { PageData } from "./$types";
   import SearchSelect from "$lib/components/SearchSelect.svelte";
   import { page } from "$app/state";
@@ -40,6 +40,7 @@
   let skipForks = $state(_init.settings?.skipForks ?? true);
   let customSystemPrompt = $state(_init.settings?.customSystemPrompt ?? "");
   let customQuizInstructions = $state(_init.settings?.customQuizInstructions ?? "");
+  let supporterEmail = $state(_init.settings?.supporterEmail ?? "");
   let maxTokenBudget = $state<number | undefined>(_init.settings?.maxTokenBudget ?? undefined);
   let tokenBudgetFallback = $state<"pass" | "fail">(_init.settings?.tokenBudgetFallback === "fail" ? "fail" : "pass");
 
@@ -151,7 +152,7 @@
     if (!modelsConfigured) { saveMessage = "Select generation, validation, and skip models before saving."; saveOk = false; return; }
     saving = true; saveMessage = "";
     try {
-      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
+      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, supporterEmail: supporterEmail.trim() || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
       const json = await res.json();
       if (json.ok) { saveMessage = "Settings saved."; saveOk = true; }
       else { saveMessage = json.error || "Failed to save."; saveOk = false; }
@@ -194,15 +195,19 @@
           </div>
         </div>
         <p>Configure LLM provider and quiz behavior.</p>
-        {#if !isPaid && isOrg}
-          <div class="plan-warning">
-            Organization repositories require a paid plan. Quiz generation is blocked.
-            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade</a>
-          </div>
-        {:else if !isPaid}
+        {#if !isPaid}
           <div class="plan-notice">
-            Free plan: up to 10 quiz generations per day, personal repositories only.
-            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade for unlimited</a>
+            <p>Free plan: up to 10 quiz generations per day.</p>
+            <div class="supporter-row">
+              <label for="supporterEmail">Your email</label>
+              <input id="supporterEmail" type="email" bind:value={supporterEmail} placeholder="you@example.com" class="supporter-input" />
+              <a class="button primary small" href={BUY_ME_A_COFFEE_URL} target="_blank">Support SlopBlock</a>
+            </div>
+            <span class="hint">Enter the email you use on Buy Me a Coffee, then support us. We'll match your payment and unlock unlimited quizzes.</span>
+          </div>
+        {:else}
+          <div class="plan-notice plan-notice-paid">
+            Unlimited quiz generations. Thank you for supporting SlopBlock!
           </div>
         {/if}
       </div>
@@ -473,26 +478,15 @@
         </section>
 
         <!-- Custom Prompts -->
-        <section class="sc" class:sc-locked={!isPaid}>
+        <section class="sc">
           <div class="sc-head">
             <div class="sc-head-row">
               <h2>Custom Prompts</h2>
-              {#if !isPaid}
-                <span class="paid-badge">Paid</span>
-              {/if}
             </div>
             <p class="sc-desc">Appended to the default prompts.</p>
           </div>
-          {#if isPaid}
-            <div class="field"><label for="systemPrompt">System Prompt</label><textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications..."></textarea><span class="hint">Steers the overall tone, focus areas, or domain-specific context.</span></div>
-            <div class="field"><label for="quizInstructions">Quiz Instructions</label><textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage..."></textarea><span class="hint">Specific question requirements or exclusions.</span></div>
-          {:else}
-            <div class="upgrade-gate">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              Custom prompts are available on the paid plan.
-              <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade on GitHub Marketplace</a>
-            </div>
-          {/if}
+          <div class="field"><label for="systemPrompt">System Prompt</label><textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications..."></textarea><span class="hint">Steers the overall tone, focus areas, or domain-specific context.</span></div>
+          <div class="field"><label for="quizInstructions">Quiz Instructions</label><textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage..."></textarea><span class="hint">Specific question requirements or exclusions.</span></div>
         </section>
       </div>
 
@@ -524,33 +518,31 @@
   .badge-free { background: var(--gray-50); color: var(--muted); border: 1px solid var(--line); }
   .badge-org { background: rgba(124, 58, 237, 0.08); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.25); }
 
-  .plan-notice, .plan-warning {
-    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-md);
+  .plan-notice {
+    margin-top: 10px; padding: 12px 14px; border-radius: var(--radius-md);
     font-size: 13px; line-height: 1.5;
+    background: var(--gray-50); border: 1px solid var(--line); color: var(--muted);
   }
-  .plan-notice { background: var(--gray-50); border: 1px solid var(--line); color: var(--muted); }
-  .plan-warning { background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: #dc2626; }
-  .plan-notice a, .plan-warning a { font-weight: 600; text-decoration: underline; }
+  .plan-notice p { margin: 0 0 8px; }
+  .plan-notice a { font-weight: 600; text-decoration: underline; }
+  .plan-notice-paid {
+    background: rgba(22, 163, 74, 0.06); border-color: rgba(22, 163, 74, 0.2); color: var(--good);
+  }
+  .supporter-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .supporter-row label { font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .supporter-input {
+    flex: 1; min-width: 180px; padding: 6px 10px; border-radius: var(--radius-md);
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: 13px;
+  }
+  .supporter-input:focus { border-color: var(--accent); outline: none; }
+  :global(.button.small) { padding: 6px 14px; font-size: 12px; white-space: nowrap; }
 
   .sc-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .sc-head-row h2 { margin-bottom: 0; }
 
-  .paid-badge {
-    display: inline-flex; align-items: center;
-    padding: 2px 8px; border-radius: 999px;
-    font: 700 10px/1 "DM Mono", monospace; letter-spacing: 0.05em; text-transform: uppercase;
-    background: rgba(232, 112, 154, 0.12); color: var(--accent); border: 1px solid rgba(232, 112, 154, 0.3);
-  }
 
-  .sc-locked { opacity: 0.75; }
-
-  .upgrade-gate {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px; border-radius: var(--radius-md);
-    border: 1px dashed var(--line); background: var(--gray-50);
-    font-size: 13px; color: var(--muted);
-  }
-  .upgrade-gate a { font-weight: 600; color: var(--accent); white-space: nowrap; }
 
   /* Setup TODO banner */
   .setup-todo {

@@ -23,6 +23,7 @@ model InstallationSettings {
   accountType      String   @default("User")
   marketplacePlan  String?
   marketplacePlanId Int?
+  supporterEmail   String?
   llmApiKeyEncrypted String?
   llmBaseUrl       String?
   llmGenerationModel String?

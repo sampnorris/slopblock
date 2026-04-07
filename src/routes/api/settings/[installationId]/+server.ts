@@ -164,6 +164,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
     customSystemPrompt: body.customSystemPrompt ?? undefined,
     customQuizInstructions: body.customQuizInstructions ?? undefined,
+    supporterEmail: body.supporterEmail ?? undefined,
     allowedWrongAnswers: allowedWrongAnswers ?? undefined,
     maxTokenBudget: maxTokenBudget ?? undefined,
     tokenBudgetFallback:

@@ -25,6 +25,7 @@ export interface SettingsRecord {
   maxTokenBudget?: number;
   tokenBudgetFallback?: string;
   allowedWrongAnswers?: number;
+  supporterEmail?: string;
 }
 
 function decryptApiKey(encrypted: string | null): string | undefined {
@@ -61,6 +62,7 @@ function fromRow(row: any): SettingsRecord {
     maxTokenBudget: (row as any).maxTokenBudget ?? undefined,
     tokenBudgetFallback: (row as any).tokenBudgetFallback ?? undefined,
     allowedWrongAnswers: (row as any).allowedWrongAnswers ?? undefined,
+    supporterEmail: row.supporterEmail ?? undefined,
   };
 }
 
@@ -111,6 +113,7 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       skipForks: input.skipForks,
       customSystemPrompt: input.customSystemPrompt,
       customQuizInstructions: input.customQuizInstructions,
+      supporterEmail: input.supporterEmail ?? null,
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
       allowedWrongAnswers: input.allowedWrongAnswers ?? null,
@@ -138,6 +141,7 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       skipForks: input.skipForks,
       customSystemPrompt: input.customSystemPrompt,
       customQuizInstructions: input.customQuizInstructions,
+      ...(input.supporterEmail !== undefined ? { supporterEmail: input.supporterEmail } : {}),
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
       allowedWrongAnswers: input.allowedWrongAnswers ?? null,

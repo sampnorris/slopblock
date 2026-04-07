@@ -16,10 +16,10 @@ export function mockActor() {
 }
 
 // Mock installation IDs and their plan states:
-//   101 - acme-inc (Org, paid)
-//   202 - alice-dev (User, free)
-//   303 - bob-corp (Org, free — blocked)
-//   404 - carol (User, paid)
+//   101 - acme-inc (Org, paid via BMAC)
+//   202 - alice-dev (User, free — 10/day limit)
+//   303 - bob-corp (Org, free — 10/day limit)
+//   404 - carol (User, paid via BMAC)
 export function mockInstallations() {
   return [
     {
@@ -58,10 +58,10 @@ export function mockInstallations() {
 }
 
 export function mockSettings(installationId: string): SettingsRecord {
-  // 101 = acme-inc (Org, paid)
-  // 202 = alice-dev (User, free)
-  // 303 = bob-corp (Org, free — would be blocked on quiz generation)
-  // 404 = carol (User, paid)
+  // 101 = acme-inc (Org, paid via BMAC)
+  // 202 = alice-dev (User, free — 10/day limit)
+  // 303 = bob-corp (Org, free — 10/day limit)
+  // 404 = carol (User, paid via BMAC)
   const planMap: Record<string, { accountType: string; marketplacePlan: "free" | "paid" }> = {
     "101": { accountType: "Organization", marketplacePlan: "paid" },
     "202": { accountType: "User", marketplacePlan: "free" },
@@ -93,6 +93,7 @@ export function mockSettings(installationId: string): SettingsRecord {
     skipForks: true,
     customSystemPrompt: "",
     customQuizInstructions: "",
+    supporterEmail: marketplacePlan === "paid" ? "supporter@example.com" : undefined,
   };
 }
 
