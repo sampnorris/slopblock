@@ -17,6 +17,20 @@
   let saving = $state(false);
   let saveMessage = $state("");
   let saveOk = $state(false);
+
+  // Model test state
+  interface ModelTestResult {
+    model: string;
+    role: "generation" | "validation" | "skip";
+    ok: boolean;
+    error?: string;
+    latencyMs?: number;
+  }
+  let testing = $state(false);
+  let testResults = $state<ModelTestResult[]>([]);
+  let testRan = $state(false);
+  let testPassed = $state(false);
+  let testMessage = $state("");
   let provider = $state<"openrouter" | "manual" | "none">(_init.provider as any);
   let hasApiKey = $state(_init.hasApiKey);
   let hasBaseUrl = $state(Boolean(_init.settings?.llmBaseUrl));
@@ -147,9 +161,63 @@
     finally { settingKey = false; }
   }
 
+  // Reset test state when models change
+  function resetTest() {
+    testRan = false;
+    testPassed = false;
+    testResults = [];
+    testMessage = "";
+  }
+
+  // Watch for model changes and reset test state
+  $effect(() => {
+    // Access the model values to track them
+    llmGenerationModel; llmValidationModel; llmSkipModel;
+    resetTest();
+  });
+
+  async function testModels() {
+    if (!providerConnected) { testMessage = "Connect a provider first."; return; }
+    if (!modelsConfigured) { testMessage = "Enter all three models before testing."; return; }
+    testing = true; testMessage = ""; testResults = [];
+    try {
+      const res = await fetch(`/api/settings/${installationId}/test-models`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          models: {
+            generation: llmGenerationModel.trim(),
+            validation: llmValidationModel.trim(),
+            skip: llmSkipModel.trim(),
+          },
+        }),
+      });
+      const json = await res.json();
+      testRan = true;
+      if (json.results) {
+        testResults = json.results;
+        testPassed = json.ok;
+        testMessage = json.ok
+          ? "All models responded successfully."
+          : "One or more models failed. Fix the errors before saving.";
+      } else {
+        testPassed = false;
+        testMessage = json.error || "Test failed.";
+      }
+    } catch {
+      testRan = true;
+      testPassed = false;
+      testMessage = "Network error running test.";
+    } finally {
+      testing = false;
+    }
+  }
+
   async function save() {
     if (!providerConnected) { saveMessage = "Connect OpenRouter or provide an API key and base URL before saving."; saveOk = false; return; }
     if (!modelsConfigured) { saveMessage = "Select generation, validation, and skip models before saving."; saveOk = false; return; }
+    if (!testPassed) { saveMessage = "Test your models before saving. Click \"Test Connection\" to verify they work."; saveOk = false; return; }
     saving = true; saveMessage = "";
     try {
       const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, supporterEmail: supporterEmail.trim() || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
@@ -175,7 +243,7 @@
       <span class="topbar-title">Configuration</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <button class="topbar-btn" onclick={save} disabled={saving}>
+        <button class="topbar-btn" onclick={save} disabled={saving || (modelsConfigured && !testPassed)}>
           {saving ? "Saving..." : "Save"}
         </button>
       </div>
@@ -316,6 +384,56 @@
             <div class="field"><label for="valModel">Validation Model</label><input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" /><span class="hint">Reviews the generated quiz for grounding and structural issues.</span></div>
             <div class="field"><label for="skipModel">Skip Evaluation Model</label><input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" /><span class="hint">Decides whether an obvious PR can skip the quiz entirely.</span></div>
             <datalist id="model-list">{#each defaultModels as m (m)}<option value={m}></option>{/each}</datalist>
+          {/if}
+
+          <!-- Test Connection -->
+          {#if providerConnected && modelsConfigured}
+            <div class="test-section">
+              <button
+                class="button"
+                class:test-pass={testRan && testPassed}
+                class:test-fail={testRan && !testPassed}
+                onclick={testModels}
+                disabled={testing}
+              >
+                {#if testing}
+                  <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                  Testing models...
+                {:else if testRan && testPassed}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Tests passed
+                {:else}
+                  Test Connection
+                {/if}
+              </button>
+              {#if testMessage}
+                <p class="test-msg" class:good={testPassed} class:bad={!testPassed}>{testMessage}</p>
+              {/if}
+            </div>
+          {/if}
+
+          {#if testResults.length > 0}
+            <div class="test-results">
+              {#each testResults as result (result.role)}
+                <div class="test-result-row" class:test-result-ok={result.ok} class:test-result-err={!result.ok}>
+                  <span class="test-result-icon">
+                    {#if result.ok}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {:else}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {/if}
+                  </span>
+                  <span class="test-result-role">{result.role}</span>
+                  <code class="test-result-model">{result.model}</code>
+                  {#if result.latencyMs != null}
+                    <span class="test-result-latency">{result.latencyMs}ms</span>
+                  {/if}
+                  {#if result.error}
+                    <span class="test-result-error">{result.error}</span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
           {/if}
         </section>
 
@@ -491,7 +609,7 @@
       </div>
 
       <div class="bottom-actions">
-        <button class="button primary" style="width: auto; padding: 12px 28px;" onclick={save} disabled={saving}>
+        <button class="button primary" style="width: auto; padding: 12px 28px;" onclick={save} disabled={saving || (modelsConfigured && !testPassed)}>
           {saving ? "Saving..." : "Save Settings"}
         </button>
         {#if saveMessage}
@@ -706,6 +824,58 @@
   }
   .fork-warning svg { flex: none; margin-top: 2px; color: #ef4444; }
   .fork-warning strong { color: #ef4444; font-weight: 600; }
+
+  /* Test Connection */
+  .test-section {
+    margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .test-section :global(.button) {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .test-section :global(.test-pass) {
+    border-color: rgba(74, 222, 128, 0.3); color: var(--good); background: var(--good-light);
+  }
+  .test-section :global(.test-fail) {
+    border-color: rgba(239, 68, 68, 0.3); color: var(--bad); background: var(--bad-light);
+  }
+  .test-msg { font-size: 13px; font-weight: 500; }
+  .test-msg.good { color: var(--good); }
+  .test-msg.bad { color: var(--bad); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+
+  .test-results {
+    margin-top: 12px; display: grid; gap: 6px;
+  }
+  .test-result-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: var(--radius-md);
+    font-size: 12px; border: 1px solid var(--line); background: var(--gray-50);
+  }
+  .test-result-ok { border-color: rgba(74, 222, 128, 0.2); background: var(--good-light); }
+  .test-result-err { border-color: rgba(239, 68, 68, 0.2); background: var(--bad-light); }
+  .test-result-icon { display: flex; flex: none; }
+  .test-result-ok .test-result-icon { color: var(--good); }
+  .test-result-err .test-result-icon { color: var(--bad); }
+  .test-result-role {
+    font: 600 10px/1 "DM Mono", monospace;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); min-width: 72px;
+  }
+  .test-result-model {
+    font: 400 12px/1 "DM Mono", monospace; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .test-result-latency {
+    font: 400 11px/1 "DM Mono", monospace; color: var(--gray-500);
+    margin-left: auto; flex: none;
+  }
+  .test-result-error {
+    font-size: 11px; color: var(--bad); margin-left: auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;
+  }
 
   /* Messages */
   .save-msg, .key-msg { font-size: 13px; font-weight: 500; margin-top: 8px; }
