@@ -9,7 +9,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/marketplace/slopblock-quiz">Install from GitHub Marketplace</a>
+  <a href="https://github.com/sampnorris/slopblock/releases/latest"><img src="https://img.shields.io/github/v/release/sampnorris/slopblock?label=release&color=blue" alt="Latest release" /></a>
+  <a href="https://github.com/sampnorris/slopblock/actions"><img src="https://img.shields.io/github/actions/workflow/status/sampnorris/slopblock/ci.yml?label=tests" alt="Tests" /></a>
+  <a href="https://github.com/sampnorris/slopblock/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-CC--BY--NC--4.0-lightgrey" alt="License: CC-BY-NC-4.0" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://vercel.com"><img src="https://img.shields.io/badge/deployed%20on-Vercel-black?logo=vercel" alt="Deployed on Vercel" /></a>
+  <a href="https://github.com/marketplace/slopblock-quiz"><img src="https://img.shields.io/badge/GitHub%20Marketplace-slopblock-24292e?logo=github" alt="GitHub Marketplace" /></a>
+  <a href="https://www.buymeacoffee.com/sampnorris"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee" /></a>
 </p>
 
 ---

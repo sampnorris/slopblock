@@ -215,6 +215,7 @@
     } finally {
       testing = false;
     }
+    if (testPassed) { await save(); }
   }
 
   async function save() {
@@ -269,7 +270,7 @@
         {#if !isPaid}
           <div class="plan-notice">
             <span>Free plan: up to 10 quiz generations per day.</span>
-            <button class="upgrade-btn" onclick={() => showUpgradeModal = true}>Upgrade</button>
+            <button class="upgrade-btn" onclick={() => showUpgradeModal = true}>Support</button>
           </div>
         {:else}
           <div class="plan-notice plan-notice-paid">
@@ -647,7 +648,7 @@
       <div class="modal-body">
         <label class="modal-label" for="upgradeEmail">Payment Email</label>
         <input class="modal-input" id="upgradeEmail" type="email" bind:value={supporterEmail} placeholder="you@example.com" />
-        <span class="modal-hint">Enter the email tied to your Buy Me a Coffee account.</span>
+        <span class="modal-hint">Enter the email you will use to make a donation</span>
       </div>
 
       <div class="modal-footer">
