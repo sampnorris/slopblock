@@ -165,6 +165,13 @@ pnpm run check
 - Fork PRs are skipped by default because repository secrets are not exposed there safely.
 - Model defaults are role-specific: quiz generation uses `anthropic/claude-sonnet-4.5`, validation uses `anthropic/claude-opus-4.1`, and skip decisions use `anthropic/claude-sonnet-4.5` unless overridden in settings.
 
+## Roadmap
+
+- **Insights over time**: Show longitudinal signals so teams can see where engineers repeatedly trip up, not just whether a single PR passed or failed.
+- **Extra git context**: Use repository history to target questions at the tricky parts of the codebase, including most-touched files, least-touched files, likely bug hotspots, and files that appear to be missing test coverage. Handy candidate commands for upstream support include churn, shortlog, bug-cluster, velocity, and revert/hotfix scans such as those described in [The Git Commands I Run Before Reading Any Code](https://piechowski.io/post/git-commands-before-reading-code/).
+- **Cross-repo system context**: Let question generation understand related repositories and shared boundaries, so diffs can be interpreted in the context of the wider system instead of a single repo in isolation.
+- **Coverage-aware questioning**: Prefer deeper scrutiny when changed code sits in weakly tested areas, and surface that risk explicitly.
+
 ## License
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0)](LICENSE).
