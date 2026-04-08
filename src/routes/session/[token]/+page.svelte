@@ -119,22 +119,16 @@
 
   // ── same_quiz mode: submit only when passing ──
   async function submitPass() {
+    if (correct < requiredCorrect) return;
     submitting = true; submitMessage = "";
     try {
       const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
       const json = await res.json();
-      if (json.ok) {
-        if (json.passed) {
-          window.location.reload();
-        } else {
-          // For same_quiz: record the attempt, clear wrong answers for correction
-          submitMessage = `Recorded attempt ${json.attemptNumber}. Score: ${json.correctCount} / ${json.questionCount}. Update the incorrect answers and submit again.`;
-          if (session.retryMode === "same_quiz") {
-            clearIncorrectAnswers();
-          }
-        }
+      if (json.ok && json.passed) {
+        window.location.reload();
+      } else {
+        submitMessage = json.message || "Submission failed. Fix your answers or generate a new quiz.";
       }
-      else { submitMessage = json.message || "Unknown error"; }
     } catch { submitMessage = "Network error, try again"; }
     finally { submitting = false; }
   }
@@ -363,6 +357,7 @@
               {:else}
                 <div class="notice">You did not reach the passing score. A maintainer must re-run the quiz.</div>
               {/if}
+
 
             {/if}
 

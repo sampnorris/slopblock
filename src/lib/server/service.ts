@@ -303,8 +303,9 @@ export async function markQuizPassed(params: {
 
   if (!graded.passed && !passedWithTolerance) {
     return {
-      ok: true,
+      ok: false,
       passed: false,
+      message: `Quiz not passed (${graded.correctCount}/${graded.questionCount} correct). Fix your answers or generate a new quiz.`,
       correctCount: graded.correctCount,
       questionCount: graded.questionCount,
       attemptNumber,

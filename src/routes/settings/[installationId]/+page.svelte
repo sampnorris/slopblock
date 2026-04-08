@@ -41,6 +41,9 @@
   let settingKey = $state(false);
   let keyMessage = $state("");
 
+  // Upgrade modal state
+  let showUpgradeModal = $state(false);
+
   let llmGenerationModel = $state(_init.settings?.llmGenerationModel ?? "");
   let llmValidationModel = $state(_init.settings?.llmValidationModel ?? "");
   let llmSkipModel = $state(_init.settings?.llmSkipModel ?? "");
@@ -171,8 +174,8 @@
 
   // Watch for model changes and reset test state
   $effect(() => {
-    // Access the model values to track them
-    llmGenerationModel; llmValidationModel; llmSkipModel;
+    // Access the model values to track them as dependencies
+    void llmGenerationModel; void llmValidationModel; void llmSkipModel;
     resetTest();
   });
 
@@ -265,13 +268,8 @@
         <p>Configure LLM provider and quiz behavior.</p>
         {#if !isPaid}
           <div class="plan-notice">
-            <p>Free plan: up to 10 quiz generations per day.</p>
-            <div class="supporter-row">
-              <label for="supporterEmail">Your email</label>
-              <input id="supporterEmail" type="email" bind:value={supporterEmail} placeholder="you@example.com" class="supporter-input" />
-              <a class="button primary small" href={BUY_ME_A_COFFEE_URL} target="_blank">Support SlopBlock</a>
-            </div>
-            <span class="hint">Enter the email you use on Buy Me a Coffee, then support us. We'll match your payment and unlock unlimited quizzes.</span>
+            <span>Free plan: up to 10 quiz generations per day.</span>
+            <button class="upgrade-btn" onclick={() => showUpgradeModal = true}>Upgrade</button>
           </div>
         {:else}
           <div class="plan-notice plan-notice-paid">
@@ -280,7 +278,7 @@
         {/if}
       </div>
 
-      {#if !providerConnected || !modelsConfigured}
+      {#if !providerConnected || !modelsConfigured || !testPassed}
         <div class="setup-todo">
           <div class="setup-todo-header">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -303,6 +301,14 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/></svg>
               {/if}
               <span>Choose models for each stage</span> <span class="setup-hint">&mdash; generation, validation, and skip evaluation</span>
+            </li>
+            <li class:done={testPassed}>
+              {#if testPassed}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              {:else}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/></svg>
+              {/if}
+              <span>Validate models</span> <span class="setup-hint">&mdash; test that your API key and models are working</span>
             </li>
           </ul>
         </div>
@@ -619,6 +625,44 @@
   </div>
 </div>
 
+{#if showUpgradeModal}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="modal-overlay" onkeydown={(e) => { if (e.key === "Escape") showUpgradeModal = false; }} onclick={(e) => { if (e.target === e.currentTarget) showUpgradeModal = false; }}>
+    <div class="modal-card">
+      <div class="modal-glow"></div>
+
+      <button class="modal-close" onclick={() => showUpgradeModal = false} aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <p class="modal-eyebrow">Upgrade</p>
+        <h2 class="modal-title">Unlimited Quizzes</h2>
+        <p class="modal-desc">Support SlopBlock on Buy Me a Coffee to remove the daily limit. We'll match your payment email to this installation.</p>
+      </div>
+
+      <div class="modal-body">
+        <label class="modal-label" for="upgradeEmail">Payment Email</label>
+        <input class="modal-input" id="upgradeEmail" type="email" bind:value={supporterEmail} placeholder="you@example.com" />
+        <span class="modal-hint">Enter the email tied to your Buy Me a Coffee account.</span>
+      </div>
+
+      <div class="modal-footer">
+        <a
+          class="modal-btn-primary"
+          href={BUY_ME_A_COFFEE_URL}
+          target="_blank"
+          onclick={() => showUpgradeModal = false}
+        >Support</a>
+        <button class="modal-btn-secondary" onclick={() => showUpgradeModal = false}>Cancel</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .page-header { margin-bottom: 24px; }
   .page-header p { margin-top: 4px; font-size: 14px; }
@@ -640,22 +684,23 @@
     margin-top: 10px; padding: 12px 14px; border-radius: var(--radius-md);
     font-size: 13px; line-height: 1.5;
     background: var(--gray-50); border: 1px solid var(--line); color: var(--muted);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
   }
-  .plan-notice p { margin: 0 0 8px; }
-  .plan-notice a { font-weight: 600; text-decoration: underline; }
   .plan-notice-paid {
     background: rgba(22, 163, 74, 0.06); border-color: rgba(22, 163, 74, 0.2); color: var(--good);
   }
-  .supporter-row {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  .upgrade-btn {
+    padding: 6px 14px; font: 600 12px/1 "DM Mono", monospace;
+    border-radius: var(--radius-md); border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600)); color: #fff;
+    white-space: nowrap; flex: none;
+    transition: all 160ms ease;
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.3);
   }
-  .supporter-row label { font-weight: 600; font-size: 12px; white-space: nowrap; }
-  .supporter-input {
-    flex: 1; min-width: 180px; padding: 6px 10px; border-radius: var(--radius-md);
-    border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: 13px;
+  .upgrade-btn:hover {
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 16px rgba(232, 112, 154, 0.25);
+    transform: translateY(-1px);
   }
-  .supporter-input:focus { border-color: var(--accent); outline: none; }
-  :global(.button.small) { padding: 6px 14px; font-size: 12px; white-space: nowrap; }
 
   .sc-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .sc-head-row h2 { margin-bottom: 0; }
@@ -875,6 +920,139 @@
   .test-result-error {
     font-size: 11px; color: var(--bad); margin-left: auto;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;
+  }
+
+  /* Upgrade Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+    padding: 20px;
+    animation: overlay-in 180ms ease;
+  }
+  @keyframes overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .modal-card {
+    position: relative; width: 100%; max-width: 400px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(232, 112, 154, 0.08),
+      0 24px 80px rgba(0, 0, 0, 0.5),
+      0 0 120px rgba(232, 112, 154, 0.06);
+    animation: modal-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .modal-glow {
+    position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(232, 112, 154, 0.18), transparent 70%);
+    pointer-events: none;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px; z-index: 2;
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    border: 1px solid transparent; background: transparent; color: var(--gray-400);
+    cursor: pointer; display: grid; place-items: center;
+    transition: all 150ms ease;
+  }
+  .modal-close:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--line);
+    color: var(--text);
+  }
+
+  .modal-header {
+    position: relative;
+    padding: 32px 28px 20px;
+    text-align: center;
+  }
+  .modal-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(232, 112, 154, 0.15), rgba(232, 112, 154, 0.06));
+    border: 1px solid rgba(232, 112, 154, 0.2);
+    display: grid; place-items: center;
+    color: var(--accent);
+    margin: 0 auto 14px;
+  }
+  .modal-eyebrow {
+    font: 500 10px/1 "DM Mono", monospace;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .modal-title {
+    font: 700 22px/1.15 "Playfair Display", serif;
+    letter-spacing: -0.02em; color: #fff;
+    margin-bottom: 10px;
+  }
+  .modal-desc {
+    font-size: 13px; line-height: 1.6; color: var(--muted);
+    max-width: 300px; margin: 0 auto;
+  }
+
+  .modal-body {
+    padding: 0 28px;
+  }
+  .modal-label {
+    display: block;
+    font: 600 11px/1 "DM Mono", monospace;
+    color: var(--gray-500); letter-spacing: 0.03em;
+    margin-bottom: 6px;
+  }
+  .modal-input {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text);
+    font: inherit; font-size: 13px; outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .modal-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--pink-glow);
+  }
+  .modal-input::placeholder { color: var(--gray-400); }
+  .modal-hint {
+    display: block; font-size: 11px; color: var(--gray-400);
+    margin-top: 5px; line-height: 1.4;
+  }
+
+  .modal-footer {
+    padding: 20px 28px 28px;
+    display: flex; gap: 10px;
+  }
+  .modal-btn-primary, .modal-btn-secondary {
+    flex: 1; padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font: 600 13px/1 "DM Sans", sans-serif;
+    text-align: center; text-decoration: none;
+    cursor: pointer; white-space: nowrap;
+    transition: all 160ms ease;
+  }
+  .modal-btn-primary {
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+    color: #fff; border: none;
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.3), 0 2px 12px rgba(232, 112, 154, 0.2);
+  }
+  .modal-btn-primary:hover {
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 20px rgba(232, 112, 154, 0.3);
+    transform: translateY(-1px);
+  }
+  .modal-btn-secondary {
+    background: var(--gray-50); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .modal-btn-secondary:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+    color: var(--text);
+    transform: translateY(-1px);
   }
 
   /* Messages */
