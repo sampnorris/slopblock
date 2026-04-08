@@ -61,6 +61,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
             focus: q.focus,
           }))
         : [],
+      savedAnswers: actor ? (session.savedAnswers ?? null) : null,
     },
     actor: actor ? { login: actor.login } : null,
     prUrl,
