@@ -39,6 +39,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
   return {
     session: {
       id: session.id,
+      headSha: session.headSha,
       repositoryOwner: session.repositoryOwner,
       repositoryName: session.repositoryName,
       pullNumber: session.pullNumber,

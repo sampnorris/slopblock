@@ -58,7 +58,11 @@
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ action: "save_answers", answers }),
+      body: JSON.stringify({
+        action: "save_answers",
+        answers,
+        expectedHeadSha: session.headSha,
+      }),
     }).catch(() => { /* best effort */ });
   }
 
@@ -122,7 +126,16 @@
     if (correct < requiredCorrect) return;
     submitting = true; submitMessage = "";
     try {
-      const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
+      const res = await fetch(`/api/session/${session.id}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "pass",
+          answers: selectedAnswers(),
+          expectedHeadSha: session.headSha,
+        }),
+      });
       const json = await res.json();
       if (json.ok && json.passed) {
         window.location.reload();
@@ -137,7 +150,16 @@
   async function submitPassNewQuizMode() {
     submitting = true; submitMessage = "";
     try {
-      const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
+      const res = await fetch(`/api/session/${session.id}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "pass",
+          answers: selectedAnswers(),
+          expectedHeadSha: session.headSha,
+        }),
+      });
       const json = await res.json();
       if (json.ok) {
         if (json.passed) {
