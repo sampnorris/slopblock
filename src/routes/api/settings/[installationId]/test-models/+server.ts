@@ -2,7 +2,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled } from "$lib/server/dev-mocks.js";
-import { getSettings } from "$lib/server/settings-store.js";
+import { getSettings, setModelsValidated } from "$lib/server/settings-store.js";
 import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
 interface ModelTestResult {
@@ -156,6 +156,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
   const nested = await Promise.all(testPromises);
   const results = nested.flat();
   const allPassed = results.every((r) => r.ok);
+
+  if (allPassed) {
+    const fingerprint = [
+      models.generation.trim(),
+      models.validation.trim(),
+      models.skip.trim(),
+    ].join("|");
+    await setModelsValidated(params.installationId, fingerprint);
+  }
 
   return json({ ok: allPassed, results });
 };

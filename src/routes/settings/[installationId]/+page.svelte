@@ -26,11 +26,21 @@
     error?: string;
     latencyMs?: number;
   }
+  // Compute initial validated state from server-persisted fingerprint
+  const _initFingerprint = [
+    _init.settings?.llmGenerationModel ?? "",
+    _init.settings?.llmValidationModel ?? "",
+    _init.settings?.llmSkipModel ?? "",
+  ].join("|");
+  const _serverValidated =
+    !!_init.settings?.modelsValidatedFingerprint &&
+    _init.settings.modelsValidatedFingerprint === _initFingerprint;
+
   let testing = $state(false);
   let testResults = $state<ModelTestResult[]>([]);
-  let testRan = $state(false);
-  let testPassed = $state(false);
-  let testMessage = $state("");
+  let testRan = $state(_serverValidated);
+  let testPassed = $state(_serverValidated);
+  let testMessage = $state(_serverValidated ? "Models validated." : "");
   let provider = $state<"openrouter" | "manual" | "none">(_init.provider as any);
   let hasApiKey = $state(_init.hasApiKey);
   let hasBaseUrl = $state(Boolean(_init.settings?.llmBaseUrl));
@@ -172,10 +182,12 @@
     testMessage = "";
   }
 
-  // Watch for model changes and reset test state
+  // Watch for model changes and reset test state (skip initial render)
+  let _effectInitialized = false;
   $effect(() => {
     // Access the model values to track them as dependencies
     void llmGenerationModel; void llmValidationModel; void llmSkipModel;
+    if (!_effectInitialized) { _effectInitialized = true; return; }
     resetTest();
   });
 
@@ -309,7 +321,14 @@
               {:else}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/></svg>
               {/if}
-              <span>Validate models</span> <span class="setup-hint">&mdash; test that your API key and models are working</span>
+              <span>Validate models</span>
+              {#if modelsConfigured && !testPassed && testRan}
+                <span class="setup-hint setup-hint-warn">&mdash; model check failed, fix errors and retry</span>
+              {:else if modelsConfigured && !testPassed}
+                <span class="setup-hint setup-hint-warn">&mdash; models changed, re-run "Test Connection" to confirm they still work</span>
+              {:else}
+                <span class="setup-hint">&mdash; test that your API key and models are working</span>
+              {/if}
             </li>
           </ul>
         </div>
@@ -737,6 +756,7 @@
   .setup-todo-list li.done { color: var(--good); }
   .setup-todo-list li.done svg { color: var(--good); }
   .setup-hint { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .setup-hint-warn { color: rgba(251, 191, 36, 0.85); }
   .setup-todo-list li.done .setup-hint { color: rgba(74, 222, 128, 0.5); }
 
   .settings-grid { display: grid; gap: 16px; }

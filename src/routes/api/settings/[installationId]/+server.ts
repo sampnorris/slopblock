@@ -2,7 +2,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockActor, mockSettings } from "$lib/server/dev-mocks.js";
-import { getSettings, upsertSettings, clearApiKey } from "$lib/server/settings-store.js";
+import { getSettings, upsertSettings, clearApiKey, clearModelsValidated } from "$lib/server/settings-store.js";
 import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
 const MAX_CUSTOM_PROMPT_LENGTH = 4000;
@@ -22,6 +22,7 @@ function maskSettings(settings: any) {
   return {
     ...settings,
     llmApiKey: undefined, // never expose, even masked
+    llmApiKeyEncrypted: undefined,
     hasApiKey: !!settings.llmApiKey,
   };
 }
@@ -185,6 +186,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
       },
       { status: 400 },
     );
+  }
+
+  // If the saved models differ from what was validated, invalidate the stored validation
+  const incomingFingerprint = [llmGenerationModel, llmValidationModel, llmSkipModel].join("|");
+  if (existing?.modelsValidatedFingerprint && existing.modelsValidatedFingerprint !== incomingFingerprint) {
+    await clearModelsValidated(params.installationId);
   }
 
   // Don't pass llmApiKey through PUT -- it's set via OpenRouter OAuth or manual key endpoint

@@ -33,6 +33,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
         allowedWrongAnswers: settings.allowedWrongAnswers,
         maxTokenBudget: settings.maxTokenBudget,
         tokenBudgetFallback: settings.tokenBudgetFallback,
+        modelsValidatedFingerprint: settings.modelsValidatedFingerprint,
       },
     };
   }
@@ -78,6 +79,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
           allowedWrongAnswers: settings.allowedWrongAnswers,
           maxTokenBudget: settings.maxTokenBudget,
           tokenBudgetFallback: settings.tokenBudgetFallback,
+          modelsValidatedFingerprint: settings.modelsValidatedFingerprint,
         }
       : null,
   };

@@ -26,6 +26,8 @@ export interface SettingsRecord {
   tokenBudgetFallback?: string;
   allowedWrongAnswers?: number;
   supporterEmail?: string;
+  modelsValidatedAt?: Date;
+  modelsValidatedFingerprint?: string;
 }
 
 function decryptApiKey(encrypted: string | null): string | undefined {
@@ -63,6 +65,8 @@ function fromRow(row: any): SettingsRecord {
     tokenBudgetFallback: (row as any).tokenBudgetFallback ?? undefined,
     allowedWrongAnswers: (row as any).allowedWrongAnswers ?? undefined,
     supporterEmail: row.supporterEmail ?? undefined,
+    modelsValidatedAt: row.modelsValidatedAt ?? undefined,
+    modelsValidatedFingerprint: row.modelsValidatedFingerprint ?? undefined,
   };
 }
 
@@ -117,6 +121,8 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
       allowedWrongAnswers: input.allowedWrongAnswers ?? null,
+      modelsValidatedAt: input.modelsValidatedAt ?? null,
+      modelsValidatedFingerprint: input.modelsValidatedFingerprint ?? null,
     } as any,
     update: {
       accountLogin: input.accountLogin,
@@ -145,7 +151,27 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       maxTokenBudget: input.maxTokenBudget ?? null,
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
       allowedWrongAnswers: input.allowedWrongAnswers ?? null,
+      ...(input.modelsValidatedAt !== undefined
+        ? { modelsValidatedAt: input.modelsValidatedAt, modelsValidatedFingerprint: input.modelsValidatedFingerprint ?? null }
+        : {}),
     } as any,
   });
   return fromRow(row);
+}
+
+export async function setModelsValidated(
+  installationId: string,
+  fingerprint: string,
+): Promise<void> {
+  await prisma.installationSettings.updateMany({
+    where: { installationId },
+    data: { modelsValidatedAt: new Date(), modelsValidatedFingerprint: fingerprint } as any,
+  });
+}
+
+export async function clearModelsValidated(installationId: string): Promise<void> {
+  await prisma.installationSettings.updateMany({
+    where: { installationId },
+    data: { modelsValidatedAt: null, modelsValidatedFingerprint: null } as any,
+  });
 }
