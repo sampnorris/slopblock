@@ -24,7 +24,9 @@ mock.module("../src/lib/server/db.js", {
         },
         findFirst: async ({ where }: any) => {
           const equals = where.accountLogin.equals.toLowerCase();
-          const row = [...rows.values()].find((candidate) => candidate.accountLogin.toLowerCase() === equals);
+          const row = [...rows.values()].find(
+            (candidate) => candidate.accountLogin.toLowerCase() === equals,
+          );
           return row ? clone(row) : null;
         },
         findMany: async ({ where }: any = {}) => {
@@ -39,7 +41,9 @@ mock.module("../src/lib/server/db.js", {
             const dueDate = where.githubMarketplaceEffectiveDate?.lte;
             if (dueDate) {
               if (!row.githubMarketplaceEffectiveDate) return false;
-              if (new Date(row.githubMarketplaceEffectiveDate).getTime() > new Date(dueDate).getTime()) {
+              if (
+                new Date(row.githubMarketplaceEffectiveDate).getTime() > new Date(dueDate).getTime()
+              ) {
                 return false;
               }
             }
@@ -201,7 +205,9 @@ test("reconcileDueGitHubMarketplaceDowngrades only clears due marketplace entitl
     active: true,
   });
 
-  const reconciled = await reconcileDueGitHubMarketplaceDowngrades(new Date("2026-04-08T00:00:00Z"));
+  const reconciled = await reconcileDueGitHubMarketplaceDowngrades(
+    new Date("2026-04-08T00:00:00Z"),
+  );
   assert.equal(reconciled, 1);
 
   const bmacBacked = await getPlan("3");

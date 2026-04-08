@@ -301,7 +301,9 @@ export async function findInstallationByAccountLogin(accountLogin: string): Prom
     },
   });
 
-  return installations.find((installation) => installation.accountLogin.toLowerCase() === normalized);
+  return installations.find(
+    (installation) => installation.accountLogin.toLowerCase() === normalized,
+  );
 }
 
 export async function reconcileDueGitHubMarketplaceDowngrades(now = new Date()): Promise<number> {

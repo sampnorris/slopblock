@@ -37,7 +37,10 @@ async function resolveInstallation(accountLogin: string, accountType: string) {
   const iter = app.eachInstallation.iterator();
 
   for await (const { installation } of iter) {
-    const installationAccount = installation.account as { login?: string; type?: string } | null | undefined;
+    const installationAccount = installation.account as
+      | { login?: string; type?: string }
+      | null
+      | undefined;
     if (installationAccount?.login?.toLowerCase() !== accountLogin.toLowerCase()) {
       continue;
     }
