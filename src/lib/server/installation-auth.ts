@@ -12,10 +12,14 @@ import { logInfo } from "./log.js";
 /**
  * Returns true if the given actor (by GitHub login) has access to the installation.
  * Returns false if access cannot be verified.
+ *
+ * @param actorToken - The actor's OAuth token (with read:org scope) for org membership checks.
+ *   If not provided, falls back to the installation token (may fail for private memberships).
  */
 export async function verifyInstallationAccess(
   installationId: string | number,
   actorLogin: string,
+  actorToken?: string,
 ): Promise<boolean> {
   try {
     const app = getGitHubApp();
@@ -44,8 +48,33 @@ export async function verifyInstallationAccess(
       return actor === accountLogin;
     }
 
-    // Org-type installation: check if actor is a member of the org
-    // Use the App's installation token to check org membership
+    // Org-type installation: check if actor is a member of the org.
+    // Use the actor's own token (with read:org scope) when available so that
+    // private org memberships are visible. Fall back to the installation token
+    // which may fail for private members due to insufficient scope.
+    if (actorToken) {
+      try {
+        const response = await fetch(
+          `https://api.github.com/user/memberships/orgs/${encodeURIComponent(account.login)}`,
+          {
+            headers: {
+              authorization: `Bearer ${actorToken}`,
+              accept: "application/vnd.github+json",
+              "user-agent": "slopblock",
+            },
+          },
+        );
+        if (response.ok) {
+          const membership = (await response.json()) as { state?: string; role?: string };
+          return membership.state === "active";
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    }
+
+    // Fallback: use the installation token (only works for public members)
     const installationOctokit = await app.getInstallationOctokit(numericId);
     try {
       const { status } = await (installationOctokit as any).request(

@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { encrypt, decrypt } from "./crypto.js";
 
 const SESSION_COOKIE = "slopblock_session";
 
@@ -61,13 +62,27 @@ function parseCookies(header: string | undefined): Record<string, string> {
 
 export function getSessionActor(req: {
   headers: { cookie?: string };
-}): { login: string } | undefined {
+}): { login: string; token?: string } | undefined {
   const cookies = parseCookies(req.headers.cookie);
-  return decodePayload<{ login: string }>(cookies[SESSION_COOKIE]);
+  const payload = decodePayload<{ login: string; encToken?: string }>(cookies[SESSION_COOKIE]);
+  if (!payload) return undefined;
+  let token: string | undefined;
+  if (payload.encToken) {
+    try {
+      token = decrypt(payload.encToken);
+    } catch {
+      // If decryption fails (e.g. key rotation), continue without token
+    }
+  }
+  return { login: payload.login, token };
 }
 
-export function buildSessionCookie(login: string): string {
-  const value = encodePayload({ login });
+export function buildSessionCookie(login: string, oauthToken?: string): string {
+  const payload: Record<string, string> = { login };
+  if (oauthToken) {
+    payload.encToken = encrypt(oauthToken);
+  }
+  const value = encodePayload(payload);
   return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`;
 }
 
@@ -90,12 +105,14 @@ export function githubAuthorizeUrl(sessionId: string, returnTo?: string): string
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", `${baseUrl}/auth/callback`);
-  url.searchParams.set("scope", "read:user");
+  url.searchParams.set("scope", "read:user read:org");
   url.searchParams.set("state", state);
   return url.toString();
 }
 
-export async function exchangeCodeForLogin(code: string): Promise<string> {
+export async function exchangeCodeForLogin(
+  code: string,
+): Promise<{ login: string; token: string }> {
   const clientId = requiredEnv("GITHUB_CLIENT_ID");
   const clientSecret = requiredEnv("GITHUB_CLIENT_SECRET");
 
@@ -124,5 +141,5 @@ export async function exchangeCodeForLogin(code: string): Promise<string> {
     throw new Error("Failed to load GitHub user after OAuth login.");
   }
 
-  return userJson.login;
+  return { login: userJson.login, token: tokenJson.access_token };
 }

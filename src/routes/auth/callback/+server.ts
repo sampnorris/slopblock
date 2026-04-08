@@ -10,8 +10,8 @@ export const GET: RequestHandler = async ({ url }) => {
     return new Response("Invalid OAuth callback", { status: 400 });
   }
 
-  const login = await exchangeCodeForLogin(code);
-  const cookie = buildSessionCookie(login);
+  const { login, token } = await exchangeCodeForLogin(code);
+  const cookie = buildSessionCookie(login, token);
 
   const location = parsed.returnTo?.startsWith("/")
     ? parsed.returnTo

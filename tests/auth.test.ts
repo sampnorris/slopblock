@@ -12,6 +12,7 @@ const TEST_SECRET = "test-webhook-secret-for-auth-tests";
 
 test("buildSessionCookie and getSessionActor round-trip", () => {
   process.env.GITHUB_WEBHOOK_SECRET = TEST_SECRET;
+  process.env.ENCRYPTION_KEY = "a".repeat(64); // 32 bytes hex
 
   const cookie = buildSessionCookie("alice");
   // Extract just the cookie value (name=value; attributes...)
@@ -23,6 +24,23 @@ test("buildSessionCookie and getSessionActor round-trip", () => {
 
   assert.ok(actor);
   assert.equal(actor.login, "alice");
+  assert.equal(actor.token, undefined);
+});
+
+test("buildSessionCookie and getSessionActor round-trip with token", () => {
+  process.env.GITHUB_WEBHOOK_SECRET = TEST_SECRET;
+  process.env.ENCRYPTION_KEY = "a".repeat(64); // 32 bytes hex
+
+  const cookie = buildSessionCookie("alice", "gho_testtoken123");
+  const cookieValue = cookie.split(";")[0];
+
+  const actor = getSessionActor({
+    headers: { cookie: cookieValue },
+  });
+
+  assert.ok(actor);
+  assert.equal(actor.login, "alice");
+  assert.equal(actor.token, "gho_testtoken123");
 });
 
 test("getSessionActor returns undefined for missing cookie", () => {

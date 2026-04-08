@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     return json({ ok: false, message: "Not authenticated." }, { status: 401 });
   }
 
-  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login, actor.token);
   if (!hasAccess) {
     return json(
       { ok: false, message: "You do not have access to this installation." },
