@@ -46,6 +46,15 @@
   let showReloadQuizModal = $state(false);
   let reloadQuizMessage = $state("A newer quiz is available for this pull request. Reload to continue.");
 
+  $effect(() => {
+    const staleQuiz = (data as any).staleQuiz as { open: boolean; message: string } | null;
+    if (staleQuiz?.open) {
+      showReloadQuizModal = true;
+      reloadQuizMessage =
+        staleQuiz.message || "A newer quiz is available for this pull request. Reload to continue.";
+    }
+  });
+
   function diffAnchorUrl(anchor: string): string {
     const base = `${prUrl}/files`;
     const clean = anchor.replace(/^[+\-~]\s*/, "").split(/[:#]/)[0];
@@ -247,7 +256,7 @@
 </script>
 
 <svelte:head>
-  <title>SlopBlock - {session.status === "passed" ? "passed" : "quiz"}</title>
+  <title>SlopBlock - {session.status === "passed" ? "passed" : session.status === "skipped" ? "skipped" : session.status === "quota_exceeded" ? "quota" : session.status === "failed" && total === 0 ? "failed" : "quiz"}</title>
 </svelte:head>
 
 <div class="centered-layout">
@@ -301,6 +310,45 @@
             </button>
           </div>
         {/if}
+      </div>
+
+    {:else if session.status === "skipped"}
+      <div class="hero-section">
+        <div class="state-badge neutral">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+        </div>
+        <h1>Quiz skipped</h1>
+        <p>{session.skipReason ?? "This pull request matched the configured skip rules."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">No quiz was required for <strong>{session.repositoryOwner}/{session.repositoryName}#{session.pullNumber}</strong>.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
+      </div>
+
+    {:else if session.status === "quota_exceeded"}
+      <div class="hero-section">
+        <div class="state-badge warn">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </div>
+        <h1>Quiz generation limit reached</h1>
+        <p>{session.failureMessage ?? "No quiz was generated for this pull request."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">This session is read-only because the quiz was never generated.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
+      </div>
+
+    {:else if session.status === "failed" && total === 0}
+      <div class="hero-section">
+        <div class="state-badge bad">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+        </div>
+        <h1>Quiz failed</h1>
+        <p>{session.failureMessage ?? "This quiz session ended in a failed state."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">There is no active quiz to answer for this session.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
       </div>
 
     {:else}
@@ -487,6 +535,19 @@
     width: 48px; height: 48px; border-radius: 50%;
     background: var(--good-light); color: var(--good);
     display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .state-badge {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .state-badge.neutral {
+    background: var(--gray-50); color: var(--muted);
+  }
+  .state-badge.warn {
+    background: rgba(234, 179, 8, 0.12); color: rgb(234, 179, 8);
+  }
+  .state-badge.bad {
+    background: var(--bad-light); color: var(--bad);
   }
 
   /* Progress bar */
