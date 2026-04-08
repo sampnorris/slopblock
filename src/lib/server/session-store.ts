@@ -23,6 +23,7 @@ export interface SessionRecord {
   failureMessage?: string;
   commentId?: number;
   quiz?: QuizPayload;
+  savedAnswers?: Record<string, string>;
   traceId?: string;
 }
 
@@ -48,6 +49,7 @@ function fromRow(row: any): SessionRecord {
     failureMessage: row.failureMessage ?? undefined,
     commentId: row.commentId ? Number(row.commentId) : undefined,
     quiz: (row.quiz as QuizPayload | null) ?? undefined,
+    savedAnswers: (row.savedAnswers as Record<string, string> | null) ?? undefined,
     traceId: row.traceId ?? undefined,
   };
 }
@@ -200,6 +202,16 @@ export async function deleteStaleSessions(olderThanDays: number): Promise<number
   return result.count;
 }
 
+export async function saveSessionAnswers(
+  sessionId: string,
+  answers: Record<string, string>,
+): Promise<void> {
+  await prisma.pullRequestSession.update({
+    where: { id: sessionId },
+    data: { savedAnswers: answers as unknown as object },
+  });
+}
+
 export async function upsertSession(input: SessionRecord): Promise<SessionRecord> {
   const row = await prisma.pullRequestSession.upsert({
     where: {
@@ -229,6 +241,7 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : undefined,
       quiz: input.quiz as unknown as object | undefined,
+      savedAnswers: input.savedAnswers as unknown as object | undefined,
       traceId: input.traceId,
     } as any,
     update: {
@@ -248,6 +261,7 @@ export async function upsertSession(input: SessionRecord): Promise<SessionRecord
       failureMessage: input.failureMessage,
       commentId: input.commentId ? String(input.commentId) : null,
       quiz: input.quiz as unknown as object | undefined,
+      savedAnswers: (input.savedAnswers as unknown as object) ?? null,
       traceId: input.traceId ?? null,
     } as any,
   });

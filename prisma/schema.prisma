@@ -66,6 +66,7 @@ model PullRequestSession {
   failureMessage       String?
   commentId            String?
   quiz                 Json?
+  savedAnswers         Json?
   traceId              String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt

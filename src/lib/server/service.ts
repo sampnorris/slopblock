@@ -433,6 +433,7 @@ export async function requestNewQuiz(params: {
     summary: quiz.summary,
     failureMessage: undefined,
     quiz,
+    savedAnswers: undefined, // Clear saved answers for the new quiz
     traceId: trace.traceId || undefined,
   });
 

@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockSession } from "$lib/server/dev-mocks.js";
 import { getInstallationOctokit } from "$lib/server/github-app.js";
-import { getSessionById } from "$lib/server/session-store.js";
+import { getSessionById, saveSessionAnswers } from "$lib/server/session-store.js";
 import { markQuizPassed, requestNewQuiz } from "$lib/server/service.js";
 
 export const POST: RequestHandler = async ({ params, request }) => {
@@ -36,6 +36,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
       });
     }
 
+    if (action === "save_answers") {
+      return json({ ok: true });
+    }
+
     if (action === "retry_new") {
       return json({ ok: true, message: "Mock new quiz generated." });
     }
@@ -64,6 +68,23 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
   const body = await request.json();
   const action = body?.action;
+
+  // save_answers doesn't need octokit — handle it before the GitHub API call
+  if (action === "save_answers") {
+    const answers = body?.answers;
+    if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+      return json({ ok: false, message: "Answers object is required." }, { status: 400 });
+    }
+    const cleaned: Record<string, string> = {};
+    for (const [key, value] of Object.entries(answers)) {
+      if (typeof value === "string" && value.trim()) {
+        cleaned[key] = value.trim().toUpperCase();
+      }
+    }
+    await saveSessionAnswers(session.id!, cleaned);
+    return json({ ok: true });
+  }
+
   const octokit = await getInstallationOctokit(session.installationId);
 
   if (action === "pass") {

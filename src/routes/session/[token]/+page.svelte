@@ -14,23 +14,52 @@
   const allowedWrongAnswers = $derived(Math.max(0, (session as any).allowedWrongAnswers ?? 0));
   const requiredCorrect = $derived(Math.max(0, total - allowedWrongAnswers));
 
+  // Restore saved answers from server on load
+  function buildInitialStates(): Array<{ answered: boolean; selectedKey: string | null; isCorrect: boolean | null }> {
+    const saved = (data as any).session.savedAnswers as Record<string, string> | null;
+    return (data as any).session.questions.map((q: any) => {
+      const savedKey = saved?.[q.id];
+      if (savedKey) {
+        const isCorrect = q.correctOption === savedKey;
+        return { answered: true, selectedKey: savedKey, isCorrect };
+      }
+      return { answered: false, selectedKey: null, isCorrect: null };
+    });
+  }
+
   let answered = $state(0);
   let correct = $state(0);
   // svelte-ignore state_referenced_locally
-  let questionStates = $state<Array<{ answered: boolean; selectedKey: string | null; isCorrect: boolean | null }>>(
-    (data as any).session.questions.map(() => ({ answered: false, selectedKey: null, isCorrect: null }))
-  );
+  let questionStates = $state(buildInitialStates());
+
+  // Recount from restored state
+  answered = questionStates.reduce((c, s) => c + (s.answered ? 1 : 0), 0);
+  correct = questionStates.reduce((c, s) => c + (s.isCorrect ? 1 : 0), 0);
+
   let submitting = $state(false);
   let submitMessage = $state("");
   let retrying = $state(false);
   let feedbackSent = $state(false);
   let feedbackValue = $state<number | null>(null);
+  /** Tracks whether the user has reviewed their wrong answers before submitting (new_quiz mode) */
+  let reviewedWrongAnswers = $state(false);
 
   function diffAnchorUrl(anchor: string): string {
     const base = `${prUrl}/files`;
     const clean = anchor.replace(/^[+\-~]\s*/, "").split(/[:#]/)[0];
     const hash = diffAnchorHashes[clean];
     return hash ? `${base}#diff-${hash}` : base;
+  }
+
+  /** Save current answers to server (fire-and-forget) */
+  function saveAnswersToServer() {
+    const answers = selectedAnswers();
+    fetch(`/api/session/${session.id}/answer`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ action: "save_answers", answers }),
+    }).catch(() => { /* best effort */ });
   }
 
   function selectAnswer(qIndex: number, key: string) {
@@ -40,6 +69,10 @@
     questionStates[qIndex] = { answered: true, selectedKey: key, isCorrect };
     answered++;
     if (isCorrect) correct++;
+
+    // Auto-save to server on each answer
+    saveAnswersToServer();
+
     if (answered < total) {
       setTimeout(() => {
         const next = document.getElementById(`q${qIndex + 1}`);
@@ -74,6 +107,9 @@
     answered = questionStates.reduce((count, state) => count + (state.answered ? 1 : 0), 0);
     correct = questionStates.reduce((count, state) => count + (state.isCorrect ? 1 : 0), 0);
 
+    // Save the cleared state to server
+    saveAnswersToServer();
+
     if (firstIncorrect >= 0) {
       setTimeout(() => {
         document.getElementById(`q${firstIncorrect}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -81,6 +117,7 @@
     }
   }
 
+  // ── same_quiz mode: submit only when passing ──
   async function submitPass() {
     submitting = true; submitMessage = "";
     try {
@@ -90,10 +127,29 @@
         if (json.passed) {
           window.location.reload();
         } else {
+          // For same_quiz: record the attempt, clear wrong answers for correction
           submitMessage = `Recorded attempt ${json.attemptNumber}. Score: ${json.correctCount} / ${json.questionCount}. Update the incorrect answers and submit again.`;
           if (session.retryMode === "same_quiz") {
             clearIncorrectAnswers();
           }
+        }
+      }
+      else { submitMessage = json.message || "Unknown error"; }
+    } catch { submitMessage = "Network error, try again"; }
+    finally { submitting = false; }
+  }
+
+  // ── new_quiz mode: submit (only callable when passing + reviewed) ──
+  async function submitPassNewQuizMode() {
+    submitting = true; submitMessage = "";
+    try {
+      const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
+      const json = await res.json();
+      if (json.ok) {
+        if (json.passed) {
+          window.location.reload();
+        } else {
+          submitMessage = json.message || "Unexpected: server did not pass.";
         }
       }
       else { submitMessage = json.message || "Unknown error"; }
@@ -116,6 +172,11 @@
     submitMessage = "Incorrect answers were cleared. Update them and submit again.";
   }
 
+  /** new_quiz mode: user acknowledges wrong answers, then can submit */
+  function acknowledgeWrongAnswers() {
+    reviewedWrongAnswers = true;
+  }
+
   async function submitFeedback(value: number) {
     feedbackValue = value;
     feedbackSent = true;
@@ -130,6 +191,8 @@
   }
 
   let progressPct = $derived(total > 0 ? (answered / total) * 100 : 0);
+  let isPassing = $derived(correct >= requiredCorrect);
+  let wrongCount = $derived(answered - correct);
 </script>
 
 <svelte:head>
@@ -256,22 +319,53 @@
 
       {#if answered === total && total > 0}
         <div class="result-section">
-            <div class="score-card" class:pass={correct >= requiredCorrect} class:fail={correct < requiredCorrect}>
+            <div class="score-card" class:pass={isPassing} class:fail={!isPassing}>
               <span class="score-value">{correct} / {total}</span>
-              <span class="score-label">{correct >= requiredCorrect ? "Passing score" : "Questions correct"}</span>
+              <span class="score-label">{isPassing ? "Passing score" : "Questions correct"}</span>
             </div>
             <div class="stack">
-            {#if correct >= requiredCorrect}
-              <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit & pass PR"}</button>
-            {:else if session.retryMode === "maintainer_rerun"}
-              <button class="button" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit result"}</button>
+
+            {#if session.retryMode === "same_quiz"}
+              <!-- same_quiz mode:
+                   - No submit until passing score
+                   - Even with passing score, allow going back to correct answers before submitting
+                   - Submit only when passing -->
+              {#if isPassing}
+                {#if wrongCount > 0}
+                  <div class="notice">You have a passing score, but you can correct your wrong answers before submitting.</div>
+                  <button class="button" onclick={retrySame}>Correct wrong answers</button>
+                {/if}
+                <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit & pass PR"}</button>
+              {:else}
+                <div class="notice">You need {requiredCorrect} correct answers to pass. Correct your wrong answers and try again.</div>
+                <button class="button primary" onclick={retrySame}>Correct wrong answers</button>
+              {/if}
+
             {:else if session.retryMode === "new_quiz"}
-              <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit result"}</button>
-              <button class="button" onclick={retryNew} disabled={retrying || submitting}>{retrying ? "Generating new quiz..." : "Generate new quiz"}</button>
-            {:else}
-              <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit result"}</button>
-              <button class="button" onclick={retrySame}>Fix incorrect answers</button>
+              <!-- new_quiz mode:
+                   - If passing: show wrong answers, let user review, then allow submit
+                   - If not passing: no submit, must generate new quiz -->
+              {#if isPassing}
+                {#if wrongCount > 0 && !reviewedWrongAnswers}
+                  <div class="notice">You passed, but review your incorrect answers before submitting.</div>
+                  <button class="button primary" onclick={acknowledgeWrongAnswers}>I've reviewed my answers</button>
+                {:else}
+                  <button class="button primary" onclick={submitPassNewQuizMode} disabled={submitting}>{submitting ? "Submitting..." : "Submit & pass PR"}</button>
+                {/if}
+              {:else}
+                <div class="notice">You did not reach the passing score. Generate a new quiz to try again.</div>
+                <button class="button primary" onclick={retryNew} disabled={retrying || submitting}>{retrying ? "Generating new quiz..." : "Generate new quiz"}</button>
+              {/if}
+
+            {:else if session.retryMode === "maintainer_rerun"}
+              {#if isPassing}
+                <button class="button primary" onclick={submitPass} disabled={submitting}>{submitting ? "Submitting..." : "Submit & pass PR"}</button>
+              {:else}
+                <div class="notice">You did not reach the passing score. A maintainer must re-run the quiz.</div>
+              {/if}
+
             {/if}
+
             {#if submitMessage}<p style="color: var(--gray-700); font-size: 13px; font-weight: 500;">{submitMessage}</p>{/if}
             <a class="button" href={prUrl}>Back to pull request</a>
           </div>
@@ -401,6 +495,14 @@
   .explanation span { flex: 1; }
   .explanation.good { border-color: rgba(74, 222, 128, 0.2); color: var(--good); background: var(--good-light); }
   .explanation.bad { border-color: rgba(239, 68, 68, 0.2); color: var(--bad); background: var(--bad-light); }
+
+  /* Notices */
+  .notice {
+    padding: 12px 16px; border-radius: var(--radius-md);
+    border: 1px solid var(--line); font-size: 13px; font-weight: 500;
+    color: var(--muted); background: var(--gray-50); line-height: 1.5;
+  }
+  .notice.good { color: var(--good); border-color: rgba(74, 222, 128, 0.25); background: var(--good-light); }
 
   /* Result */
   .result-section { margin-top: 20px; }
