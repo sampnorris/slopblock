@@ -58,6 +58,7 @@ const DEFAULT_CONFIG: SlopblockConfig = {
     validationModel: "anthropic/claude-opus-4.1",
     skipModel: "anthropic/claude-sonnet-4.5",
   },
+  maxTokenBudget: 100_000,
   tokenBudgetFallback: "pass",
 };
 
@@ -185,6 +186,10 @@ export function parseConfig(rawValue: Record<string, unknown>): SlopblockConfig 
       baseUrl: typeof llm.baseUrl === "string" ? llm.baseUrl : undefined,
       apiKey: typeof llm.apiKey === "string" ? llm.apiKey : undefined,
     },
+    maxTokenBudget:
+      typeof raw.maxTokenBudget === "number" && raw.maxTokenBudget > 0
+        ? raw.maxTokenBudget
+        : DEFAULT_CONFIG.maxTokenBudget,
     tokenBudgetFallback:
       raw.tokenBudgetFallback === "pass" || raw.tokenBudgetFallback === "fail"
         ? raw.tokenBudgetFallback

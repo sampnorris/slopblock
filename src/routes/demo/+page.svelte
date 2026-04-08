@@ -109,7 +109,13 @@
 </script>
 
 <svelte:head>
-  <title>SlopBlock - public demo</title>
+  <title>Try the SlopBlock Demo — Interactive PR Quiz Example</title>
+  <meta name="description" content="Try SlopBlock without installing anything. Answer quiz questions generated from a real pull request diff and see how SlopBlock verifies code comprehension before merge." />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="Try the SlopBlock Demo — Interactive PR Quiz Example" />
+  <meta property="og:description" content="Try SlopBlock without installing anything. Answer quiz questions generated from a real pull request diff and see how SlopBlock verifies code comprehension before merge." />
+  <meta name="twitter:title" content="Try the SlopBlock Demo — Interactive PR Quiz Example" />
+  <meta name="twitter:description" content="Try SlopBlock without installing anything. Answer quiz questions generated from a real pull request diff and see how SlopBlock verifies code comprehension before merge." />
 </svelte:head>
 
 <div class="centered-layout">

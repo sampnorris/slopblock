@@ -2,7 +2,7 @@ import { SessionStatus } from "@prisma/client";
 import type { SessionRecord } from "./session-store.js";
 import { sessionAnswerUrl } from "./github-service.js";
 import { FREE_PLAN_DAILY_QUIZ_LIMIT } from "./marketplace-store.js";
-import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
+import { BUY_ME_A_COFFEE_URL } from "$lib/constants.js";
 
 export function renderSessionComment(session: SessionRecord): string {
   const lines: string[] = [];
@@ -13,7 +13,7 @@ export function renderSessionComment(session: SessionRecord): string {
       "",
       `> This repository has reached the free plan limit of **${FREE_PLAN_DAILY_QUIZ_LIMIT} quiz generations per day**. No quiz was generated for this pull request.`,
       "",
-      `:arrow_up: [Upgrade to a paid plan](${GITHUB_MARKETPLACE_URL}) for unlimited daily quiz generations.`,
+      `:arrow_up: [Support SlopBlock](${BUY_ME_A_COFFEE_URL}) for unlimited daily quiz generations.`,
     );
     return lines.join("\n");
   }

@@ -22,7 +22,6 @@ import {
   isPaidPlan,
 } from "./marketplace-store.js";
 import { createQuizAttempt, gradeQuizAnswers } from "./attempt-store.js";
-import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 import { createTrace, type TraceContext } from "./langfuse.js";
 
 export class MissingProviderError extends Error {
@@ -38,13 +37,6 @@ export class MissingModelError extends Error {
   constructor(purpose: "generation" | "validation" | "skip") {
     super(`No ${purpose} model configured. Select one in /settings.`);
     this.name = "MissingModelError";
-  }
-}
-
-export class PlanError extends Error {
-  constructor(feature: string) {
-    super(`${feature} requires a paid Slopblock plan. Upgrade at ${GITHUB_MARKETPLACE_URL}`);
-    this.name = "PlanError";
   }
 }
 
@@ -70,15 +62,8 @@ async function applyInstallationSettings(
   const settings = await getSettings(String(installationId));
   if (!settings) return config;
 
-  const paid = settings.marketplacePlan === "paid";
-
-  // Custom prompts are a paid feature — silently ignore them on free plan
-  const customSystemPrompt = paid
-    ? (settings.customSystemPrompt ?? config.customSystemPrompt)
-    : config.customSystemPrompt;
-  const customQuizInstructions = paid
-    ? (settings.customQuizInstructions ?? config.customQuizInstructions)
-    : config.customQuizInstructions;
+  const customSystemPrompt = settings.customSystemPrompt ?? config.customSystemPrompt;
+  const customQuizInstructions = settings.customQuizInstructions ?? config.customQuizInstructions;
 
   return {
     ...config,
@@ -510,15 +495,6 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
-  // Org accounts require a paid plan
-  const ownerType = payload.repository?.owner?.type;
-  if (ownerType === "Organization") {
-    const paid = await isPaidPlan(String(payload.installation.id));
-    if (!paid) {
-      throw new PlanError("Organization repositories");
-    }
-  }
-
   // Free plan: enforce daily quiz generation quota
   if (!isManualTrigger) {
     const paid = await isPaidPlan(String(payload.installation.id));
@@ -831,6 +807,9 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
   });
 }
 
+/** Minimum seconds between /quiz commands on the same PR. */
+const QUIZ_COMMAND_COOLDOWN_SECONDS = 60;
+
 export async function handleQuizCommand(octokit: any, payload: any): Promise<void> {
   const owner = payload.repository.owner.login;
   const repo = payload.repository.name;
@@ -842,6 +821,36 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
     pullNumber: issueNumber,
     triggeredBy: commentAuthor,
   });
+
+  // ── Rate limit: prevent /quiz spam ──
+  const existing = await getSession(owner, repo, issueNumber);
+  if (existing?.id) {
+    const row = await (await import("./db.js")).prisma.pullRequestSession.findUnique({
+      where: { id: existing.id },
+      select: { updatedAt: true },
+    });
+    if (row?.updatedAt) {
+      const secondsSinceUpdate = (Date.now() - row.updatedAt.getTime()) / 1000;
+      if (secondsSinceUpdate < QUIZ_COMMAND_COOLDOWN_SECONDS) {
+        logInfo("quiz_command.rate_limited", {
+          repository: `${owner}/${repo}`,
+          pullNumber: issueNumber,
+          secondsSinceUpdate: Math.round(secondsSinceUpdate),
+        });
+        try {
+          await octokit.rest.reactions.createForIssueComment({
+            owner,
+            repo,
+            comment_id: payload.comment.id,
+            content: "-1",
+          });
+        } catch {
+          /* best effort */
+        }
+        return;
+      }
+    }
+  }
 
   // React to the comment to acknowledge
   try {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GITHUB_MARKETPLACE_URL } from "$lib/constants";
+  import { BUY_ME_A_COFFEE_URL } from "$lib/constants";
   import type { PageData } from "./$types";
   import SearchSelect from "$lib/components/SearchSelect.svelte";
   import { page } from "$app/state";
@@ -17,6 +17,20 @@
   let saving = $state(false);
   let saveMessage = $state("");
   let saveOk = $state(false);
+
+  // Model test state
+  interface ModelTestResult {
+    model: string;
+    role: "generation" | "validation" | "skip";
+    ok: boolean;
+    error?: string;
+    latencyMs?: number;
+  }
+  let testing = $state(false);
+  let testResults = $state<ModelTestResult[]>([]);
+  let testRan = $state(false);
+  let testPassed = $state(false);
+  let testMessage = $state("");
   let provider = $state<"openrouter" | "manual" | "none">(_init.provider as any);
   let hasApiKey = $state(_init.hasApiKey);
   let hasBaseUrl = $state(Boolean(_init.settings?.llmBaseUrl));
@@ -40,6 +54,7 @@
   let skipForks = $state(_init.settings?.skipForks ?? true);
   let customSystemPrompt = $state(_init.settings?.customSystemPrompt ?? "");
   let customQuizInstructions = $state(_init.settings?.customQuizInstructions ?? "");
+  let supporterEmail = $state(_init.settings?.supporterEmail ?? "");
   let maxTokenBudget = $state<number | undefined>(_init.settings?.maxTokenBudget ?? undefined);
   let tokenBudgetFallback = $state<"pass" | "fail">(_init.settings?.tokenBudgetFallback === "fail" ? "fail" : "pass");
 
@@ -146,12 +161,66 @@
     finally { settingKey = false; }
   }
 
+  // Reset test state when models change
+  function resetTest() {
+    testRan = false;
+    testPassed = false;
+    testResults = [];
+    testMessage = "";
+  }
+
+  // Watch for model changes and reset test state
+  $effect(() => {
+    // Access the model values to track them
+    llmGenerationModel; llmValidationModel; llmSkipModel;
+    resetTest();
+  });
+
+  async function testModels() {
+    if (!providerConnected) { testMessage = "Connect a provider first."; return; }
+    if (!modelsConfigured) { testMessage = "Enter all three models before testing."; return; }
+    testing = true; testMessage = ""; testResults = [];
+    try {
+      const res = await fetch(`/api/settings/${installationId}/test-models`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          models: {
+            generation: llmGenerationModel.trim(),
+            validation: llmValidationModel.trim(),
+            skip: llmSkipModel.trim(),
+          },
+        }),
+      });
+      const json = await res.json();
+      testRan = true;
+      if (json.results) {
+        testResults = json.results;
+        testPassed = json.ok;
+        testMessage = json.ok
+          ? "All models responded successfully."
+          : "One or more models failed. Fix the errors before saving.";
+      } else {
+        testPassed = false;
+        testMessage = json.error || "Test failed.";
+      }
+    } catch {
+      testRan = true;
+      testPassed = false;
+      testMessage = "Network error running test.";
+    } finally {
+      testing = false;
+    }
+  }
+
   async function save() {
     if (!providerConnected) { saveMessage = "Connect OpenRouter or provide an API key and base URL before saving."; saveOk = false; return; }
     if (!modelsConfigured) { saveMessage = "Select generation, validation, and skip models before saving."; saveOk = false; return; }
+    if (!testPassed) { saveMessage = "Test your models before saving. Click \"Test Connection\" to verify they work."; saveOk = false; return; }
     saving = true; saveMessage = "";
     try {
-      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
+      const res = await fetch(`/api/settings/${installationId}`, { method: "PUT", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ accountLogin: actor.login, llmGenerationModel: llmGenerationModel.trim(), llmValidationModel: llmValidationModel.trim(), llmSkipModel: llmSkipModel.trim(), questionCountMin, questionCountMax, quizGenerationMaxAttempts, allowBestEffortFallback, retryMode, allowedWrongAnswers, skipBots, skipForks, customSystemPrompt: customSystemPrompt || undefined, customQuizInstructions: customQuizInstructions || undefined, supporterEmail: supporterEmail.trim() || undefined, maxTokenBudget: maxTokenBudget || undefined, tokenBudgetFallback }) });
       const json = await res.json();
       if (json.ok) { saveMessage = "Settings saved."; saveOk = true; }
       else { saveMessage = json.error || "Failed to save."; saveOk = false; }
@@ -174,7 +243,7 @@
       <span class="topbar-title">Configuration</span>
       <div class="topbar-spacer"></div>
       <div class="topbar-actions">
-        <button class="topbar-btn" onclick={save} disabled={saving}>
+        <button class="topbar-btn" onclick={save} disabled={saving || (modelsConfigured && !testPassed)}>
           {saving ? "Saving..." : "Save"}
         </button>
       </div>
@@ -194,15 +263,19 @@
           </div>
         </div>
         <p>Configure LLM provider and quiz behavior.</p>
-        {#if !isPaid && isOrg}
-          <div class="plan-warning">
-            Organization repositories require a paid plan. Quiz generation is blocked.
-            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade</a>
-          </div>
-        {:else if !isPaid}
+        {#if !isPaid}
           <div class="plan-notice">
-            Free plan: up to 10 quiz generations per day, personal repositories only.
-            <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade for unlimited</a>
+            <p>Free plan: up to 10 quiz generations per day.</p>
+            <div class="supporter-row">
+              <label for="supporterEmail">Your email</label>
+              <input id="supporterEmail" type="email" bind:value={supporterEmail} placeholder="you@example.com" class="supporter-input" />
+              <a class="button primary small" href={BUY_ME_A_COFFEE_URL} target="_blank">Support SlopBlock</a>
+            </div>
+            <span class="hint">Enter the email you use on Buy Me a Coffee, then support us. We'll match your payment and unlock unlimited quizzes.</span>
+          </div>
+        {:else}
+          <div class="plan-notice plan-notice-paid">
+            Unlimited quiz generations. Thank you for supporting SlopBlock!
           </div>
         {/if}
       </div>
@@ -311,6 +384,56 @@
             <div class="field"><label for="valModel">Validation Model</label><input id="valModel" list="model-list" bind:value={llmValidationModel} placeholder="Select or enter a model" /><span class="hint">Reviews the generated quiz for grounding and structural issues.</span></div>
             <div class="field"><label for="skipModel">Skip Evaluation Model</label><input id="skipModel" list="model-list" bind:value={llmSkipModel} placeholder="Select or enter a model" /><span class="hint">Decides whether an obvious PR can skip the quiz entirely.</span></div>
             <datalist id="model-list">{#each defaultModels as m (m)}<option value={m}></option>{/each}</datalist>
+          {/if}
+
+          <!-- Test Connection -->
+          {#if providerConnected && modelsConfigured}
+            <div class="test-section">
+              <button
+                class="button"
+                class:test-pass={testRan && testPassed}
+                class:test-fail={testRan && !testPassed}
+                onclick={testModels}
+                disabled={testing}
+              >
+                {#if testing}
+                  <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                  Testing models...
+                {:else if testRan && testPassed}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Tests passed
+                {:else}
+                  Test Connection
+                {/if}
+              </button>
+              {#if testMessage}
+                <p class="test-msg" class:good={testPassed} class:bad={!testPassed}>{testMessage}</p>
+              {/if}
+            </div>
+          {/if}
+
+          {#if testResults.length > 0}
+            <div class="test-results">
+              {#each testResults as result (result.role)}
+                <div class="test-result-row" class:test-result-ok={result.ok} class:test-result-err={!result.ok}>
+                  <span class="test-result-icon">
+                    {#if result.ok}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    {:else}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {/if}
+                  </span>
+                  <span class="test-result-role">{result.role}</span>
+                  <code class="test-result-model">{result.model}</code>
+                  {#if result.latencyMs != null}
+                    <span class="test-result-latency">{result.latencyMs}ms</span>
+                  {/if}
+                  {#if result.error}
+                    <span class="test-result-error">{result.error}</span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
           {/if}
         </section>
 
@@ -473,31 +596,20 @@
         </section>
 
         <!-- Custom Prompts -->
-        <section class="sc" class:sc-locked={!isPaid}>
+        <section class="sc">
           <div class="sc-head">
             <div class="sc-head-row">
               <h2>Custom Prompts</h2>
-              {#if !isPaid}
-                <span class="paid-badge">Paid</span>
-              {/if}
             </div>
             <p class="sc-desc">Appended to the default prompts.</p>
           </div>
-          {#if isPaid}
-            <div class="field"><label for="systemPrompt">System Prompt</label><textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications..."></textarea><span class="hint">Steers the overall tone, focus areas, or domain-specific context.</span></div>
-            <div class="field"><label for="quizInstructions">Quiz Instructions</label><textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage..."></textarea><span class="hint">Specific question requirements or exclusions.</span></div>
-          {:else}
-            <div class="upgrade-gate">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-              Custom prompts are available on the paid plan.
-              <a href={GITHUB_MARKETPLACE_URL} target="_blank">Upgrade on GitHub Marketplace</a>
-            </div>
-          {/if}
+          <div class="field"><label for="systemPrompt">System Prompt</label><textarea id="systemPrompt" bind:value={customSystemPrompt} rows="3" placeholder="e.g. Focus on security implications..."></textarea><span class="hint">Steers the overall tone, focus areas, or domain-specific context.</span></div>
+          <div class="field"><label for="quizInstructions">Quiz Instructions</label><textarea id="quizInstructions" bind:value={customQuizInstructions} rows="3" placeholder="e.g. Always include a question about test coverage..."></textarea><span class="hint">Specific question requirements or exclusions.</span></div>
         </section>
       </div>
 
       <div class="bottom-actions">
-        <button class="button primary" style="width: auto; padding: 12px 28px;" onclick={save} disabled={saving}>
+        <button class="button primary" style="width: auto; padding: 12px 28px;" onclick={save} disabled={saving || (modelsConfigured && !testPassed)}>
           {saving ? "Saving..." : "Save Settings"}
         </button>
         {#if saveMessage}
@@ -524,33 +636,31 @@
   .badge-free { background: var(--gray-50); color: var(--muted); border: 1px solid var(--line); }
   .badge-org { background: rgba(124, 58, 237, 0.08); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.25); }
 
-  .plan-notice, .plan-warning {
-    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-md);
+  .plan-notice {
+    margin-top: 10px; padding: 12px 14px; border-radius: var(--radius-md);
     font-size: 13px; line-height: 1.5;
+    background: var(--gray-50); border: 1px solid var(--line); color: var(--muted);
   }
-  .plan-notice { background: var(--gray-50); border: 1px solid var(--line); color: var(--muted); }
-  .plan-warning { background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: #dc2626; }
-  .plan-notice a, .plan-warning a { font-weight: 600; text-decoration: underline; }
+  .plan-notice p { margin: 0 0 8px; }
+  .plan-notice a { font-weight: 600; text-decoration: underline; }
+  .plan-notice-paid {
+    background: rgba(22, 163, 74, 0.06); border-color: rgba(22, 163, 74, 0.2); color: var(--good);
+  }
+  .supporter-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .supporter-row label { font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .supporter-input {
+    flex: 1; min-width: 180px; padding: 6px 10px; border-radius: var(--radius-md);
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: 13px;
+  }
+  .supporter-input:focus { border-color: var(--accent); outline: none; }
+  :global(.button.small) { padding: 6px 14px; font-size: 12px; white-space: nowrap; }
 
   .sc-head-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .sc-head-row h2 { margin-bottom: 0; }
 
-  .paid-badge {
-    display: inline-flex; align-items: center;
-    padding: 2px 8px; border-radius: 999px;
-    font: 700 10px/1 "DM Mono", monospace; letter-spacing: 0.05em; text-transform: uppercase;
-    background: rgba(232, 112, 154, 0.12); color: var(--accent); border: 1px solid rgba(232, 112, 154, 0.3);
-  }
 
-  .sc-locked { opacity: 0.75; }
-
-  .upgrade-gate {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px; border-radius: var(--radius-md);
-    border: 1px dashed var(--line); background: var(--gray-50);
-    font-size: 13px; color: var(--muted);
-  }
-  .upgrade-gate a { font-weight: 600; color: var(--accent); white-space: nowrap; }
 
   /* Setup TODO banner */
   .setup-todo {
@@ -714,6 +824,58 @@
   }
   .fork-warning svg { flex: none; margin-top: 2px; color: #ef4444; }
   .fork-warning strong { color: #ef4444; font-weight: 600; }
+
+  /* Test Connection */
+  .test-section {
+    margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .test-section :global(.button) {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .test-section :global(.test-pass) {
+    border-color: rgba(74, 222, 128, 0.3); color: var(--good); background: var(--good-light);
+  }
+  .test-section :global(.test-fail) {
+    border-color: rgba(239, 68, 68, 0.3); color: var(--bad); background: var(--bad-light);
+  }
+  .test-msg { font-size: 13px; font-weight: 500; }
+  .test-msg.good { color: var(--good); }
+  .test-msg.bad { color: var(--bad); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+
+  .test-results {
+    margin-top: 12px; display: grid; gap: 6px;
+  }
+  .test-result-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-radius: var(--radius-md);
+    font-size: 12px; border: 1px solid var(--line); background: var(--gray-50);
+  }
+  .test-result-ok { border-color: rgba(74, 222, 128, 0.2); background: var(--good-light); }
+  .test-result-err { border-color: rgba(239, 68, 68, 0.2); background: var(--bad-light); }
+  .test-result-icon { display: flex; flex: none; }
+  .test-result-ok .test-result-icon { color: var(--good); }
+  .test-result-err .test-result-icon { color: var(--bad); }
+  .test-result-role {
+    font: 600 10px/1 "DM Mono", monospace;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); min-width: 72px;
+  }
+  .test-result-model {
+    font: 400 12px/1 "DM Mono", monospace; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .test-result-latency {
+    font: 400 11px/1 "DM Mono", monospace; color: var(--gray-500);
+    margin-left: auto; flex: none;
+  }
+  .test-result-error {
+    font-size: 11px; color: var(--bad); margin-left: auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;
+  }
 
   /* Messages */
   .save-msg, .key-msg { font-size: 13px; font-weight: 500; margin-top: 8px; }

@@ -15,8 +15,12 @@
 </script>
 
 <svelte:head>
-  <title>Contact — SlopBlock</title>
-  <meta name="description" content="Get in touch with the SlopBlock team." />
+  <title>Contact SlopBlock — Questions, Bugs, and Feature Requests</title>
+  <meta name="description" content="Get in touch with the SlopBlock team. Report bugs, request features, or ask questions about the GitHub PR quiz app." />
+  <meta property="og:title" content="Contact SlopBlock — Questions, Bugs, and Feature Requests" />
+  <meta property="og:description" content="Get in touch with the SlopBlock team. Report bugs, request features, or ask questions about the GitHub PR quiz app." />
+  <meta name="twitter:title" content="Contact SlopBlock — Questions, Bugs, and Feature Requests" />
+  <meta name="twitter:description" content="Get in touch with the SlopBlock team. Report bugs, request features, or ask questions about the GitHub PR quiz app." />
 </svelte:head>
 
 <h1>Contact Us</h1>

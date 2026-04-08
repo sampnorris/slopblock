@@ -1,8 +1,11 @@
+import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { devMocksEnabled, mockSettings } from "$lib/server/dev-mocks.js";
 import { getSettings } from "$lib/server/settings-store.js";
+import { getSessionActor } from "$lib/server/auth.js";
+import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, request }) => {
   if (devMocksEnabled()) {
     const settings = mockSettings(params.installationId);
 
@@ -26,6 +29,7 @@ export const load: PageServerLoad = async ({ params }) => {
         skipForks: settings.skipForks,
         customSystemPrompt: settings.customSystemPrompt,
         customQuizInstructions: settings.customQuizInstructions,
+        supporterEmail: settings.supporterEmail,
         allowedWrongAnswers: settings.allowedWrongAnswers,
         maxTokenBudget: settings.maxTokenBudget,
         tokenBudgetFallback: settings.tokenBudgetFallback,
@@ -33,7 +37,15 @@ export const load: PageServerLoad = async ({ params }) => {
     };
   }
 
-  // Auth is handled by the parent layout
+  // Auth is handled by the parent layout, but we also verify installation access
+  const cookieHeader = request.headers.get("cookie") ?? undefined;
+  const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
+  if (actor) {
+    const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+    if (!hasAccess) {
+      error(403, "You do not have access to this installation.");
+    }
+  }
 
   const settings = await getSettings(params.installationId);
 
@@ -62,6 +74,7 @@ export const load: PageServerLoad = async ({ params }) => {
           skipForks: settings.skipForks,
           customSystemPrompt: settings.customSystemPrompt,
           customQuizInstructions: settings.customQuizInstructions,
+          supporterEmail: settings.supporterEmail,
           allowedWrongAnswers: settings.allowedWrongAnswers,
           maxTokenBudget: settings.maxTokenBudget,
           tokenBudgetFallback: settings.tokenBudgetFallback,

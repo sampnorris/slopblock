@@ -9,11 +9,8 @@ import {
   handleQuizCommand,
   MissingModelError,
   MissingProviderError,
-  PlanError,
 } from "$lib/server/service.js";
 import { InsufficientCreditsError, TokenBudgetExceededError } from "$lib/server/openai.js";
-import { handleMarketplacePurchase } from "$lib/server/marketplace-service.js";
-import { GITHUB_MARKETPLACE_URL } from "$lib/constants.js";
 
 export const POST: RequestHandler = async ({ request }) => {
   const rawBody = await request.text();
@@ -41,19 +38,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
   if (event === "ping") {
     logInfo("webhook.ping", { deliveryId });
-    return json({ ok: true });
-  }
-
-  if (event === "marketplace_purchase") {
-    try {
-      await handleMarketplacePurchase(payload);
-      logInfo("webhook.marketplace_purchase.completed", { action: payload.action, deliveryId });
-    } catch (error) {
-      logError("webhook.marketplace_purchase.failed", error, {
-        action: payload.action,
-        deliveryId,
-      });
-    }
     return json({ ok: true });
   }
 
@@ -111,7 +95,6 @@ export const POST: RequestHandler = async ({ request }) => {
       (error instanceof MissingProviderError ||
         error instanceof MissingModelError ||
         error instanceof InsufficientCreditsError ||
-        error instanceof PlanError ||
         error instanceof TokenBudgetExceededError) &&
       (isPrEvent || isCommentEvent)
     ) {
@@ -119,17 +102,15 @@ export const POST: RequestHandler = async ({ request }) => {
       const repo = payload.repository.name;
       const pr = payload.pull_request ?? payload.issue;
       const description =
-        error instanceof PlanError
-          ? `Organization repositories require a paid Slopblock plan. Upgrade at ${GITHUB_MARKETPLACE_URL}`
-          : error instanceof InsufficientCreditsError
-            ? "LLM provider has insufficient credits. Add credits and re-trigger."
-            : error instanceof TokenBudgetExceededError
-              ? error.fallback === "fail"
-                ? `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Merge blocked.`
-                : `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Quiz skipped.`
-              : error instanceof MissingModelError
-                ? "LLM models are not fully configured. Select all required models in settings."
-                : "No LLM provider configured. Visit slopblock settings to connect one.";
+        error instanceof InsufficientCreditsError
+          ? "LLM provider has insufficient credits. Add credits and re-trigger."
+          : error instanceof TokenBudgetExceededError
+            ? error.fallback === "fail"
+              ? `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Merge blocked.`
+              : `Token budget exceeded (${error.tokensUsed.toLocaleString()}/${error.budget.toLocaleString()}). Quiz skipped.`
+            : error instanceof MissingModelError
+              ? "LLM models are not fully configured. Select all required models in settings."
+              : "No LLM provider configured. Visit slopblock settings to connect one.";
       try {
         await setCommitStatus({
           octokit: await getInstallationOctokit(payload.installation.id),

@@ -3,6 +3,10 @@ import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockActor, mockSettings } from "$lib/server/dev-mocks.js";
 import { getSettings, upsertSettings, clearApiKey } from "$lib/server/settings-store.js";
+import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
+
+const MAX_CUSTOM_PROMPT_LENGTH = 4000;
+const MAX_QUIZ_GENERATION_ATTEMPTS = 10;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -36,6 +40,11 @@ export const GET: RequestHandler = async ({ params, request }) => {
     return json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  if (!hasAccess) {
+    return json({ error: "You do not have access to this installation." }, { status: 403 });
+  }
+
   const settings = await getSettings(params.installationId);
   if (!settings) {
     return json({ settings: null, hasApiKey: false });
@@ -63,6 +72,11 @@ export const PUT: RequestHandler = async ({ params, request }) => {
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
     return json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  if (!hasAccess) {
+    return json({ error: "You do not have access to this installation." }, { status: 403 });
   }
 
   const body = await request.json();
@@ -107,6 +121,33 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
   if (quizGenerationMaxAttempts != null && quizGenerationMaxAttempts < 1) {
     return json({ ok: false, error: "Generation attempts must be at least 1." }, { status: 400 });
+  }
+
+  if (quizGenerationMaxAttempts != null && quizGenerationMaxAttempts > MAX_QUIZ_GENERATION_ATTEMPTS) {
+    return json(
+      { ok: false, error: `Generation attempts cannot exceed ${MAX_QUIZ_GENERATION_ATTEMPTS}.` },
+      { status: 400 },
+    );
+  }
+
+  if (
+    typeof body.customSystemPrompt === "string" &&
+    body.customSystemPrompt.length > MAX_CUSTOM_PROMPT_LENGTH
+  ) {
+    return json(
+      { ok: false, error: `Custom system prompt cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.` },
+      { status: 400 },
+    );
+  }
+
+  if (
+    typeof body.customQuizInstructions === "string" &&
+    body.customQuizInstructions.length > MAX_CUSTOM_PROMPT_LENGTH
+  ) {
+    return json(
+      { ok: false, error: `Custom quiz instructions cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.` },
+      { status: 400 },
+    );
   }
 
   if (maxTokenBudget != null && maxTokenBudget < 1000) {
@@ -164,6 +205,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     skipForks: body.skipForks != null ? Boolean(body.skipForks) : undefined,
     customSystemPrompt: body.customSystemPrompt ?? undefined,
     customQuizInstructions: body.customQuizInstructions ?? undefined,
+    supporterEmail: body.supporterEmail ?? undefined,
     allowedWrongAnswers: allowedWrongAnswers ?? undefined,
     maxTokenBudget: maxTokenBudget ?? undefined,
     tokenBudgetFallback:
@@ -184,6 +226,11 @@ export const DELETE: RequestHandler = async ({ params, request }) => {
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (!actor) {
     return json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  if (!hasAccess) {
+    return json({ error: "You do not have access to this installation." }, { status: 403 });
   }
 
   await clearApiKey(params.installationId);

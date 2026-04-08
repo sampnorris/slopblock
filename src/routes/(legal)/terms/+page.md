@@ -5,6 +5,11 @@ title: Terms of Service
 <svelte:head>
 
   <title>Terms of Service — SlopBlock</title>
+  <meta name="description" content="Terms of Service for SlopBlock, the GitHub App that quizzes PR authors on their code changes before merge. Covers billing, usage, and limitations." />
+  <meta property="og:title" content="Terms of Service — SlopBlock" />
+  <meta property="og:description" content="Terms of Service for SlopBlock, the GitHub App that quizzes PR authors on their code changes before merge." />
+  <meta name="twitter:title" content="Terms of Service — SlopBlock" />
+  <meta name="twitter:description" content="Terms of Service for SlopBlock, the GitHub App that quizzes PR authors on their code changes before merge." />
 </svelte:head>
 
 # Terms of Service
