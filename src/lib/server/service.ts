@@ -266,6 +266,23 @@ async function renderAndPersistComment(octokit: any, session: SessionRecord) {
   return updated;
 }
 
+function quotaExceededState(config: SlopblockConfig): "success" | "failure" {
+  return config.tokenBudgetFallback === "fail" ? "failure" : "success";
+}
+
+function quotaExceededReason(config: SlopblockConfig): string {
+  return config.tokenBudgetFallback === "fail"
+    ? `Check failed because the free plan daily limit was reached. It will keep failing until tomorrow unless the plan is upgraded.`
+    : `Quiz skipped because the free plan daily limit was reached and a new quiz cannot be generated today.`;
+}
+
+function quotaExceededDescription(config: SlopblockConfig): string {
+  const base = `Free plan limit reached (${FREE_PLAN_DAILY_QUIZ_LIMIT}/day).`;
+  return config.tokenBudgetFallback === "fail"
+    ? `${base} ${quotaExceededReason(config)}`
+    : `${base} ${quotaExceededReason(config)}`;
+}
+
 export async function markQuizPassed(params: {
   octokit: any;
   session: SessionRecord;
@@ -492,45 +509,46 @@ export async function handlePullRequestWebhook(octokit: any, payload: any): Prom
     return;
   }
 
-  // Free plan: enforce daily quiz generation quota
-  if (!isManualTrigger) {
-    const paid = await isPaidPlan(String(payload.installation.id));
-    if (!paid) {
-      const generationsToday = await countQuizGenerationsToday(String(payload.installation.id));
-      if (generationsToday >= FREE_PLAN_DAILY_QUIZ_LIMIT) {
-        logInfo("pull_request.quota_exceeded", {
-          repository: `${owner}/${repo}`,
-          pullNumber: pr.number,
-          generationsToday,
-          limit: FREE_PLAN_DAILY_QUIZ_LIMIT,
-        });
-        const existing = await getSession(owner, repo, pr.number);
-        const session = await renderAndPersistComment(octokit, {
-          installationId: payload.installation.id,
-          repositoryId: payload.repository.id,
-          repositoryOwner: owner,
-          repositoryName: repo,
-          pullNumber: pr.number,
-          authorLogin: pr.user.login,
-          headSha,
-          status: "quota_exceeded" as SessionStatus,
-          currentQuestionIndex: 0,
-          questionCount: 0,
-          retryMode: config.retryMode,
-          allowedWrongAnswers: config.passRule.allowedWrongAnswers,
-          commentId: existing?.commentId,
-        });
-        await setCommitStatus({
-          octokit,
-          owner,
-          repo,
-          sha: headSha,
-          state: "success",
-          description: `Free plan limit reached (${FREE_PLAN_DAILY_QUIZ_LIMIT}/day). Upgrade for unlimited quizzes.`,
-          targetUrl: sessionTargetUrl(session),
-        });
-        return;
-      }
+  // Free plan: enforce daily quiz generation quota for all triggers, including /quiz.
+  const paid = await isPaidPlan(String(payload.installation.id));
+  if (!paid) {
+    const generationsToday = await countQuizGenerationsToday(String(payload.installation.id));
+    if (generationsToday >= FREE_PLAN_DAILY_QUIZ_LIMIT) {
+      logInfo("pull_request.quota_exceeded", {
+        repository: `${owner}/${repo}`,
+        pullNumber: pr.number,
+        generationsToday,
+        limit: FREE_PLAN_DAILY_QUIZ_LIMIT,
+        manualTrigger: isManualTrigger,
+        fallback: config.tokenBudgetFallback,
+      });
+      const existing = await getSession(owner, repo, pr.number);
+      const session = await renderAndPersistComment(octokit, {
+        installationId: payload.installation.id,
+        repositoryId: payload.repository.id,
+        repositoryOwner: owner,
+        repositoryName: repo,
+        pullNumber: pr.number,
+        authorLogin: pr.user.login,
+        headSha,
+        status: "quota_exceeded" as SessionStatus,
+        currentQuestionIndex: 0,
+        questionCount: 0,
+        retryMode: config.retryMode,
+        allowedWrongAnswers: config.passRule.allowedWrongAnswers,
+        failureMessage: quotaExceededReason(config),
+        commentId: existing?.commentId,
+      });
+      await setCommitStatus({
+        octokit,
+        owner,
+        repo,
+        sha: headSha,
+        state: quotaExceededState(config),
+        description: quotaExceededDescription(config),
+        targetUrl: sessionTargetUrl(session),
+      });
+      return;
     }
   }
 
