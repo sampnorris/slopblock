@@ -130,6 +130,19 @@ test("renderSessionComment shows skipped state", () => {
   assert.match(output, /Docs-only change/);
 });
 
+test("renderSessionComment shows quota exceeded state", () => {
+  const output = renderSessionComment({
+    ...baseSession,
+    status: SessionStatus.quota_exceeded,
+    failureMessage:
+      "The free plan daily limit of 10 quiz generations has been reached, so this check is failing until tomorrow unless the plan is upgraded.",
+  });
+
+  assert.match(output, /Limit Reached/);
+  assert.match(output, /free plan limit/i);
+  assert.match(output, /check is failing until tomorrow/);
+});
+
 test("renderQuizPage renders markdown in prompts and answers", () => {
   const output = renderQuizPage(baseSession, "alice");
 

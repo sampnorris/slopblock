@@ -9,9 +9,16 @@ export function renderSessionComment(session: SessionRecord): string {
 
   if (session.status === SessionStatus.quota_exceeded) {
     lines.push(
-      `### :white_check_mark: SlopBlock — Passed`,
+      `### :warning: SlopBlock — Limit Reached`,
       "",
       `> This repository has reached the free plan limit of **${FREE_PLAN_DAILY_QUIZ_LIMIT} quiz generations per day**. No quiz was generated for this pull request.`,
+    );
+
+    if (session.failureMessage) {
+      lines.push("", session.failureMessage);
+    }
+
+    lines.push(
       "",
       `:arrow_up: [Support SlopBlock](${BUY_ME_A_COFFEE_URL}) for unlimited daily quiz generations.`,
     );

@@ -59,6 +59,30 @@ function defaultSettings() {
     llmGenerationModel: "test-generation-model",
     llmValidationModel: "test-validation-model",
     llmSkipModel: "test-skip-model",
+    tokenBudgetFallback: "pass",
+  };
+}
+
+function makeIssueCommentPayload(overrides: Record<string, any> = {}) {
+  return {
+    action: "created",
+    repository: {
+      id: 100,
+      name: "test-repo",
+      owner: { login: "test-owner" },
+      full_name: "test-owner/test-repo",
+    },
+    installation: { id: 1 },
+    issue: {
+      number: 1,
+      pull_request: { url: "https://api.github.test/pulls/1" },
+    },
+    comment: {
+      id: 99,
+      body: "/quiz",
+      user: { login: "alice" },
+    },
+    ...overrides,
   };
 }
 
@@ -89,6 +113,14 @@ function createMockOctokit() {
         }),
       },
       pulls: {
+        get: mock.fn(async (params: any) => ({
+          data: {
+            number: params.pull_number,
+            draft: false,
+            user: { login: "alice", type: "User" },
+            head: { sha: "abc123def456", repo: { fork: false } },
+          },
+        })),
         listFiles: mock.fn(async (params: any) => {
           listFilesCalls.push({
             owner: params.owner,
@@ -274,7 +306,7 @@ mock.module("../src/lib/server/render.js", {
   namedExports: {
     renderSessionComment: (session: any) => {
       if (session.status === "quota_exceeded") {
-        return "### :white_check_mark: SlopBlock — Passed\n\n> free plan limit of **10 quiz generations per day**";
+        return `### :warning: SlopBlock — Limit Reached\n\n> free plan limit of **10 quiz generations per day**${session.failureMessage ? `\n\n${session.failureMessage}` : ""}`;
       }
       if (session.status === "skipped") {
         return `### :next_track_button: SlopBlock — Skipped\n\n> ${session.skipReason ?? "Skipped"}`;
@@ -351,7 +383,7 @@ mock.module("../src/lib/server/openai.js", {
 });
 
 // ─── Import the module under test AFTER mocks are set up ─────────────
-const { handlePullRequestWebhook, MissingProviderError, MissingModelError } =
+const { handlePullRequestWebhook, handleQuizCommand, MissingProviderError, MissingModelError } =
   await import("../src/lib/server/service.js");
 
 // ─── Payload factory ─────────────────────────────────────────────────
@@ -576,7 +608,23 @@ describe("billing / quota limit", () => {
     assert.equal(statusCalls[0].state, "success");
     assert.match(statusCalls[0].description, /Free plan limit reached/);
     assert.match(statusCalls[0].description, /10\/day/);
-    assert.match(statusCalls[0].description, /Upgrade/);
+    assert.match(statusCalls[0].description, /Quiz skipped/);
+    assert.match(statusCalls[0].description, /cannot be generated/);
+  });
+
+  test("free plan over daily limit with fail fallback → failure status", async () => {
+    mockIsPaid = false;
+    mockQuizGenerationsToday = 10;
+    mockSettings = { ...defaultSettings(), tokenBudgetFallback: "fail" };
+    const octokit = createMockOctokit();
+
+    await handlePullRequestWebhook(octokit, makePrPayload());
+
+    assert.equal(statusCalls.length, 1);
+    assert.equal(statusCalls[0].state, "failure");
+    assert.match(statusCalls[0].description, /Free plan limit reached/);
+    assert.match(statusCalls[0].description, /Check failed because/);
+    assert.match(statusCalls[0].description, /failing until tomorrow/);
   });
 
   test("free plan over daily limit → comment posted with upgrade CTA", async () => {
@@ -588,7 +636,58 @@ describe("billing / quota limit", () => {
 
     assert.equal(commentCalls.length, 1);
     assert.match(commentCalls[0].body, /free plan limit/i);
-    assert.match(commentCalls[0].body, /Passed/);
+    assert.match(commentCalls[0].body, /Limit Reached/);
+    assert.match(commentCalls[0].body, /Quiz skipped because/i);
+    assert.match(commentCalls[0].body, /cannot be generated/i);
+  });
+
+  test("free plan over daily limit with fail fallback → comment explains failure reason", async () => {
+    mockIsPaid = false;
+    mockQuizGenerationsToday = 10;
+    mockSettings = { ...defaultSettings(), tokenBudgetFallback: "fail" };
+    const octokit = createMockOctokit();
+
+    await handlePullRequestWebhook(octokit, makePrPayload());
+
+    assert.equal(commentCalls.length, 1);
+    assert.match(commentCalls[0].body, /Limit Reached/);
+    assert.match(commentCalls[0].body, /Check failed because/i);
+    assert.match(commentCalls[0].body, /failing until tomorrow/i);
+  });
+
+  test("manual /quiz over daily limit uses success status when fallback=pass", async () => {
+    mockIsPaid = false;
+    mockQuizGenerationsToday = 10;
+    const octokit = createMockOctokit();
+
+    await handleQuizCommand(octokit, makeIssueCommentPayload());
+
+    assert.equal(statusCalls.length, 1);
+    assert.equal(statusCalls[0].state, "success");
+    assert.match(statusCalls[0].description, /Free plan limit reached/);
+    assert.match(statusCalls[0].description, /Quiz skipped/);
+    assert.match(statusCalls[0].description, /cannot be generated/);
+    assert.equal(listFilesCalls.length, 0, "should not generate a new quiz when over quota");
+    assert.equal(commentCalls.length, 1);
+    assert.match(commentCalls[0].body, /Quiz skipped because/i);
+  });
+
+  test("manual /quiz over daily limit uses failure status when fallback=fail", async () => {
+    mockIsPaid = false;
+    mockQuizGenerationsToday = 10;
+    mockSettings = { ...defaultSettings(), tokenBudgetFallback: "fail" };
+    const octokit = createMockOctokit();
+
+    await handleQuizCommand(octokit, makeIssueCommentPayload());
+
+    assert.equal(statusCalls.length, 1);
+    assert.equal(statusCalls[0].state, "failure");
+    assert.match(statusCalls[0].description, /Free plan limit reached/);
+    assert.match(statusCalls[0].description, /Check failed because/);
+    assert.match(statusCalls[0].description, /failing until tomorrow/);
+    assert.equal(listFilesCalls.length, 0, "should not generate a new quiz when over quota");
+    assert.equal(commentCalls.length, 1);
+    assert.match(commentCalls[0].body, /Check failed because/i);
   });
 
   test("paid plan over daily limit → quiz still generated (no limit)", async () => {
