@@ -12,7 +12,6 @@ concurrency:
 permissions:
   contents: read
   statuses: write
-  secrets: read
 
 jobs:
   check:
