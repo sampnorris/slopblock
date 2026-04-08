@@ -2,7 +2,7 @@ import { SessionStatus } from "@prisma/client";
 import type { SessionRecord } from "./session-store.js";
 import { sessionAnswerUrl } from "./github-service.js";
 import { FREE_PLAN_DAILY_QUIZ_LIMIT } from "./marketplace-store.js";
-import { BUY_ME_A_COFFEE_URL } from "$lib/constants.js";
+import { BUY_ME_A_COFFEE_URL } from "../constants.js";
 
 export function renderSessionComment(session: SessionRecord): string {
   const lines: string[] = [];

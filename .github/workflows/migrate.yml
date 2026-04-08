@@ -9,6 +9,10 @@ concurrency:
   group: db-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  statuses: write
+
 jobs:
   check:
     name: Schema in Sync
