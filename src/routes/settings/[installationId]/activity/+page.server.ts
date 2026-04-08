@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (actor) {
-    const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+    const hasAccess = await verifyInstallationAccess(params.installationId, actor.login, actor.token);
     if (!hasAccess) {
       error(403, "You do not have access to this installation.");
     }

@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
     return json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
+  const hasAccess = await verifyInstallationAccess(params.installationId, actor.login, actor.token);
   if (!hasAccess) {
     return json({ error: "You do not have access to this installation." }, { status: 403 });
   }
