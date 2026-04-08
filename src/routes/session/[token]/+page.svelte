@@ -43,6 +43,17 @@
   let feedbackValue = $state<number | null>(null);
   /** Tracks whether the user has reviewed their wrong answers before submitting (new_quiz mode) */
   let reviewedWrongAnswers = $state(false);
+  let showReloadQuizModal = $state(false);
+  let reloadQuizMessage = $state("A newer quiz is available for this pull request. Reload to continue.");
+
+  $effect(() => {
+    const staleQuiz = (data as any).staleQuiz as { open: boolean; message: string } | null;
+    if (staleQuiz?.open) {
+      showReloadQuizModal = true;
+      reloadQuizMessage =
+        staleQuiz.message || "A newer quiz is available for this pull request. Reload to continue.";
+    }
+  });
 
   function diffAnchorUrl(anchor: string): string {
     const base = `${prUrl}/files`;
@@ -51,19 +62,46 @@
     return hash ? `${base}#diff-${hash}` : base;
   }
 
-  /** Save current answers to server (fire-and-forget) */
-  function saveAnswersToServer() {
-    const answers = selectedAnswers();
-    fetch(`/api/session/${session.id}/answer`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ action: "save_answers", answers }),
-    }).catch(() => { /* best effort */ });
+  function promptReloadQuiz(message?: string) {
+    reloadQuizMessage = message || "A newer quiz is available for this pull request. Reload to continue.";
+    submitMessage = "";
+    showReloadQuizModal = true;
   }
 
-  function selectAnswer(qIndex: number, key: string) {
-    if (questionStates[qIndex].answered) return;
+  async function loadLatestQuiz() {
+    window.location.reload();
+  }
+
+  /** Save current answers to server */
+  async function saveAnswersToServer(): Promise<boolean> {
+    const answers = selectedAnswers();
+    try {
+      const res = await fetch(`/api/session/${session.id}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "save_answers",
+          answers,
+          expectedHeadSha: session.headSha,
+        }),
+      });
+
+      if (res.ok) return true;
+
+      const json = await res.json().catch(() => null);
+      if (res.status === 409 && json?.drifted) {
+        promptReloadQuiz(json.message);
+      }
+    } catch {
+      // best effort
+    }
+
+    return false;
+  }
+
+  async function selectAnswer(qIndex: number, key: string) {
+    if (showReloadQuizModal || questionStates[qIndex].answered) return;
     const q = questions[qIndex];
     const isCorrect = q.correctOption === key;
     questionStates[qIndex] = { answered: true, selectedKey: key, isCorrect };
@@ -71,7 +109,9 @@
     if (isCorrect) correct++;
 
     // Auto-save to server on each answer
-    saveAnswersToServer();
+    await saveAnswersToServer();
+
+    if (showReloadQuizModal) return;
 
     if (answered < total) {
       setTimeout(() => {
@@ -82,6 +122,7 @@
   }
 
   function btnClass(qIndex: number, key: string): string {
+    if (showReloadQuizModal) return "choice-btn dimmed";
     const st = questionStates[qIndex];
     if (!st.answered) return "choice-btn";
     const q = questions[qIndex];
@@ -95,6 +136,7 @@
   }
 
   function clearIncorrectAnswers() {
+    if (showReloadQuizModal) return;
     let firstIncorrect = -1;
     for (let i = 0; i < questionStates.length; i += 1) {
       const state = questionStates[i];
@@ -108,7 +150,7 @@
     correct = questionStates.reduce((count, state) => count + (state.isCorrect ? 1 : 0), 0);
 
     // Save the cleared state to server
-    saveAnswersToServer();
+    void saveAnswersToServer();
 
     if (firstIncorrect >= 0) {
       setTimeout(() => {
@@ -122,10 +164,21 @@
     if (correct < requiredCorrect) return;
     submitting = true; submitMessage = "";
     try {
-      const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
+      const res = await fetch(`/api/session/${session.id}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "pass",
+          answers: selectedAnswers(),
+          expectedHeadSha: session.headSha,
+        }),
+      });
       const json = await res.json();
       if (json.ok && json.passed) {
         window.location.reload();
+      } else if (res.status === 409 && json.drifted) {
+        promptReloadQuiz(json.message);
       } else {
         submitMessage = json.message || "Submission failed. Fix your answers or generate a new quiz.";
       }
@@ -137,16 +190,29 @@
   async function submitPassNewQuizMode() {
     submitting = true; submitMessage = "";
     try {
-      const res = await fetch(`/api/session/${session.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ action: "pass", answers: selectedAnswers() }) });
+      const res = await fetch(`/api/session/${session.id}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "pass",
+          answers: selectedAnswers(),
+          expectedHeadSha: session.headSha,
+        }),
+      });
       const json = await res.json();
       if (json.ok) {
         if (json.passed) {
           window.location.reload();
+        } else if (res.status === 409 && json.drifted) {
+          promptReloadQuiz(json.message);
         } else {
           submitMessage = json.message || "Unexpected: server did not pass.";
         }
       }
-      else { submitMessage = json.message || "Unknown error"; }
+      else if (res.status === 409 && json.drifted) {
+        promptReloadQuiz(json.message);
+      } else { submitMessage = json.message || "Unknown error"; }
     } catch { submitMessage = "Network error, try again"; }
     finally { submitting = false; }
   }
@@ -190,7 +256,7 @@
 </script>
 
 <svelte:head>
-  <title>SlopBlock - {session.status === "passed" ? "passed" : "quiz"}</title>
+  <title>SlopBlock - {session.status === "passed" ? "passed" : session.status === "skipped" ? "skipped" : session.status === "quota_exceeded" ? "quota" : session.status === "failed" && total === 0 ? "failed" : "quiz"}</title>
 </svelte:head>
 
 <div class="centered-layout">
@@ -244,6 +310,45 @@
             </button>
           </div>
         {/if}
+      </div>
+
+    {:else if session.status === "skipped"}
+      <div class="hero-section">
+        <div class="state-badge neutral">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+        </div>
+        <h1>Quiz skipped</h1>
+        <p>{session.skipReason ?? "This pull request matched the configured skip rules."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">No quiz was required for <strong>{session.repositoryOwner}/{session.repositoryName}#{session.pullNumber}</strong>.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
+      </div>
+
+    {:else if session.status === "quota_exceeded"}
+      <div class="hero-section">
+        <div class="state-badge warn">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        </div>
+        <h1>Quiz generation limit reached</h1>
+        <p>{session.failureMessage ?? "No quiz was generated for this pull request."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">This session is read-only because the quiz was never generated.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
+      </div>
+
+    {:else if session.status === "failed" && total === 0}
+      <div class="hero-section">
+        <div class="state-badge bad">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>
+        </div>
+        <h1>Quiz failed</h1>
+        <p>{session.failureMessage ?? "This quiz session ended in a failed state."}</p>
+      </div>
+      <div class="stack">
+        <div class="notice">There is no active quiz to answer for this session.</div>
+        <a class="button primary" href={prUrl}>Back to pull request</a>
       </div>
 
     {:else}
@@ -388,6 +493,28 @@
   </main>
 </div>
 
+{#if showReloadQuizModal}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="quiz-modal-overlay"
+    onkeydown={(e) => {
+      if (e.key === "Escape") loadLatestQuiz();
+    }}
+  >
+    <div class="quiz-modal-card" role="dialog" aria-modal="true" aria-labelledby="reload-quiz-title">
+      <div class="quiz-modal-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </div>
+      <p class="quiz-modal-eyebrow">New quiz ready</p>
+      <h2 id="reload-quiz-title" class="quiz-modal-title">This quiz is out of date</h2>
+      <p class="quiz-modal-desc">{reloadQuizMessage}</p>
+      <div class="quiz-modal-footer">
+        <button class="quiz-modal-btn-primary" onclick={loadLatestQuiz}>Load new quiz</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .brand-strip {
     display: flex; align-items: center; gap: 10px;
@@ -408,6 +535,19 @@
     width: 48px; height: 48px; border-radius: 50%;
     background: var(--good-light); color: var(--good);
     display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .state-badge {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .state-badge.neutral {
+    background: var(--gray-50); color: var(--muted);
+  }
+  .state-badge.warn {
+    background: rgba(234, 179, 8, 0.12); color: rgb(234, 179, 8);
+  }
+  .state-badge.bad {
+    background: var(--bad-light); color: var(--bad);
   }
 
   /* Progress bar */
@@ -535,5 +675,66 @@
   .feedback-btn.down:hover { border-color: rgba(239, 68, 68, 0.3); color: var(--bad); background: var(--bad-light); }
   .feedback-thanks {
     font: 500 13px/1.4 "DM Sans", sans-serif; color: var(--muted);
+  }
+
+  .quiz-modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center;
+    padding: 20px;
+  }
+  .quiz-modal-card {
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    padding: 28px;
+    text-align: center;
+    box-shadow:
+      0 0 0 1px rgba(232, 112, 154, 0.08),
+      0 24px 80px rgba(0, 0, 0, 0.5),
+      0 0 120px rgba(232, 112, 154, 0.06);
+  }
+  .quiz-modal-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    margin: 0 auto 14px;
+    display: grid; place-items: center;
+    color: var(--accent);
+    background: linear-gradient(135deg, rgba(232, 112, 154, 0.15), rgba(232, 112, 154, 0.06));
+    border: 1px solid rgba(232, 112, 154, 0.2);
+  }
+  .quiz-modal-eyebrow {
+    font: 500 10px/1 "DM Mono", monospace;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .quiz-modal-title {
+    font: 700 22px/1.15 "Playfair Display", serif;
+    letter-spacing: -0.02em; color: #fff;
+    margin-bottom: 10px;
+  }
+  .quiz-modal-desc {
+    font-size: 13px; line-height: 1.6; color: var(--muted);
+    margin: 0;
+  }
+  .quiz-modal-footer {
+    margin-top: 20px;
+    display: flex;
+  }
+  .quiz-modal-btn-primary {
+    flex: 1; padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font: 600 13px/1 "DM Sans", sans-serif;
+    text-align: center; cursor: pointer;
+    border: none;
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.3), 0 2px 12px rgba(232, 112, 154, 0.2);
+    transition: all 160ms ease;
+  }
+  .quiz-modal-btn-primary:hover {
+    box-shadow: 0 0 0 1px rgba(232, 112, 154, 0.5), 0 4px 20px rgba(232, 112, 154, 0.3);
+    transform: translateY(-1px);
   }
 </style>

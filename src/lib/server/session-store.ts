@@ -25,6 +25,7 @@ export interface SessionRecord {
   quiz?: QuizPayload;
   savedAnswers?: Record<string, string>;
   traceId?: string;
+  isRegenerating?: boolean;
 }
 
 function fromRow(row: any): SessionRecord {
@@ -111,6 +112,7 @@ export interface SessionListItem {
   summary?: string;
   skipReason?: string;
   failureMessage?: string;
+  isRegenerating?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,6 +120,7 @@ export interface SessionListItem {
 export interface SessionStats {
   total: number;
   awaiting: number;
+  regenerating?: number;
   passed: number;
   failed: number;
   skipped: number;

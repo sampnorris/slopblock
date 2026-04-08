@@ -8,12 +8,17 @@
   const stats = $derived(data.sessionStats);
   const attempts = $derived(data.attemptStats);
 
+  function displayStatus(session: any): string {
+    return session.isRegenerating ? "regenerating" : session.status;
+  }
+
   const passRate = $derived(attempts.totalAttempts > 0
     ? Math.round((attempts.passedAttempts / attempts.totalAttempts) * 100)
     : 0);
 
   function statusLabel(status: string): string {
     switch (status) {
+      case "regenerating": return "Regenerating";
       case "awaiting_answer": return "Awaiting";
       case "passed": return "Passed";
       case "failed": return "Failed";
@@ -25,6 +30,7 @@
 
   function statusClass(status: string): string {
     switch (status) {
+      case "regenerating": return "status-regenerating";
       case "passed": return "status-passed";
       case "failed": return "status-failed";
       case "skipped": return "status-skipped";
@@ -120,6 +126,12 @@
           <span class="stat-val">{stats.awaiting}</span>
           <span class="stat-key">Awaiting</span>
         </div>
+        {#if stats.regenerating > 0}
+          <div class="stat-cell stat-cell-regenerating">
+            <span class="stat-val stat-val-regenerating">{stats.regenerating}</span>
+            <span class="stat-key">Regenerating</span>
+          </div>
+        {/if}
         {#if stats.skipped > 0}
           <div class="stat-cell">
             <span class="stat-val">{stats.skipped}</span>
@@ -148,11 +160,11 @@
         <p>Quiz sessions will appear here once pull requests trigger quiz generation.</p>
       </div>
     {:else}
-      <div class="session-list">
-        {#each sessions as session, i (session.id)}
+        <div class="session-list">
+          {#each sessions as session, i (session.id)}
           <div class="session-row" style="animation-delay: {i * 40}ms">
             <div class="session-status-col">
-              <span class="status-badge {statusClass(session.status)}">{statusLabel(session.status)}</span>
+              <span class="status-badge {statusClass(displayStatus(session))}">{statusLabel(displayStatus(session))}</span>
               {#if isBudgetExceeded(session)}
                 <span class="budget-tag">Budget</span>
               {/if}
@@ -170,7 +182,9 @@
                   <span class="question-count">{session.questionCount}q</span>
                 {/if}
               </div>
-              {#if session.summary}
+              {#if session.isRegenerating}
+                <p class="session-summary regenerating-reason">A newer commit was detected. This quiz is being replaced with a fresh one.</p>
+              {:else if session.summary}
                 <p class="session-summary">{session.summary}</p>
               {:else if session.skipReason}
                 <p class="session-summary skip-reason">{session.skipReason}</p>
@@ -306,6 +320,7 @@
   .stat-val-good { color: var(--good); }
   .stat-val-bad { color: var(--bad); }
   .stat-val-warn { color: rgb(234, 179, 8); }
+  .stat-val-regenerating { color: rgb(251, 191, 36); }
   .stat-key {
     font: 500 10px/1 "DM Mono", monospace;
     color: var(--muted);
@@ -314,6 +329,9 @@
   }
   .stat-cell-warn {
     border-right-color: rgba(234, 179, 8, 0.15);
+  }
+  .stat-cell-regenerating {
+    border-right-color: rgba(251, 191, 36, 0.18);
   }
 
   /* ── Section Header ── */
@@ -397,6 +415,11 @@
     color: var(--accent);
     border-color: rgba(232, 112, 154, 0.2);
   }
+  .status-regenerating {
+    background: rgba(251, 191, 36, 0.1);
+    color: rgb(234, 179, 8);
+    border-color: rgba(251, 191, 36, 0.22);
+  }
   .status-skipped {
     background: var(--gray-50);
     color: var(--muted);
@@ -471,6 +494,7 @@
   }
   .skip-reason { color: var(--gray-500); font-style: italic; }
   .fail-reason { color: rgba(239, 68, 68, 0.7); }
+  .regenerating-reason { color: rgb(234, 179, 8); }
 
   .session-meta {
     display: flex;

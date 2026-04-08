@@ -99,8 +99,67 @@ export function mockSettings(installationId: string): SettingsRecord {
   };
 }
 
-export function mockSession(token: string): SessionRecord {
+function defaultMockQuiz() {
   return {
+    summary: "This mock PR updates quiz generation rules and improves the dev preview flow.",
+    questions: [
+      {
+        id: "q1",
+        prompt: "What changed about answer options in the quiz?",
+        options: [
+          { key: "A" as const, text: "Questions now use exactly `3` options." },
+          { key: "B" as const, text: "Questions now use exactly `5` options." },
+          { key: "C" as const, text: "Questions can have any number of options." },
+        ],
+        correctOption: "A" as const,
+        explanation: "The quiz was updated to require exactly 3 options per question.",
+        diffAnchors: ["src/lib/server/openai.ts", "src/lib/server/quiz.ts"],
+        focus: "behavior" as const,
+      },
+      {
+        id: "q2",
+        prompt: "What is the default answer mode in the mock dev session?",
+        options: [
+          { key: "A" as const, text: "Generate a brand new quiz after every wrong answer." },
+          { key: "B" as const, text: "Explain mistakes and retry the same quiz." },
+          { key: "C" as const, text: "Only a maintainer can trigger any retry." },
+        ],
+        correctOption: "B" as const,
+        explanation: "The default retry behavior is the same-quiz mode that shows explanations.",
+        diffAnchors: [
+          "src/lib/server/config.ts",
+          "src/routes/settings/[installationId]/+page.svelte",
+        ],
+        focus: "implementation" as const,
+      },
+      {
+        id: "q3",
+        prompt: "Why do these dev mocks exist?",
+        options: [
+          {
+            key: "A" as const,
+            text: "To let local pages open without real GitHub auth, app installs, or database state.",
+          },
+          {
+            key: "B" as const,
+            text: "To permanently replace production data with static fixtures.",
+          },
+          { key: "C" as const, text: "To disable all validation logic in development." },
+        ],
+        correctOption: "A" as const,
+        explanation:
+          "The mocks are dev-only and keep local preview flows usable without live integrations.",
+        diffAnchors: ["src/lib/server/dev-mocks.ts"],
+        focus: "risk" as const,
+      },
+    ],
+  };
+}
+
+export function mockSession(token: string): SessionRecord {
+  const baseQuiz = defaultMockQuiz();
+
+  const baseSession: SessionRecord = {
     id: token,
     installationId: 101,
     repositoryId: 1,
@@ -111,64 +170,107 @@ export function mockSession(token: string): SessionRecord {
     headSha: "abcdef1234567890",
     status: SessionStatus.awaiting_answer,
     currentQuestionIndex: 0,
-    questionCount: 3,
+    questionCount: baseQuiz.questions.length,
     retryMode: "same_quiz",
     allowedWrongAnswers: 0,
     generationModel: "anthropic/claude-sonnet-4.5",
     validationModel: "anthropic/claude-opus-4.1",
-    summary: "This mock PR updates quiz generation rules and improves the dev preview flow.",
-    quiz: {
-      summary: "This mock PR updates quiz generation rules and improves the dev preview flow.",
-      questions: [
-        {
-          id: "q1",
-          prompt: "What changed about answer options in the quiz?",
-          options: [
-            { key: "A", text: "Questions now use exactly `3` options." },
-            { key: "B", text: "Questions now use exactly `5` options." },
-            { key: "C", text: "Questions can have any number of options." },
-          ],
-          correctOption: "A",
-          explanation: "The quiz was updated to require exactly 3 options per question.",
-          diffAnchors: ["src/lib/server/openai.ts", "src/lib/server/quiz.ts"],
-          focus: "behavior",
-        },
-        {
-          id: "q2",
-          prompt: "What is the default answer mode in the mock dev session?",
-          options: [
-            { key: "A", text: "Generate a brand new quiz after every wrong answer." },
-            { key: "B", text: "Explain mistakes and retry the same quiz." },
-            { key: "C", text: "Only a maintainer can trigger any retry." },
-          ],
-          correctOption: "B",
-          explanation: "The default retry behavior is the same-quiz mode that shows explanations.",
-          diffAnchors: [
-            "src/lib/server/config.ts",
-            "src/routes/settings/[installationId]/+page.svelte",
-          ],
-          focus: "implementation",
-        },
-        {
-          id: "q3",
-          prompt: "Why do these dev mocks exist?",
-          options: [
-            {
-              key: "A",
-              text: "To let local pages open without real GitHub auth, app installs, or database state.",
-            },
-            { key: "B", text: "To permanently replace production data with static fixtures." },
-            { key: "C", text: "To disable all validation logic in development." },
-          ],
-          correctOption: "A",
-          explanation:
-            "The mocks are dev-only and keep local preview flows usable without live integrations.",
-          diffAnchors: ["src/lib/server/dev-mocks.ts"],
-          focus: "risk",
-        },
-      ],
-    },
+    summary: baseQuiz.summary,
+    quiz: baseQuiz,
   };
+
+  if (token === "sess_1") {
+    return {
+      ...baseSession,
+      repositoryName: "api-gateway",
+      pullNumber: 142,
+      headSha: "a1b2c3d",
+      summary: "Adds rate limiting middleware to the API gateway with Redis-backed sliding window.",
+      quiz: {
+        ...baseQuiz,
+        summary:
+          "Adds rate limiting middleware to the API gateway with Redis-backed sliding window.",
+      },
+    };
+  }
+
+  if (token === "sess_2") {
+    return {
+      ...baseSession,
+      repositoryName: "api-gateway",
+      pullNumber: 141,
+      headSha: "111aaaa",
+      questionCount: 4,
+      summary: "Swaps the request signer for a new HMAC pipeline.",
+      isRegenerating: true,
+      quiz: {
+        ...baseQuiz,
+        summary: "Swaps the request signer for a new HMAC pipeline.",
+      },
+    };
+  }
+
+  if (token === "sess_3") {
+    return {
+      ...baseSession,
+      repositoryName: "api-gateway",
+      pullNumber: 140,
+      headSha: "d4e5f6a",
+      authorLogin: "bob-eng",
+      status: SessionStatus.passed,
+      questionCount: 4,
+      summary:
+        "Refactors authentication flow to use OIDC provider instead of custom JWT validation.",
+    };
+  }
+
+  if (token === "sess_4") {
+    return {
+      ...baseSession,
+      repositoryName: "api-gateway",
+      pullNumber: 139,
+      headSha: "ab12cd3",
+      authorLogin: "eve-sec",
+      status: SessionStatus.failed,
+      questionCount: 0,
+      summary: "Locks down webhook verification for organization installs.",
+      failureMessage: "Quiz not passed (1/3 correct). Fix your answers or generate a new quiz.",
+      quiz: undefined,
+    };
+  }
+
+  if (token === "sess_5") {
+    return {
+      ...baseSession,
+      repositoryName: "web-dashboard",
+      pullNumber: 87,
+      headSha: "f7a8b9c",
+      authorLogin: "carol",
+      status: SessionStatus.skipped,
+      questionCount: 0,
+      summary: undefined,
+      skipReason: "Docs-only pull request matched configured skip rules.",
+      quiz: undefined,
+    };
+  }
+
+  if (token === "sess_6") {
+    return {
+      ...baseSession,
+      repositoryName: "web-dashboard",
+      pullNumber: 85,
+      headSha: "e4f5a6b",
+      authorLogin: "dan-ops",
+      status: SessionStatus.quota_exceeded,
+      questionCount: 0,
+      summary: undefined,
+      failureMessage:
+        "Token budget exceeded (31,200 / 30,000 tokens). Quiz skipped to avoid excessive charges.",
+      quiz: undefined,
+    };
+  }
+
+  return baseSession;
 }
 
 export function mockActivityData() {
@@ -196,6 +298,21 @@ export function mockActivityData() {
         id: "sess_2",
         repositoryOwner: "acme-inc",
         repositoryName: "api-gateway",
+        pullNumber: 141,
+        authorLogin: "alice-dev",
+        headSha: "111aaaa",
+        status: SessionStatus.awaiting_answer,
+        isRegenerating: true,
+        questionCount: 4,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Swaps the request signer for a new HMAC pipeline.",
+        createdAt: ago(2),
+        updatedAt: ago(1.75),
+      },
+      {
+        id: "sess_3",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
         pullNumber: 140,
         authorLogin: "bob-eng",
         headSha: "d4e5f6a",
@@ -208,7 +325,22 @@ export function mockActivityData() {
         updatedAt: ago(4),
       },
       {
-        id: "sess_3",
+        id: "sess_4",
+        repositoryOwner: "acme-inc",
+        repositoryName: "api-gateway",
+        pullNumber: 139,
+        authorLogin: "eve-sec",
+        headSha: "ab12cd3",
+        status: SessionStatus.failed,
+        questionCount: 3,
+        generationModel: "anthropic/claude-sonnet-4.5",
+        summary: "Locks down webhook verification for organization installs.",
+        failureMessage: "Quiz not passed (1/3 correct). Fix your answers or generate a new quiz.",
+        createdAt: ago(10),
+        updatedAt: ago(9),
+      },
+      {
+        id: "sess_5",
         repositoryOwner: "acme-inc",
         repositoryName: "web-dashboard",
         pullNumber: 87,
@@ -223,65 +355,36 @@ export function mockActivityData() {
         updatedAt: ago(12),
       },
       {
-        id: "sess_4",
-        repositoryOwner: "acme-inc",
-        repositoryName: "api-gateway",
-        pullNumber: 138,
-        authorLogin: "alice-dev",
-        headSha: "c1d2e3f",
-        status: SessionStatus.failed,
-        questionCount: 3,
-        generationModel: "anthropic/claude-sonnet-4.5",
-        summary: "Adds WebSocket support for real-time notifications.",
-        failureMessage:
-          "Token budget exceeded (52,400 / 50,000 tokens). Merge blocked because the token budget fallback is set to fail.",
-        createdAt: ago(24),
-        updatedAt: ago(23),
-      },
-      {
-        id: "sess_5",
+        id: "sess_6",
         repositoryOwner: "acme-inc",
         repositoryName: "web-dashboard",
         pullNumber: 85,
         authorLogin: "dan-ops",
         headSha: "e4f5a6b",
-        status: SessionStatus.passed,
-        questionCount: 2,
+        status: SessionStatus.quota_exceeded,
+        questionCount: 0,
         generationModel: "anthropic/claude-sonnet-4.5",
-        summary: "Updates deployment configuration for staging environment.",
-        createdAt: ago(48),
-        updatedAt: ago(46),
-      },
-      {
-        id: "sess_6",
-        repositoryOwner: "acme-inc",
-        repositoryName: "api-gateway",
-        pullNumber: 135,
-        authorLogin: "bob-eng",
-        headSha: "b7c8d9e",
-        status: SessionStatus.passed,
-        questionCount: 5,
-        generationModel: "anthropic/claude-sonnet-4.5",
-        summary: "Implements database migration framework with rollback support.",
+        summary: undefined,
         failureMessage:
           "Token budget exceeded (31,200 / 30,000 tokens). Quiz skipped to avoid excessive charges.",
-        createdAt: ago(72),
-        updatedAt: ago(70),
+        createdAt: ago(20),
+        updatedAt: ago(19),
       },
     ],
     sessionStats: {
       total: 6,
       awaiting: 1,
-      passed: 3,
+      regenerating: 1,
+      passed: 1,
       failed: 1,
       skipped: 1,
-      budgetExceeded: 2,
+      budgetExceeded: 1,
     },
     attemptStats: {
-      totalAttempts: 8,
-      passedAttempts: 4,
+      totalAttempts: 6,
+      passedAttempts: 2,
       failedAttempts: 4,
-      uniqueAuthors: 4,
+      uniqueAuthors: 5,
     },
   };
 }
