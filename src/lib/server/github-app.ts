@@ -14,6 +14,19 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+function verifyWebhookSignatureWithSecret(
+  payload: string,
+  signature: string | undefined,
+  secret: string,
+): boolean {
+  if (!signature) {
+    return false;
+  }
+
+  const expected = `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
+  return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
 export function getGitHubApp(): App {
   if (!globalThis.__slopblockApp) {
     globalThis.__slopblockApp = new App({
@@ -38,11 +51,16 @@ export async function getInstallationOctokit(installationId: number) {
 }
 
 export function verifyWebhookSignature(payload: string, signature: string | undefined): boolean {
-  const secret = requiredEnv("GITHUB_WEBHOOK_SECRET");
-  if (!signature) {
-    return false;
-  }
+  return verifyWebhookSignatureWithSecret(payload, signature, requiredEnv("GITHUB_WEBHOOK_SECRET"));
+}
 
-  const expected = `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`;
-  return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+export function verifyMarketplaceWebhookSignature(
+  payload: string,
+  signature: string | undefined,
+): boolean {
+  return verifyWebhookSignatureWithSecret(
+    payload,
+    signature,
+    requiredEnv("GITHUB_MARKETPLACE_WEBHOOK_SECRET"),
+  );
 }

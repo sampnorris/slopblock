@@ -2,7 +2,7 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { logError, logInfo } from "$lib/server/log.js";
 import { prisma } from "$lib/server/db.js";
-import { upsertPlan } from "$lib/server/marketplace-store.js";
+import { activateBmacPlan } from "$lib/server/marketplace-store.js";
 
 /**
  * Buy Me a Coffee webhook endpoint.
@@ -67,11 +67,10 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   // Upgrade to paid
-  await upsertPlan({
+  await activateBmacPlan({
     installationId: installation.installationId,
     accountLogin: installation.accountLogin,
     accountType: installation.accountType,
-    marketplacePlan: "paid",
   });
 
   logInfo("bmac.webhook.upgraded", {

@@ -8,6 +8,12 @@ export interface SettingsRecord {
   accountType?: string;
   marketplacePlan?: string;
   marketplacePlanId?: number;
+  bmacActive?: boolean;
+  githubMarketplaceActive?: boolean;
+  githubMarketplacePlanId?: number;
+  githubMarketplacePlanName?: string;
+  githubMarketplaceBillingCycle?: string;
+  githubMarketplaceEffectiveDate?: Date;
   llmApiKey?: string;
   llmBaseUrl?: string;
   llmGenerationModel?: string;
@@ -47,6 +53,12 @@ function fromRow(row: any): SettingsRecord {
     accountType: row.accountType,
     marketplacePlan: row.marketplacePlan ?? undefined,
     marketplacePlanId: row.marketplacePlanId ?? undefined,
+    bmacActive: row.bmacActive ?? undefined,
+    githubMarketplaceActive: row.githubMarketplaceActive ?? undefined,
+    githubMarketplacePlanId: row.githubMarketplacePlanId ?? undefined,
+    githubMarketplacePlanName: row.githubMarketplacePlanName ?? undefined,
+    githubMarketplaceBillingCycle: row.githubMarketplaceBillingCycle ?? undefined,
+    githubMarketplaceEffectiveDate: row.githubMarketplaceEffectiveDate ?? undefined,
     llmApiKey: decryptApiKey(row.llmApiKeyEncrypted),
     llmBaseUrl: row.llmBaseUrl ?? undefined,
     llmGenerationModel: row.llmGenerationModel ?? undefined,
@@ -103,6 +115,12 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       accountType: input.accountType ?? "User",
       marketplacePlan: input.marketplacePlan,
       marketplacePlanId: input.marketplacePlanId,
+      bmacActive: input.bmacActive ?? false,
+      githubMarketplaceActive: input.githubMarketplaceActive ?? false,
+      githubMarketplacePlanId: input.githubMarketplacePlanId ?? null,
+      githubMarketplacePlanName: input.githubMarketplacePlanName ?? null,
+      githubMarketplaceBillingCycle: input.githubMarketplaceBillingCycle ?? null,
+      githubMarketplaceEffectiveDate: input.githubMarketplaceEffectiveDate ?? null,
       llmApiKeyEncrypted: encryptedKey ?? null,
       llmBaseUrl: input.llmBaseUrl,
       llmGenerationModel: input.llmGenerationModel,
@@ -131,6 +149,22 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       ...(input.marketplacePlan !== undefined ? { marketplacePlan: input.marketplacePlan } : {}),
       ...(input.marketplacePlanId !== undefined
         ? { marketplacePlanId: input.marketplacePlanId }
+        : {}),
+      ...(input.bmacActive !== undefined ? { bmacActive: input.bmacActive } : {}),
+      ...(input.githubMarketplaceActive !== undefined
+        ? { githubMarketplaceActive: input.githubMarketplaceActive }
+        : {}),
+      ...(input.githubMarketplacePlanId !== undefined
+        ? { githubMarketplacePlanId: input.githubMarketplacePlanId }
+        : {}),
+      ...(input.githubMarketplacePlanName !== undefined
+        ? { githubMarketplacePlanName: input.githubMarketplacePlanName }
+        : {}),
+      ...(input.githubMarketplaceBillingCycle !== undefined
+        ? { githubMarketplaceBillingCycle: input.githubMarketplaceBillingCycle }
+        : {}),
+      ...(input.githubMarketplaceEffectiveDate !== undefined
+        ? { githubMarketplaceEffectiveDate: input.githubMarketplaceEffectiveDate }
         : {}),
       // Only update key if explicitly provided (undefined means keep existing)
       ...(encryptedKey !== undefined ? { llmApiKeyEncrypted: encryptedKey } : {}),

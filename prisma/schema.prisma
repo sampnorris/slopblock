@@ -23,6 +23,12 @@ model InstallationSettings {
   accountType      String   @default("User")
   marketplacePlan  String?
   marketplacePlanId Int?
+  bmacActive       Boolean  @default(false)
+  githubMarketplaceActive Boolean  @default(false)
+  githubMarketplacePlanId Int?
+  githubMarketplacePlanName String?
+  githubMarketplaceBillingCycle String?
+  githubMarketplaceEffectiveDate DateTime?
   supporterEmail   String?
   llmApiKeyEncrypted String?
   llmBaseUrl       String?

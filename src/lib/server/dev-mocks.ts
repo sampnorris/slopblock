@@ -78,6 +78,8 @@ export function mockSettings(installationId: string): SettingsRecord {
     accountLogin: mockActor().login,
     accountType,
     marketplacePlan,
+    bmacActive: marketplacePlan === "paid",
+    githubMarketplaceActive: false,
     llmBaseUrl: "https://openrouter.ai/api/v1",
     llmApiKey: "dev-mock-key",
     llmGenerationModel: "anthropic/claude-sonnet-4.5",
