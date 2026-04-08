@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Lint & Format
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: lint
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Lint & Format
+          ref: ${{ github.sha }}
+
+      - name: Wait for Type Check
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: typecheck
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Type Check
+          ref: ${{ github.sha }}
+
+      - name: Wait for Tests
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: tests
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Tests
+          ref: ${{ github.sha }}
+
+      - name: Wait for Schema in Sync
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: migrations
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Schema in Sync
+          ref: ${{ github.sha }}
+
+      - uses: actions/checkout@v4
+        if: |
+          steps.lint.outputs.conclusion == 'success' &&
+          steps.typecheck.outputs.conclusion == 'success' &&
+          steps.tests.outputs.conclusion == 'success' &&
+          steps.migrations.outputs.conclusion == 'success'
+
+      - name: Create date-based tag
+        if: |
+          steps.lint.outputs.conclusion == 'success' &&
+          steps.typecheck.outputs.conclusion == 'success' &&
+          steps.tests.outputs.conclusion == 'success' &&
+          steps.migrations.outputs.conclusion == 'success'
+        run: |
+          BASE=$(date -u +%Y.%m.%d)
+          SHA=${{ github.sha }}
+
+          # Find the next available tag for today (handles multiple releases/day)
+          COUNTER=1
+          TAG="$BASE"
+          while git ls-remote --exit-code --tags origin "refs/tags/$TAG" &>/dev/null; do
+            COUNTER=$((COUNTER + 1))
+            TAG="$BASE.$COUNTER"
+          done
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "Created tag: $TAG"
