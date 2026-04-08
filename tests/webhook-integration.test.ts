@@ -52,6 +52,16 @@ let mockIsPaid = false;
 let mockQuizGenerationsToday = 0;
 let mockExistingSession: any = undefined;
 
+function defaultSettings() {
+  return {
+    llmApiKey: "test-key",
+    llmBaseUrl: "https://test.openai.com",
+    llmGenerationModel: "test-generation-model",
+    llmValidationModel: "test-validation-model",
+    llmSkipModel: "test-skip-model",
+  };
+}
+
 // ─── Mock octokit factory ────────────────────────────────────────────
 function createMockOctokit() {
   statusCalls = [];
@@ -375,15 +385,11 @@ function makePrPayload(overrides: Record<string, any> = {}) {
 
 // ─── Reset state between tests ──────────────────────────────────────
 beforeEach(() => {
-  mockSettings = undefined;
+  mockSettings = defaultSettings();
   mockIsPaid = false;
   mockQuizGenerationsToday = 0;
   mockExistingSession = undefined;
   mockLlmBehavior = "success";
-  // Set env vars needed for LLM client
-  process.env.SLOPBLOCK_API_KEY = "test-key";
-  process.env.SLOPBLOCK_BASE_URL = "https://test.openai.com";
-  process.env.SLOPBLOCK_MODEL = "test-model";
   process.env.APP_BASE_URL = "https://slopblock.test";
 });
 
@@ -392,8 +398,11 @@ beforeEach(() => {
 // =====================================================================
 describe("misconfiguration errors", () => {
   test("MissingProviderError → error status with helpful message", async () => {
-    delete process.env.SLOPBLOCK_API_KEY;
-    delete process.env.SLOPBLOCK_BASE_URL;
+    mockSettings = {
+      llmGenerationModel: "test-generation-model",
+      llmValidationModel: "test-validation-model",
+      llmSkipModel: "test-skip-model",
+    };
     const octokit = createMockOctokit();
 
     await assert.rejects(
@@ -408,17 +417,9 @@ describe("misconfiguration errors", () => {
   });
 
   test("MissingModelError → error status with helpful message", async () => {
-    process.env.SLOPBLOCK_API_KEY = "test-key";
-    process.env.SLOPBLOCK_BASE_URL = "https://test.openai.com";
-    delete process.env.SLOPBLOCK_MODEL;
-    delete process.env.SLOPBLOCK_GENERATION_MODEL;
-    delete process.env.SLOPBLOCK_VALIDATION_MODEL;
-    delete process.env.SLOPBLOCK_SKIP_MODEL;
-
-    // Override settings with blank models to trigger MissingModelError.
-    // Default config always has models set, so we need installation settings
-    // that explicitly blank them out.
     mockSettings = {
+      llmApiKey: "test-key",
+      llmBaseUrl: "https://test.openai.com",
       llmGenerationModel: "",
       llmValidationModel: "",
       llmSkipModel: "",
@@ -631,7 +632,7 @@ describe("admin settings: skip bots and forks", () => {
   });
 
   test("bot PR with skipBots=false → quiz generated (not skipped)", async () => {
-    mockSettings = { skipBots: false };
+    mockSettings = { ...defaultSettings(), skipBots: false };
     const octokit = createMockOctokit();
     const payload = makePrPayload({
       pull_request: {
@@ -667,7 +668,7 @@ describe("admin settings: skip bots and forks", () => {
   });
 
   test("fork PR with skipForks=false → quiz generated (not skipped)", async () => {
-    mockSettings = { skipForks: false };
+    mockSettings = { ...defaultSettings(), skipForks: false };
     const octokit = createMockOctokit();
     const payload = makePrPayload({
       pull_request: {

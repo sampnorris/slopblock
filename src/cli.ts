@@ -8,12 +8,12 @@ function readArg(flag: string): string | undefined {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
-  const baseUrl = process.env.SLOPBLOCK_BASE_URL;
-  const apiKey = process.env.SLOPBLOCK_API_KEY;
-  const model = process.env.SLOPBLOCK_MODEL ?? "anthropic/claude-sonnet-4.5";
+  const baseUrl = readArg("--base-url");
+  const apiKey = readArg("--api-key");
+  const model = readArg("--model") ?? "anthropic/claude-sonnet-4.5";
 
   if (!apiKey || !baseUrl) {
-    throw new Error("Set SLOPBLOCK_API_KEY and SLOPBLOCK_BASE_URL before using the CLI.");
+    throw new Error("Set --api-key and --base-url before using the CLI.");
   }
 
   const client = new OpenAICompatibleClient({ baseUrl, apiKey, model });
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   }
 
   process.stdout.write(
-    "Usage: slopblock <skip|quiz> [--diff path] [--files path] [--context path] [--questions n]\n",
+    "Usage: slopblock <skip|quiz> --api-key key --base-url url [--model name] [--diff path] [--files path] [--context path] [--questions n]\n",
   );
 }
 

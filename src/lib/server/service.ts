@@ -112,16 +112,14 @@ function llmClient(
   trace?: TraceContext,
   tokenTracker?: TokenTracker,
 ) {
-  const apiKey = (config.llm.apiKey ?? process.env.SLOPBLOCK_API_KEY)?.trim();
-  const baseUrl = (config.llm.baseUrl ?? process.env.SLOPBLOCK_BASE_URL)?.trim();
-  const overrideModel = process.env.SLOPBLOCK_MODEL;
+  const apiKey = config.llm.apiKey?.trim();
+  const baseUrl = config.llm.baseUrl?.trim();
   const model =
-    overrideModel ??
-    (purpose === "generation"
-      ? (process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel)
+    purpose === "generation"
+      ? config.llm.generationModel
       : purpose === "validation"
-        ? (process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel)
-        : (process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel));
+        ? config.llm.validationModel
+        : config.llm.skipModel;
 
   if (!apiKey || !baseUrl) {
     throw new MissingProviderError();
@@ -135,14 +133,12 @@ function llmClient(
 }
 
 function llmModel(config: SlopblockConfig, purpose: "generation" | "validation" | "skip") {
-  const overrideModel = process.env.SLOPBLOCK_MODEL;
   const model =
-    overrideModel ??
-    (purpose === "generation"
-      ? (process.env.SLOPBLOCK_GENERATION_MODEL ?? config.llm.generationModel)
+    purpose === "generation"
+      ? config.llm.generationModel
       : purpose === "validation"
-        ? (process.env.SLOPBLOCK_VALIDATION_MODEL ?? config.llm.validationModel)
-        : (process.env.SLOPBLOCK_SKIP_MODEL ?? config.llm.skipModel));
+        ? config.llm.validationModel
+        : config.llm.skipModel;
 
   if (!model?.trim()) {
     throw new MissingModelError(purpose);

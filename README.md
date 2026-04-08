@@ -109,8 +109,6 @@ These are the infrastructure variables required by the deployment. LLM provider/
 | `LANGFUSE_PUBLIC_KEY`    | No       | LangFuse tracing public key                                              |
 | `LANGFUSE_BASE_URL`      | No       | LangFuse endpoint (defaults to `https://cloud.langfuse.com`)             |
 
-There are also optional `SLOPBLOCK_*` env vars (`SLOPBLOCK_API_KEY`, `SLOPBLOCK_BASE_URL`, `SLOPBLOCK_MODEL`, etc.) that act as operator-level overrides or fallbacks for the LLM configuration. These are not needed for normal operation since LLM settings are managed through the dashboard.
-
 ### 4. Run Migrations
 
 ```bash
@@ -148,8 +146,8 @@ Build the CLI and run prompts locally against fixture data:
 
 ```bash
 pnpm run build:cli
-SLOPBLOCK_API_KEY=... node dist/cli.cjs skip --diff fixtures/diff.txt --files fixtures/files.txt
-SLOPBLOCK_API_KEY=... node dist/cli.cjs quiz --diff fixtures/diff.txt --context fixtures/context.json --questions 3
+node dist/cli.cjs skip --api-key ... --base-url https://openrouter.ai/api/v1 --diff fixtures/diff.txt --files fixtures/files.txt
+node dist/cli.cjs quiz --api-key ... --base-url https://openrouter.ai/api/v1 --context fixtures/context.json --questions 3
 ```
 
 ### Checks
