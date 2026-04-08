@@ -104,6 +104,11 @@
           <span class="sidebar-user-name">{actor.login}</span>
           <span class="sidebar-user-role">Authenticated</span>
         </div>
+        <form method="POST" action="/auth/signout">
+          <button type="submit" class="signout-btn" title="Sign out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </form>
       </div>
     </div>
   </aside>
@@ -265,6 +270,31 @@
   .sidebar-user-role {
     font: 400 11px/1 "DM Mono", monospace;
     color: var(--muted);
+  }
+
+  /* ── Sign Out Button ── */
+  .signout-btn {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    flex: none;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .signout-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+  }
+
+  .signout-btn svg {
+    width: 15px;
+    height: 15px;
   }
 
   /* ── Buy Me a Coffee ── */

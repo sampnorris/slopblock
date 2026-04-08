@@ -6,7 +6,10 @@ import { getInstallationOctokit } from "$lib/server/github-app.js";
 import { getSessionById, saveSessionAnswers } from "$lib/server/session-store.js";
 import { markQuizPassed, requestNewQuiz } from "$lib/server/service.js";
 
-async function getLatestPullHeadSha(octokit: any, session: { repositoryOwner: string; repositoryName: string; pullNumber: number; }) {
+async function getLatestPullHeadSha(
+  octokit: any,
+  session: { repositoryOwner: string; repositoryName: string; pullNumber: number },
+) {
   const { data: pull } = await octokit.rest.pulls.get({
     owner: session.repositoryOwner,
     repo: session.repositoryName,
@@ -86,7 +89,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
   // save_answers doesn't need octokit — handle it before the GitHub API call
   if (action === "save_answers") {
-    const expectedHeadSha = typeof body?.expectedHeadSha === "string" ? body.expectedHeadSha.trim() : "";
+    const expectedHeadSha =
+      typeof body?.expectedHeadSha === "string" ? body.expectedHeadSha.trim() : "";
     if (!expectedHeadSha || expectedHeadSha !== session.headSha) {
       return json(
         {
@@ -103,7 +107,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ ok: false, message: "Answers object is required." }, { status: 400 });
     }
 
-    const validQuestionIds = new Set((session.quiz?.questions ?? []).map((question) => question.id));
+    const validQuestionIds = new Set(
+      (session.quiz?.questions ?? []).map((question) => question.id),
+    );
     const cleaned: Record<string, string> = {};
     for (const [key, value] of Object.entries(answers)) {
       if (validQuestionIds.has(key) && typeof value === "string" && value.trim()) {
@@ -118,9 +124,13 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
   if (action === "pass") {
     try {
-      const expectedHeadSha = typeof body?.expectedHeadSha === "string" ? body.expectedHeadSha.trim() : "";
+      const expectedHeadSha =
+        typeof body?.expectedHeadSha === "string" ? body.expectedHeadSha.trim() : "";
       if (!expectedHeadSha) {
-        return json({ ok: false, message: "Quiz version is required. Reload and try again." }, { status: 400 });
+        return json(
+          { ok: false, message: "Quiz version is required. Reload and try again." },
+          { status: 400 },
+        );
       }
 
       if (expectedHeadSha !== session.headSha) {
