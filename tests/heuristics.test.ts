@@ -129,7 +129,8 @@ test("initialSkipDecision skips formatting-only changes (whitespace reformat)", 
       additions: 3,
       deletions: 3,
       changes: 6,
-      patch: "@@\n-  const x = 1;\n-  const y = 2;\n-  const z = 3;\n+    const x = 1;\n+    const y = 2;\n+    const z = 3;\n",
+      patch:
+        "@@\n-  const x = 1;\n-  const y = 2;\n-  const z = 3;\n+    const x = 1;\n+    const y = 2;\n+    const z = 3;\n",
     },
   ];
 

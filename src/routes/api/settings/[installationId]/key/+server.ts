@@ -19,7 +19,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
   const hasAccess = await verifyInstallationAccess(params.installationId, actor.login);
   if (!hasAccess) {
-    return json({ ok: false, message: "You do not have access to this installation." }, { status: 403 });
+    return json(
+      { ok: false, message: "You do not have access to this installation." },
+      { status: 403 },
+    );
   }
 
   const body = await request.json();

@@ -125,7 +125,7 @@ function createMockOctokit() {
         createForIssueComment: mock.fn(async () => ({ data: {} })),
       },
     },
-    paginate: mock.fn(async (_method: any, params: any) => {
+    paginate: mock.fn(async (_method: any, _params: any) => {
       // paginate calls the method, but we return the fixture directly
       return [
         {
@@ -341,9 +341,8 @@ mock.module("../src/lib/server/openai.js", {
 });
 
 // ─── Import the module under test AFTER mocks are set up ─────────────
-const { handlePullRequestWebhook, MissingProviderError, MissingModelError } = await import(
-  "../src/lib/server/service.js"
-);
+const { handlePullRequestWebhook, MissingProviderError, MissingModelError } =
+  await import("../src/lib/server/service.js");
 
 // ─── Payload factory ─────────────────────────────────────────────────
 function makePrPayload(overrides: Record<string, any> = {}) {
@@ -445,9 +444,8 @@ describe("webhook error handler sets commit status", () => {
     payload: any,
     error: Error,
   ): Promise<StatusCall | undefined> {
-    const { InsufficientCreditsError, TokenBudgetExceededError } = await import(
-      "../src/lib/server/openai.js"
-    );
+    const { InsufficientCreditsError, TokenBudgetExceededError } =
+      await import("../src/lib/server/openai.js");
     const { setCommitStatus } = await import("../src/lib/server/github-service.js");
 
     const owner = payload.repository.owner.login;

@@ -826,7 +826,9 @@ export async function handleQuizCommand(octokit: any, payload: any): Promise<voi
   // ── Rate limit: prevent /quiz spam ──
   const existing = await getSession(owner, repo, issueNumber);
   if (existing?.id) {
-    const row = await (await import("./db.js")).prisma.pullRequestSession.findUnique({
+    const row = await (
+      await import("./db.js")
+    ).prisma.pullRequestSession.findUnique({
       where: { id: existing.id },
       select: { updatedAt: true },
     });

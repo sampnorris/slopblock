@@ -36,7 +36,6 @@ jobs:
         uses: vercel/repository-dispatch/actions/status@v1
         with:
           name: Vercel - slopblock lint
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   typecheck:
     name: Type Check
@@ -63,7 +62,6 @@ jobs:
         uses: vercel/repository-dispatch/actions/status@v1
         with:
           name: Vercel - slopblock typecheck
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   test:
     name: Tests
@@ -90,5 +88,3 @@ jobs:
         uses: vercel/repository-dispatch/actions/status@v1
         with:
           name: Vercel - slopblock tests
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-

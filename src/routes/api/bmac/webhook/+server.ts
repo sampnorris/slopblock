@@ -35,9 +35,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
   const type: string = payload.type ?? "";
   const email: string | undefined =
-    payload.data?.supporter_email ??
-    payload.data?.payer_email ??
-    payload.data?.email;
+    payload.data?.supporter_email ?? payload.data?.payer_email ?? payload.data?.email;
 
   logInfo("bmac.webhook.received", {
     type,

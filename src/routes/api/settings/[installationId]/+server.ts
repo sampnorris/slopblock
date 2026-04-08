@@ -2,7 +2,12 @@ import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getSessionActor } from "$lib/server/auth.js";
 import { devMocksEnabled, mockActor, mockSettings } from "$lib/server/dev-mocks.js";
-import { getSettings, upsertSettings, clearApiKey, clearModelsValidated } from "$lib/server/settings-store.js";
+import {
+  getSettings,
+  upsertSettings,
+  clearApiKey,
+  clearModelsValidated,
+} from "$lib/server/settings-store.js";
 import { verifyInstallationAccess } from "$lib/server/installation-auth.js";
 
 const MAX_CUSTOM_PROMPT_LENGTH = 4000;
@@ -124,7 +129,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     return json({ ok: false, error: "Generation attempts must be at least 1." }, { status: 400 });
   }
 
-  if (quizGenerationMaxAttempts != null && quizGenerationMaxAttempts > MAX_QUIZ_GENERATION_ATTEMPTS) {
+  if (
+    quizGenerationMaxAttempts != null &&
+    quizGenerationMaxAttempts > MAX_QUIZ_GENERATION_ATTEMPTS
+  ) {
     return json(
       { ok: false, error: `Generation attempts cannot exceed ${MAX_QUIZ_GENERATION_ATTEMPTS}.` },
       { status: 400 },
@@ -136,7 +144,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     body.customSystemPrompt.length > MAX_CUSTOM_PROMPT_LENGTH
   ) {
     return json(
-      { ok: false, error: `Custom system prompt cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.` },
+      {
+        ok: false,
+        error: `Custom system prompt cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.`,
+      },
       { status: 400 },
     );
   }
@@ -146,7 +157,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
     body.customQuizInstructions.length > MAX_CUSTOM_PROMPT_LENGTH
   ) {
     return json(
-      { ok: false, error: `Custom quiz instructions cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.` },
+      {
+        ok: false,
+        error: `Custom quiz instructions cannot exceed ${MAX_CUSTOM_PROMPT_LENGTH} characters.`,
+      },
       { status: 400 },
     );
   }
@@ -190,7 +204,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
   // If the saved models differ from what was validated, invalidate the stored validation
   const incomingFingerprint = [llmGenerationModel, llmValidationModel, llmSkipModel].join("|");
-  if (existing?.modelsValidatedFingerprint && existing.modelsValidatedFingerprint !== incomingFingerprint) {
+  if (
+    existing?.modelsValidatedFingerprint &&
+    existing.modelsValidatedFingerprint !== incomingFingerprint
+  ) {
     await clearModelsValidated(params.installationId);
   }
 

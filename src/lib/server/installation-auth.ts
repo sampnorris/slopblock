@@ -19,8 +19,7 @@ export async function verifyInstallationAccess(
 ): Promise<boolean> {
   try {
     const app = getGitHubApp();
-    const numericId =
-      typeof installationId === "string" ? Number(installationId) : installationId;
+    const numericId = typeof installationId === "string" ? Number(installationId) : installationId;
 
     if (!Number.isFinite(numericId) || numericId <= 0) {
       return false;
@@ -31,10 +30,7 @@ export async function verifyInstallationAccess(
       { installation_id: numericId },
     );
 
-    const account = installation.account as
-      | { login: string; type: string }
-      | null
-      | undefined;
+    const account = installation.account as { login: string; type: string } | null | undefined;
 
     if (!account?.login) {
       return false;

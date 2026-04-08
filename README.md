@@ -15,7 +15,7 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
   <a href="https://vercel.com"><img src="https://img.shields.io/badge/deployed%20on-Vercel-black?logo=vercel" alt="Deployed on Vercel" /></a>
   <a href="https://github.com/marketplace/slopblock-quiz"><img src="https://img.shields.io/badge/GitHub%20Marketplace-slopblock-24292e?logo=github" alt="GitHub Marketplace" /></a>
-  <a href="https://www.buymeacoffee.com/sampnorris"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee" /></a>
+  <a href="https://www.buymeacoffee.com/samscript"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee" /></a>
 </p>
 
 ---

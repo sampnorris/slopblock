@@ -26,16 +26,20 @@ export const POST: RequestHandler = async ({ params, request }) => {
       const allowedWrongAnswers = Math.max(0, session.allowedWrongAnswers ?? 0);
       const wrongCount = Math.max(0, session.questionCount - correctCount);
 
-      return json({
-        ok: wrongCount <= allowedWrongAnswers,
-        passed: wrongCount <= allowedWrongAnswers,
-        correctCount,
-        questionCount: session.questionCount,
-        attemptNumber: 1,
-        message: wrongCount <= allowedWrongAnswers
-          ? "Mock quiz passed."
-          : `Quiz not passed (${correctCount}/${session.questionCount} correct). Fix your answers or generate a new quiz.`,
-      }, wrongCount <= allowedWrongAnswers ? {} : { status: 400 });
+      return json(
+        {
+          ok: wrongCount <= allowedWrongAnswers,
+          passed: wrongCount <= allowedWrongAnswers,
+          correctCount,
+          questionCount: session.questionCount,
+          attemptNumber: 1,
+          message:
+            wrongCount <= allowedWrongAnswers
+              ? "Mock quiz passed."
+              : `Quiz not passed (${correctCount}/${session.questionCount} correct). Fix your answers or generate a new quiz.`,
+        },
+        wrongCount <= allowedWrongAnswers ? {} : { status: 400 },
+      );
     }
 
     if (action === "save_answers") {

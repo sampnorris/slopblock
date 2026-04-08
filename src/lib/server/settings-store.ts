@@ -152,7 +152,10 @@ export async function upsertSettings(input: SettingsRecord): Promise<SettingsRec
       tokenBudgetFallback: input.tokenBudgetFallback ?? null,
       allowedWrongAnswers: input.allowedWrongAnswers ?? null,
       ...(input.modelsValidatedAt !== undefined
-        ? { modelsValidatedAt: input.modelsValidatedAt, modelsValidatedFingerprint: input.modelsValidatedFingerprint ?? null }
+        ? {
+            modelsValidatedAt: input.modelsValidatedAt,
+            modelsValidatedFingerprint: input.modelsValidatedFingerprint ?? null,
+          }
         : {}),
     } as any,
   });

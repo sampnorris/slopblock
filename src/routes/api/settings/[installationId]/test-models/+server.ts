@@ -107,12 +107,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     | { generation: string; validation: string; skip: string }
     | undefined;
 
-  if (
-    !models ||
-    !models.generation?.trim() ||
-    !models.validation?.trim() ||
-    !models.skip?.trim()
-  ) {
+  if (!models || !models.generation?.trim() || !models.validation?.trim() || !models.skip?.trim()) {
     return json(
       { ok: false, error: "All three models (generation, validation, skip) are required." },
       { status: 400 },
