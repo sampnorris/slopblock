@@ -8,6 +8,15 @@
   const actor = $derived(data.actor);
   const installations = $derived(data.installations);
 
+  // Mobile drawer state
+  let mobileOpen = $state(false);
+
+  // Close drawer on navigation
+  $effect(() => {
+    page.url.pathname;
+    mobileOpen = false;
+  });
+
   // Derive active installation from URL
   const activeInstallationId = $derived.by(() => {
     const match = page.url.pathname.match(/\/settings\/(\d+)/);
@@ -28,7 +37,38 @@
 </script>
 
 <div class="app-layout">
-  <aside class="sidebar">
+  <!-- Mobile topbar: brand + hamburger, only visible on small screens -->
+  <div class="mobile-topbar">
+    <div class="sidebar-brand" style="border-bottom: none; margin-bottom: 0; padding: 0 8px;">
+      <div class="sidebar-logo"><SlopBlockLogo /></div>
+      <span class="sidebar-title">SlopBlock</span>
+    </div>
+    <button
+      class="hamburger"
+      onclick={() => (mobileOpen = !mobileOpen)}
+      aria-label={mobileOpen ? "Close menu" : "Open menu"}
+      aria-expanded={mobileOpen}
+    >
+      {#if mobileOpen}
+        <!-- X icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      {:else}
+        <!-- Hamburger icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      {/if}
+    </button>
+  </div>
+
+  <!-- Backdrop overlay for mobile drawer -->
+  {#if mobileOpen}
+    <div class="drawer-backdrop" onclick={() => (mobileOpen = false)} aria-hidden="true"></div>
+  {/if}
+
+  <aside class="sidebar" class:mobile-open={mobileOpen}>
     <div class="sidebar-brand">
       <div class="sidebar-logo"><SlopBlockLogo /></div>
       <span class="sidebar-title">SlopBlock</span>
