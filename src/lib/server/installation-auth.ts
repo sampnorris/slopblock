@@ -21,11 +21,14 @@ export async function verifyInstallationAccess(
   actorLogin: string,
   actorToken?: string,
 ): Promise<boolean> {
+  const ctx = { installationId: String(installationId), actorLogin };
+
   try {
     const app = getGitHubApp();
     const numericId = typeof installationId === "string" ? Number(installationId) : installationId;
 
     if (!Number.isFinite(numericId) || numericId <= 0) {
+      logInfo("installation_auth.invalid_id", ctx);
       return false;
     }
 
@@ -37,62 +40,86 @@ export async function verifyInstallationAccess(
     const account = installation.account as { login: string; type: string } | null | undefined;
 
     if (!account?.login) {
+      logInfo("installation_auth.no_account", ctx);
       return false;
     }
 
     const accountLogin = account.login.toLowerCase();
     const actor = actorLogin.toLowerCase();
 
-    // User-type installation: actor must be the account owner
+    logInfo("installation_auth.check", {
+      ...ctx,
+      accountLogin: account.login,
+      accountType: account.type,
+      hasActorToken: !!actorToken,
+    });
+
     if (account.type === "User") {
-      return actor === accountLogin;
+      const granted = actor === accountLogin;
+      logInfo("installation_auth.user_check", { ...ctx, granted });
+      return granted;
     }
 
-    // Org-type installation: check if actor is a member of the org.
-    // Use the actor's own token (with read:org scope) when available so that
-    // private org memberships are visible. Fall back to the installation token
-    // which may fail for private members due to insufficient scope.
     if (actorToken) {
       try {
-        const response = await fetch(
-          `https://api.github.com/user/memberships/orgs/${encodeURIComponent(account.login)}`,
-          {
-            headers: {
-              authorization: `Bearer ${actorToken}`,
-              accept: "application/vnd.github+json",
-              "user-agent": "slopblock",
-            },
+        const membershipUrl = `https://api.github.com/user/memberships/orgs/${encodeURIComponent(account.login)}`;
+        const response = await fetch(membershipUrl, {
+          headers: {
+            authorization: `Bearer ${actorToken}`,
+            accept: "application/vnd.github+json",
+            "user-agent": "slopblock",
           },
-        );
+        });
+
         if (response.ok) {
           const membership = (await response.json()) as { state?: string; role?: string };
+          logInfo("installation_auth.membership_response", {
+            ...ctx,
+            status: response.status,
+            state: membership.state,
+            role: membership.role,
+          });
           if (membership.state === "active") {
             return true;
           }
+        } else {
+          const body = await response.text().catch(() => "<unreadable>");
+          logInfo("installation_auth.membership_failed", {
+            ...ctx,
+            status: response.status,
+            body: body.slice(0, 500),
+          });
         }
         // Token check was inconclusive (expired, revoked, SAML SSO, etc.)
         // — fall through to installation-token fallback below.
-      } catch {
+      } catch (err) {
+        logInfo("installation_auth.membership_error", {
+          ...ctx,
+          error: err instanceof Error ? err.message : String(err),
+        });
         // Network/API error — fall through to installation-token fallback below.
       }
     }
 
-    // Fallback: use the installation token (only works for public members)
+    logInfo("installation_auth.trying_fallback", ctx);
     const installationOctokit = await app.getInstallationOctokit(numericId);
     try {
       const { status } = await (installationOctokit as any).request(
         "GET /orgs/{org}/members/{username}",
         { org: account.login, username: actorLogin },
       );
+      logInfo("installation_auth.fallback_result", { ...ctx, status });
       return status === 204;
-    } catch {
-      // 404 = not a member, or insufficient permissions to check
+    } catch (err) {
+      logInfo("installation_auth.fallback_failed", {
+        ...ctx,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return false;
     }
   } catch (error) {
     logInfo("installation_auth.verify_failed", {
-      installationId: String(installationId),
-      actorLogin,
+      ...ctx,
       error: error instanceof Error ? error.message : String(error),
     });
     return false;
