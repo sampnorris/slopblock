@@ -66,11 +66,14 @@ export async function verifyInstallationAccess(
         );
         if (response.ok) {
           const membership = (await response.json()) as { state?: string; role?: string };
-          return membership.state === "active";
+          if (membership.state === "active") {
+            return true;
+          }
         }
-        return false;
+        // Token check was inconclusive (expired, revoked, SAML SSO, etc.)
+        // — fall through to installation-token fallback below.
       } catch {
-        return false;
+        // Network/API error — fall through to installation-token fallback below.
       }
     }
 
