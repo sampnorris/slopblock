@@ -9,18 +9,13 @@
 import { getGitHubApp } from "./github-app.js";
 import { logInfo } from "./log.js";
 
-/**
- * Returns true if the given actor (by GitHub login) has access to the installation.
- * Returns false if access cannot be verified.
- *
- * @param actorToken - The actor's OAuth token (with read:org scope) for org membership checks.
- *   If not provided, falls back to the installation token (may fail for private memberships).
- */
+export type AccessResult = "granted" | "denied" | "not_found";
+
 export async function verifyInstallationAccess(
   installationId: string | number,
   actorLogin: string,
   actorToken?: string,
-): Promise<boolean> {
+): Promise<AccessResult> {
   const ctx = { installationId: String(installationId), actorLogin };
 
   try {
@@ -29,7 +24,7 @@ export async function verifyInstallationAccess(
 
     if (!Number.isFinite(numericId) || numericId <= 0) {
       logInfo("installation_auth.invalid_id", ctx);
-      return false;
+      return "not_found";
     }
 
     const { data: installation } = await app.octokit.request(
@@ -41,7 +36,7 @@ export async function verifyInstallationAccess(
 
     if (!account?.login) {
       logInfo("installation_auth.no_account", ctx);
-      return false;
+      return "not_found";
     }
 
     const accountLogin = account.login.toLowerCase();
@@ -57,7 +52,7 @@ export async function verifyInstallationAccess(
     if (account.type === "User") {
       const granted = actor === accountLogin;
       logInfo("installation_auth.user_check", { ...ctx, granted });
-      return granted;
+      return granted ? "granted" : "denied";
     }
 
     if (actorToken) {
@@ -80,7 +75,7 @@ export async function verifyInstallationAccess(
             role: membership.role,
           });
           if (membership.state === "active") {
-            return true;
+            return "granted";
           }
         } else {
           const body = await response.text().catch(() => "<unreadable>");
@@ -109,19 +104,25 @@ export async function verifyInstallationAccess(
         { org: account.login, username: actorLogin },
       );
       logInfo("installation_auth.fallback_result", { ...ctx, status });
-      return status === 204;
+      return status === 204 ? "granted" : "denied";
     } catch (err) {
       logInfo("installation_auth.fallback_failed", {
         ...ctx,
         error: err instanceof Error ? err.message : String(err),
       });
-      return false;
+      return "denied";
     }
   } catch (error) {
-    logInfo("installation_auth.verify_failed", {
+    const is404 =
+      error != null &&
+      typeof error === "object" &&
+      "status" in error &&
+      (error as { status: number }).status === 404;
+
+    logInfo(is404 ? "installation_auth.not_found" : "installation_auth.verify_failed", {
       ...ctx,
       error: error instanceof Error ? error.message : String(error),
     });
-    return false;
+    return is404 ? "not_found" : "denied";
   }
 }

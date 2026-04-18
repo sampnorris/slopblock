@@ -41,12 +41,15 @@ export const load: PageServerLoad = async ({ params, request, url, cookies }) =>
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (actor) {
-    const hasAccess = await verifyInstallationAccess(
+    const access = await verifyInstallationAccess(
       params.installationId,
       actor.login,
       actor.token,
     );
-    if (!hasAccess) {
+    if (access === "not_found") {
+      redirect(302, "/settings");
+    }
+    if (access === "denied") {
       if (!url.searchParams.has("reauthed")) {
         cookies.delete("slopblock_session", { path: "/" });
         redirect(
