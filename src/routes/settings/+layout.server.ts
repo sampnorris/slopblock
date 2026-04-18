@@ -9,7 +9,7 @@ interface Installation {
   account: { login: string; avatar_url: string; type: string };
 }
 
-export const load: LayoutServerLoad = async ({ request, url }) => {
+export const load: LayoutServerLoad = async ({ request, url, cookies }) => {
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
 
@@ -20,32 +20,40 @@ export const load: LayoutServerLoad = async ({ request, url }) => {
     };
   }
 
+  const authUrl = `/auth/start?session=settings&return=${encodeURIComponent(url.pathname)}`;
+
   if (!actor) {
-    redirect(302, `/auth/start?session=settings&return=${encodeURIComponent(url.pathname)}`);
+    redirect(302, authUrl);
+  }
+
+  if (!actor.token) {
+    cookies.delete("slopblock_session", { path: "/" });
+    redirect(302, authUrl);
   }
 
   const actorLogin = actor.login.toLowerCase();
   const userOrgs = new Set<string>();
   let orgFetchSucceeded = false;
 
-  if (actor.token) {
-    try {
-      const orgsResponse = await fetch("https://api.github.com/user/orgs?per_page=100", {
-        headers: {
-          authorization: `Bearer ${actor.token}`,
-          accept: "application/vnd.github+json",
-          "user-agent": "slopblock",
-        },
-      });
-      if (orgsResponse.ok) {
-        orgFetchSucceeded = true;
-        const orgs = (await orgsResponse.json()) as { login: string }[];
-        for (const org of orgs) {
-          userOrgs.add(org.login.toLowerCase());
-        }
+  try {
+    const orgsResponse = await fetch("https://api.github.com/user/orgs?per_page=100", {
+      headers: {
+        authorization: `Bearer ${actor.token}`,
+        accept: "application/vnd.github+json",
+        "user-agent": "slopblock",
+      },
+    });
+    if (orgsResponse.ok) {
+      orgFetchSucceeded = true;
+      const orgs = (await orgsResponse.json()) as { login: string }[];
+      for (const org of orgs) {
+        userOrgs.add(org.login.toLowerCase());
       }
-    } catch {}
-  }
+    } else if (orgsResponse.status === 401) {
+      cookies.delete("slopblock_session", { path: "/" });
+      redirect(302, authUrl);
+    }
+  } catch {}
 
   const installations: Installation[] = [];
 
