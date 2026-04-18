@@ -31,52 +31,20 @@ export const load: LayoutServerLoad = async ({ request, url, cookies }) => {
     redirect(302, authUrl);
   }
 
-  const actorLogin = actor.login.toLowerCase();
-  const userOrgs = new Set<string>();
-  let orgFetchSucceeded = false;
-
-  try {
-    const orgsResponse = await fetch("https://api.github.com/user/orgs?per_page=100", {
-      headers: {
-        authorization: `Bearer ${actor.token}`,
-        accept: "application/vnd.github+json",
-        "user-agent": "slopblock",
-      },
-    });
-    if (orgsResponse.ok) {
-      orgFetchSucceeded = true;
-      const orgs = (await orgsResponse.json()) as { login: string }[];
-      for (const org of orgs) {
-        userOrgs.add(org.login.toLowerCase());
-      }
-    } else if (orgsResponse.status === 401) {
-      cookies.delete("slopblock_session", { path: "/" });
-      redirect(302, authUrl);
-    }
-  } catch {}
-
   const installations: Installation[] = [];
 
   try {
     const app = getGitHubApp();
     const iter = app.eachInstallation.iterator();
     for await (const { installation } of iter) {
-      const account = installation.account as
-        | { login: string; avatar_url: string; type: string }
-        | null
-        | undefined;
-      const login = account?.login ?? "unknown";
-      const type = account?.type ?? "User";
-
-      const isOwnInstall = type === "User" && login.toLowerCase() === actorLogin;
-      const isOrgMember = type === "Organization" && userOrgs.has(login.toLowerCase());
-
-      if (isOwnInstall || isOrgMember || (!orgFetchSucceeded && type === "Organization")) {
-        installations.push({
-          id: installation.id,
-          account: { login, avatar_url: account?.avatar_url ?? "", type },
-        });
-      }
+      installations.push({
+        id: installation.id,
+        account: {
+          login: (installation.account as any)?.login ?? "unknown",
+          avatar_url: (installation.account as any)?.avatar_url ?? "",
+          type: (installation.account as any)?.type ?? "User",
+        },
+      });
     }
   } catch {
     // If we can't list installations, show empty state

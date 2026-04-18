@@ -1,4 +1,4 @@
-import { error } from "@sveltejs/kit";
+import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { devMocksEnabled, mockActivityData } from "$lib/server/dev-mocks.js";
 import { getInstallationOctokit } from "$lib/server/github-app.js";
@@ -43,7 +43,7 @@ async function addRegeneratingState(installationId: string, sessions: any[]) {
   return { sessions: enriched, regenerating };
 }
 
-export const load: PageServerLoad = async ({ params, request }) => {
+export const load: PageServerLoad = async ({ params, request, url, cookies }) => {
   if (devMocksEnabled()) {
     const mock = mockActivityData();
     return {
@@ -54,7 +54,6 @@ export const load: PageServerLoad = async ({ params, request }) => {
     };
   }
 
-  // Auth is handled by the parent layout, but we also verify installation access
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (actor) {
@@ -64,6 +63,13 @@ export const load: PageServerLoad = async ({ params, request }) => {
       actor.token,
     );
     if (!hasAccess) {
+      if (!url.searchParams.has("reauthed")) {
+        cookies.delete("slopblock_session", { path: "/" });
+        redirect(
+          302,
+          `/auth/start?session=settings&return=${encodeURIComponent(`${url.pathname}?reauthed=1`)}`,
+        );
+      }
       error(403, "You do not have access to this installation.");
     }
   }
