@@ -114,5 +114,3 @@ async function checkOrgMembership(
     return null;
   }
 }
-
-
