@@ -41,11 +41,7 @@ export const load: PageServerLoad = async ({ params, request, url, cookies }) =>
   const cookieHeader = request.headers.get("cookie") ?? undefined;
   const actor = getSessionActor({ headers: { cookie: cookieHeader } } as any);
   if (actor) {
-    const access = await verifyInstallationAccess(
-      params.installationId,
-      actor.login,
-      actor.token,
-    );
+    const access = await verifyInstallationAccess(params.installationId, actor.login, actor.token);
     if (access === "not_found") {
       redirect(302, "/settings");
     }
