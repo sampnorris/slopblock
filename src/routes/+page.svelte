@@ -37,6 +37,25 @@
 </svelte:head>
 
 <div class="lp">
+  <!-- ── NAVBAR ────────────────────────────────── -->
+  <nav class="lp-nav">
+    <div class="lp-nav-inner">
+      <a href="/" class="lp-nav-brand">
+        <div class="lp-nav-logo">
+          <SlopBlockLogo width={18} height={18} />
+        </div>
+        <span class="lp-nav-name">SlopBlock</span>
+      </a>
+      <div class="lp-nav-actions">
+        {#if data.isLoggedIn}
+          <a class="lp-nav-link" href="/settings">Settings</a>
+        {:else}
+          <a class="lp-nav-link" href="/auth/start?session=signin&return=/settings">Sign in</a>
+        {/if}
+      </div>
+    </div>
+  </nav>
+
   <!-- ── HERO ──────────────────────────────────── -->
   <section class="hero">
     <div class="hero-grain"></div>
@@ -75,6 +94,9 @@
             Open Settings
           </a>
         {:else}
+          <a class="btn btn-ghost" href="/auth/start?session=signin&return=/settings">
+            Sign In
+          </a>
           <a class="btn btn-ghost" href="/demo">
             Try Demo
           </a>
@@ -276,6 +298,15 @@
         >
           View on GitHub
         </a>
+        {#if data.isLoggedIn}
+          <a class="btn btn-ghost" href="/settings">
+            Open Settings
+          </a>
+        {:else}
+          <a class="btn btn-ghost" href="/auth/start?session=signin&return=/settings">
+            Sign In
+          </a>
+        {/if}
         <a class="btn btn-ghost" href="/demo">
           Try Demo
         </a>
@@ -440,6 +471,74 @@
     border-color: rgba(255, 255, 255, 0.14);
     color: #fff;
     transform: translateY(-2px);
+  }
+
+  /* ── NAVBAR ─────────────────────────────────── */
+  .lp-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(12, 12, 14, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--lp-line);
+  }
+
+  .lp-nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: min(1120px, 100%);
+    margin: 0 auto;
+    padding: 14px 24px;
+  }
+
+  .lp-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #fff;
+  }
+
+  .lp-nav-logo {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--pink-400), var(--pink-700));
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .lp-nav-name {
+    font: 600 15px/1 "DM Sans", sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  .lp-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .lp-nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--lp-line);
+    font: 500 13px/1 "DM Sans", sans-serif;
+    color: var(--lp-text);
+    text-decoration: none;
+    transition: all 160ms ease;
+  }
+
+  .lp-nav-link:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #fff;
   }
 
   /* ── USE-CASE SECTION ───────────────────────── */
